@@ -1,0 +1,42 @@
+filename,institution,classification,has_ruler,ruler_type,notes
+CMN_CMNFI_1981-0881.1_98d57bf2.jpg,CMN,usable_lateral_with_ruler,yes,metric,Clean lateral brook trout with metric cm ruler below specimen
+CMN_CMNFI_1989-0225.2_0eb6f828.jpg,CMN,fish_no_ruler,no,scale_bar,Lateral brook trout with 8CM checkered scale bar and catalog card only
+CMN_CMNFI_1989-0225.2_c82ae90f.jpg,CMN,fish_no_ruler,no,scale_bar,Duplicate of 0eb6f828 with same 8CM scale bar
+CMN_CMNFI_2005-0048.1_79236b1e.jpg,CMN,fish_no_ruler,no,scale_bar,Small juvenile salvelinus with 8CM scale bar and catalog cards
+INHS_62305_f39e9dba.jpg,INHS,fish_wrong_species,yes,inch,Lepomis auritus (redbreast sunfish) with Illinois inch ruler
+MCZ_99407_702ff616.jpg,MCZ,fish_no_ruler,no,none,Beautiful lateral brook trout on teal background but no ruler in frame
+NEON_NEON031YG_1d363e8d.jpg,NEON,fish_wrong_species,yes,metric,Small darter or juvenile non-salmonid with ASU metric ruler
+NEON_NEON031YG_c45b3e04.jpg,NEON,fish_wrong_species,yes,metric,Duplicate of 1d363e8d
+NEON_NEON054P2_663b9d32.jpg,NEON,fish_wrong_species,yes,metric,Sculpin or catfish-like specimen with barbels not brook trout
+NEON_NEON054P2_c8df7fd8.jpg,NEON,fish_wrong_species,yes,metric,Duplicate of 663b9d32
+NEON_NEON054P3_7675d274.jpg,NEON,fish_wrong_species,yes,metric,Not a brook trout possibly sculpin or goby with ASU ruler
+NEON_NEON054P3_c9e31208.jpg,NEON,fish_wrong_species,yes,metric,Duplicate of 7675d274
+NEON_NEON06X4A_41a0eca5.jpg,NEON,fish_non_lateral,yes,metric,Fish curled in tight S shape non-lateral pose with metric ruler
+NEON_NEON06X4A_bb335ece.jpg,NEON,fish_non_lateral,yes,metric,Duplicate of 41a0eca5
+NHMUK_1936.8.15.1_909ea656.jpg,NHMUK,catalog_card,no,none,Handwritten museum accession ledger page no fish visible
+NHMUK_2021.8.31.135_37f8ba64.jpg,NHMUK,catalog_card,no,none,Printed Brook Trout display label card no specimen
+NHMUK_2021.8.31.135_6fcc4c9a.jpg,NHMUK,catalog_card,no,none,Handwritten species tag for Salvelinus fontinalis cast
+UCMP_140673_d01896ae.jpeg,UCMP,catalog_card,no,none,UCMP Berkeley catalogue card for juvenile Salvelinus fontinalis
+USNM_USNM_110145_23e6932f.jpg,USNM,catalog_card,no,none,USNM specimen card for skull only osteo specimen
+USNM_USNM_110339_0126e263.jpg,USNM,catalog_card,no,none,USNM catalog card Spokane Washington skin and skeleton
+USNM_USNM_110343_4d561d6f.jpg,USNM,catalog_card,no,none,USNM catalog card Maine Rangeley skull
+USNM_USNM_110343_80d98122.jpg,USNM,catalog_card,no,none,Handwritten measurement notes page Salvelinus Midway Pond
+USNM_USNM_110355_230c4456.jpg,USNM,catalog_card,no,none,USNM catalog card and degraded handwritten label
+USNM_USNM_15470_449003e2.jpg,USNM,drawing,no,none,Black and white head sketch of a salmonid
+USNM_USNM_15758_4ae7e02e.jpg,USNM,catalog_card,no,none,USNM bone catalog card for skeleton specimen
+USNM_USNM_20950_91f56467.jpg,USNM,drawing,no,none,Line drawing of a full salmonid body
+USNM_USNM_259555_592c01af.jpg,USNM,catalog_card,no,none,USNM Army Medical Museum skull catalog cards
+USNM_USNM_259556_c9d79275.jpg,USNM,catalog_card,no,none,USNM NY Madrid skeleton specimen card
+USNM_USNM_283652_238fadcb.jpg,USNM,catalog_card,no,none,Field tag fragment p201 F.M.U.
+USNM_USNM_283652_2ba2aa25.jpg,USNM,catalog_card,no,none,USNM card plus handwritten Kennebago Maine labels
+USNM_USNM_283658_ff9f072e.jpg,USNM,catalog_card,no,none,USNM card Big Timber Montana check S parkei note
+USNM_USNM_283659_031eec8b.jpg,USNM,catalog_card,no,none,USNM card Big Timber Montana check S malma spectabilis note
+USNM_USNM_283659_2b381b16.jpg,USNM,catalog_card,no,none,Long handwritten note about Salvelinus parkei comparison
+USNM_USNM_283660_3d1d6db3.jpg,USNM,catalog_card,no,none,Handwritten Kennebago Stream Maine field labels
+USNM_USNM_283660_5ef26d12.jpg,USNM,catalog_card,no,none,USNM card plus Army Medical Museum label Kennebago Maine
+USNM_USNM_39933_77f6ace4.jpg,USNM,drawing,no,none,Grayscale illustration of a lateral brook trout
+YPM_YPM_ICH_011792_7c558858.jpg,YPM,bones,no,none,Disarticulated bones in tray with labels and tiny scale block
+YPM_YPM_ICH_011793_b04a34ff.jpg,YPM,bones,no,none,Two bags of loose bone fragments with tags on black background
+YPM_YPM_ICH_012073_f1a034f4.jpg,YPM,bones,no,none,Bag of loose skeletal elements with label card
+YPM_YPM_ICH_025874_04a6c11a.jpg,YPM,fish_no_ruler,no,none,Lateral salvelinus on gridded paper but no labeled metric ruler
+YPM_YPM_ICH_029984_35f7f9df.jpg,YPM,bones,no,none,Bag of loose bones with tag and label on black background

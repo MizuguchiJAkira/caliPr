@@ -1,0 +1,655 @@
+{
+  "name": "fish_morpho_lateral",
+  "labels": [
+    {
+      "name": "body_plus_caudal",
+      "color": "#EA69B0",
+      "type": "polygon",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Closed outline of the body and caudal fin together, excluding the dorsal, pectoral, pelvic, and anal fins. Split by line A (narrowest peduncle) into a body half and a caudal half.",
+          "values": [
+            "Closed outline of the body and caudal fin together, excluding the dorsal, pectoral, pelvic, and anal fins. Split by line A (narrowest peduncle) into a body half and a caudal half."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Trace the silhouette starting at the snout tip, along the dorsal outline. When you reach the dorsal fin base, step across its insertion line (do NOT follow the fin margin) and continue along the back toward the caudal peduncle. Go around the caudal fin margin, then back along the ventral outline, stepping across the pelvic and anal fin bases the same way. The resulting polygon is the fish minus the four unpaired/paired fins.",
+          "values": [
+            "Trace the silhouette starting at the snout tip, along the dorsal outline. When you reach the dorsal fin base, step across its insertion line (do NOT follow the fin margin) and continue along the back toward the caudal peduncle. Go around the caudal fin margin, then back along the ventral outline, stepping across the pelvic and anal fin bases the same way. The resulting polygon is the fish minus the four unpaired/paired fins."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pectoral",
+      "color": "#A769EA",
+      "type": "polygon",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Outline of the pectoral fin.",
+          "values": [
+            "Outline of the pectoral fin."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Trace the pectoral fin margin starting at the upper insertion (pectoral_insertion_upper), around the distal margin, and back to the lower insertion.",
+          "values": [
+            "Trace the pectoral fin margin starting at the upper insertion (pectoral_insertion_upper), around the distal margin, and back to the lower insertion."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dorsal",
+      "color": "#EA69CE",
+      "type": "polygon",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Outline of the first (rayed) dorsal fin. Excludes the adipose fin.",
+          "values": [
+            "Outline of the first (rayed) dorsal fin. Excludes the adipose fin."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Trace the first dorsal fin margin. Do NOT include the adipose fin behind it.",
+          "values": [
+            "Trace the first dorsal fin margin. Do NOT include the adipose fin behind it."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pelvic",
+      "color": "#EA69D2",
+      "type": "polygon",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Outline of the pelvic fin.",
+          "values": [
+            "Outline of the pelvic fin."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Trace the pelvic fin margin.",
+          "values": [
+            "Trace the pelvic fin margin."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "anal",
+      "color": "#69EA8E",
+      "type": "polygon",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Outline of the anal fin.",
+          "values": [
+            "Outline of the anal fin."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Trace the anal fin margin.",
+          "values": [
+            "Trace the anal fin margin."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "eye_anterior",
+      "color": "#BBEA69",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Anterior edge of the orbit on its horizontal centerline.",
+          "values": [
+            "Anterior edge of the orbit on its horizontal centerline."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the forward-most point of the bony eye socket, at eye height.",
+          "values": [
+            "Click the forward-most point of the bony eye socket, at eye height."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "eye_posterior",
+      "color": "#69DFEA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Posterior edge of the orbit on its horizontal centerline.",
+          "values": [
+            "Posterior edge of the orbit on its horizontal centerline."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the rearward-most point of the bony eye socket, at eye height.",
+          "values": [
+            "Click the rearward-most point of the bony eye socket, at eye height."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "eye_dorsal",
+      "color": "#6985EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Dorsal edge of the orbit on its vertical centerline.",
+          "values": [
+            "Dorsal edge of the orbit on its vertical centerline."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the top of the bony eye socket, directly above the eye center.",
+          "values": [
+            "Click the top of the bony eye socket, directly above the eye center."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "eye_ventral",
+      "color": "#D569EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Ventral edge of the orbit on its vertical centerline.",
+          "values": [
+            "Ventral edge of the orbit on its vertical centerline."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the bottom of the bony eye socket, directly below the eye center.",
+          "values": [
+            "Click the bottom of the bony eye socket, directly below the eye center."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "premaxilla_tip",
+      "color": "#B469EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Anterior-most tip of the upper jaw (premaxilla).",
+          "values": [
+            "Anterior-most tip of the upper jaw (premaxilla)."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the forward-most point of the closed upper jaw. MorFishJ's EMd / EMa / Mo / Jl / Snl all anchor on this point.",
+          "values": [
+            "Click the forward-most point of the closed upper jaw. MorFishJ's EMd / EMa / Mo / Jl / Snl all anchor on this point."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "maxilla_mandible_intersection",
+      "color": "#EA69E6",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Intersection of the maxilla (upper) and mandible (lower jaw) at the posterior corner of the mouth. NOT where the flesh of the lips meets \u2014 the bony joint.",
+          "values": [
+            "Intersection of the maxilla (upper) and mandible (lower jaw) at the posterior corner of the mouth. NOT where the flesh of the lips meets \u2014 the bony joint."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the back corner of the mouth at the bony joint between the upper and lower jaw.",
+          "values": [
+            "Click the back corner of the mouth at the bony joint between the upper and lower jaw."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "lower_jaw_tip",
+      "color": "#69E8EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Anterior-most tip of the mandible (lower jaw).",
+          "values": [
+            "Anterior-most tip of the mandible (lower jaw)."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the forward-most point of the lower jaw. Coincides with premaxilla_tip if the mouth is fully closed.",
+          "values": [
+            "Click the forward-most point of the lower jaw. Coincides with premaxilla_tip if the mouth is fully closed."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "operculum_posterior",
+      "color": "#69AEEA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Posterior-most point of the bony operculum (gill cover). Anchors reference line I (vertical through this x).",
+          "values": [
+            "Posterior-most point of the bony operculum (gill cover). Anchors reference line I (vertical through this x)."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the trailing edge of the bony operculum, NOT the flexible branchiostegal membrane below it.",
+          "values": [
+            "Click the trailing edge of the bony operculum, NOT the flexible branchiostegal membrane below it."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pectoral_insertion_upper",
+      "color": "#69EAC1",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Upper (dorsal) insertion of the pectoral fin base on the body. Anchors reference line L (vertical through this x).",
+          "values": [
+            "Upper (dorsal) insertion of the pectoral fin base on the body. Anchors reference line L (vertical through this x)."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the top corner where the pectoral fin meets the body behind the operculum.",
+          "values": [
+            "Click the top corner where the pectoral fin meets the body behind the operculum."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pectoral_ray_tip",
+      "color": "#AAEA69",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Distal tip of the longest pectoral fin ray. Used with pectoral_insertion_upper to compute PFl (pectoral fin length).",
+          "values": [
+            "Distal tip of the longest pectoral fin ray. Used with pectoral_insertion_upper to compute PFl (pectoral fin length)."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the farthest-out point of the pectoral fin when held in natural position.",
+          "values": [
+            "Click the farthest-out point of the pectoral fin when held in natural position."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "peduncle_narrowest_dorsal",
+      "color": "#EA6998",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Dorsal body outline at the narrowest point of the caudal peduncle. Paired with peduncle_narrowest_ventral to define line A and to measure CPd.",
+          "values": [
+            "Dorsal body outline at the narrowest point of the caudal peduncle. Paired with peduncle_narrowest_ventral to define line A and to measure CPd."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Find the narrowest visible part of the peduncle and click the top silhouette there.",
+          "values": [
+            "Find the narrowest visible part of the peduncle and click the top silhouette there."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "peduncle_narrowest_ventral",
+      "color": "#7669EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Ventral body outline at the narrowest point of the caudal peduncle, directly opposite peduncle_narrowest_dorsal.",
+          "values": [
+            "Ventral body outline at the narrowest point of the caudal peduncle, directly opposite peduncle_narrowest_dorsal."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the bottom silhouette at the same x position.",
+          "values": [
+            "Click the bottom silhouette at the same x position."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "caudal_base",
+      "color": "#C169EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Posterior end of the vertebral column at the hypural plate; the start of the caudal fin rays on midline. Anchors reference line H (vertical through this x) and is the posterior endpoint of SL.",
+          "values": [
+            "Posterior end of the vertebral column at the hypural plate; the start of the caudal fin rays on midline. Anchors reference line H (vertical through this x) and is the posterior endpoint of SL."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click where the last scale meets the caudal fin rays, along the midline of the fish.",
+          "values": [
+            "Click where the last scale meets the caudal fin rays, along the midline of the fish."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dorsal_base_center",
+      "color": "#CEEA69",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Midpoint of the first dorsal fin base at the body outline. Used with dorsal_tip to compute dorsal fin height (extras).",
+          "values": [
+            "Midpoint of the first dorsal fin base at the body outline. Used with dorsal_tip to compute dorsal fin height (extras)."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the center of the dorsal fin's base where it inserts on the back. Exact definition pending Cornell reference sheet.",
+          "values": [
+            "Click the center of the dorsal fin's base where it inserts on the back. Exact definition pending Cornell reference sheet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "dorsal_tip",
+      "color": "#69EAD0",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Distal tip of the first dorsal fin (farthest from base). Used with dorsal_base_center to compute dorsal fin height.",
+          "values": [
+            "Distal tip of the first dorsal fin (farthest from base). Used with dorsal_base_center to compute dorsal fin height."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the outermost point of the dorsal fin margin.",
+          "values": [
+            "Click the outermost point of the dorsal fin margin."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pelvic_base_center",
+      "color": "#69D5EA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Midpoint of the pelvic fin base at the body outline.",
+          "values": [
+            "Midpoint of the pelvic fin base at the body outline."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the center of the pelvic fin's base where it inserts on the ventral body. Exact definition pending Cornell reference sheet.",
+          "values": [
+            "Click the center of the pelvic fin's base where it inserts on the ventral body. Exact definition pending Cornell reference sheet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pelvic_tip",
+      "color": "#69CEEA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Distal tip of the pelvic fin.",
+          "values": [
+            "Distal tip of the pelvic fin."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the outermost point of the pelvic fin margin.",
+          "values": [
+            "Click the outermost point of the pelvic fin margin."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "anal_base_center",
+      "color": "#78EA69",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Midpoint of the anal fin base at the body outline.",
+          "values": [
+            "Midpoint of the anal fin base at the body outline."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the center of the anal fin's base where it inserts on the ventral body. Exact definition pending Cornell reference sheet.",
+          "values": [
+            "Click the center of the anal fin's base where it inserts on the ventral body. Exact definition pending Cornell reference sheet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "anal_tip",
+      "color": "#69BFEA",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Distal tip of the anal fin.",
+          "values": [
+            "Distal tip of the anal fin."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the outermost point of the anal fin margin.",
+          "values": [
+            "Click the outermost point of the anal fin margin."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ruler_point_a",
+      "color": "#69EAE4",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "First endpoint of a known-length ruler span in the lateral photo. Paired with ruler_point_b to synthesize a manual calibration (px_per_mm) at sidecar-conversion time.",
+          "values": [
+            "First endpoint of a known-length ruler span in the lateral photo. Paired with ruler_point_b to synthesize a manual calibration (px_per_mm) at sidecar-conversion time."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click one end of a metric ruler or scale bar in the frame. The distance between this point and ruler_point_b must match the --known-mm value you pass to cvat_to_sidecar.py (or the known_mm you supply in a calibration JSON override).",
+          "values": [
+            "Click one end of a metric ruler or scale bar in the frame. The distance between this point and ruler_point_b must match the --known-mm value you pass to cvat_to_sidecar.py (or the known_mm you supply in a calibration JSON override)."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ruler_point_b",
+      "color": "#69EA87",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Second endpoint of the known-length ruler span, separated from ruler_point_a by the value of --known-mm.",
+          "values": [
+            "Second endpoint of the known-length ruler span, separated from ruler_point_a by the value of --known-mm."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Click the other end of the same metric span. For an 8cm checkered scale bar, that's the opposite corner (known_mm=80); for a standard mm ruler pick two tick labels you can hit precisely (e.g. the 0 and 100 mm marks, known_mm=100).",
+          "values": [
+            "Click the other end of the same metric span. For an 8cm checkered scale bar, that's the opposite corner (known_mm=80); for a standard mm ruler pick two tick labels you can hit precisely (e.g. the 0 and 100 mm marks, known_mm=100)."
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fish_morpho"
+version = "0.1.0"
+description = "Automated morphometrics pipeline for brook trout (Salvelinus fontinalis) specimens"
+requires-python = ">=3.11"
+authors = [{ name = "Cornell Museum of Vertebrates" }]
+dependencies = [
+    "numpy>=1.26",
+    "opencv-python>=4.9",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dlc = ["deeplabcut>=2.3"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+fish-morpho = "fish_morpho.pipeline:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

@@ -1,0 +1,42 @@
+filename,institution,outcome,px_per_mm,confidence,method,notes
+CMN_CMNFI_1981-0881.1_98d57bf2.jpg,CMN,low_confidence,29.6931,0.212,auto,"autocorrelation period=29.693 px, prominence=1.7"
+CMN_CMNFI_1989-0225.2_0eb6f828.jpg,CMN,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+CMN_CMNFI_1989-0225.2_c82ae90f.jpg,CMN,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+CMN_CMNFI_2005-0048.1_79236b1e.jpg,CMN,detect_failed,,,auto,No periodic tick signal detected.
+INHS_62305_f39e9dba.jpg,INHS,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+MCZ_99407_702ff616.jpg,MCZ,detect_failed,,,auto,No periodic tick signal detected.
+NEON_NEON031YG_1d363e8d.jpg,NEON,ok,37.0648,0.377,auto,"autocorrelation period=37.065 px, prominence=3.0"
+NEON_NEON031YG_c45b3e04.jpg,NEON,ok,37.0648,0.377,auto,"autocorrelation period=37.065 px, prominence=3.0"
+NEON_NEON054P2_663b9d32.jpg,NEON,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+NEON_NEON054P2_c8df7fd8.jpg,NEON,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+NEON_NEON054P3_7675d274.jpg,NEON,detect_failed,,,auto,No periodic tick signal detected.
+NEON_NEON054P3_c9e31208.jpg,NEON,detect_failed,,,auto,No periodic tick signal detected.
+NEON_NEON06X4A_41a0eca5.jpg,NEON,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+NEON_NEON06X4A_bb335ece.jpg,NEON,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+NHMUK_1936.8.15.1_909ea656.jpg,NHMUK,detect_failed,,,auto,No periodic tick signal detected.
+NHMUK_2021.8.31.135_37f8ba64.jpg,NHMUK,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+NHMUK_2021.8.31.135_6fcc4c9a.jpg,NHMUK,low_confidence,22.4988,0.232,auto,"autocorrelation period=22.499 px, prominence=1.9"
+UCMP_140673_d01896ae.jpeg,UCMP,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_110145_23e6932f.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_110339_0126e263.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_110343_4d561d6f.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_110343_80d98122.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_110355_230c4456.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_15470_449003e2.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_15758_4ae7e02e.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_20950_91f56467.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_259555_592c01af.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_259556_c9d79275.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283652_238fadcb.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283652_2ba2aa25.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283658_ff9f072e.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283659_031eec8b.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283659_2b381b16.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283660_3d1d6db3.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_283660_5ef26d12.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+USNM_USNM_39933_77f6ace4.jpg,USNM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+YPM_YPM_ICH_011792_7c558858.jpg,YPM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+YPM_YPM_ICH_011793_b04a34ff.jpg,YPM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+YPM_YPM_ICH_012073_f1a034f4.jpg,YPM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+YPM_YPM_ICH_025874_04a6c11a.jpg,YPM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.
+YPM_YPM_ICH_029984_35f7f9df.jpg,YPM,detect_failed,,,auto,No ruler-like region found (no elongated high-contrast object). Try providing an ROI hint or use scale_from_known_span.

@@ -1,0 +1,3 @@
+split,filename,source_filename,arkid,family,source,owner,standardized_species,original_url,license,file_name,local_filename
+identification_train,INHS_FISH_62305.jpg,INHS_FISH_62305.jpg,q402sc4q,Salmonidae,GLIN,INHS,salvelinus fontinalis,https://fishair.org/hdr-share/ftp/ark/89609/GLIN/INHS/q402sc4q.jpg,CC BY-NC,Images/chunk_6/INHS_FISH_62305.jpg,INHS_FISH_62305.jpg
+identification_train,99407_Savlelinus_fontinalis.jpg,99407_Savlelinus_fontinalis.jpg,rc49hc38,salmonidae,iDigBio,mcz,salvelinus fontinalis,https://fishair.org/hdr-share/ftp/ark/89609/iDigBio/mcz/rc49hc38.jpg,CC BY-NC-SA 3.0,Images/chunk_6/99407_Savlelinus_fontinalis.jpg,99407_Savlelinus_fontinalis.jpg

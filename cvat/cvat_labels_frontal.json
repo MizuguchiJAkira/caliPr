@@ -1,0 +1,55 @@
+{
+  "name": "fish_morpho_frontal",
+  "labels": [
+    {
+      "name": "mouth_left",
+      "color": "#69EAE1",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Left corner of the open mouth in frontal view.",
+          "values": [
+            "Left corner of the open mouth in frontal view."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "On the mirror image, click the left outer edge of the premaxilla.",
+          "values": [
+            "On the mirror image, click the left outer edge of the premaxilla."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "mouth_right",
+      "color": "#EA6D69",
+      "type": "points",
+      "attributes": [
+        {
+          "name": "description",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "Right corner of the open mouth in frontal view.",
+          "values": [
+            "Right corner of the open mouth in frontal view."
+          ]
+        },
+        {
+          "name": "labeling_hint",
+          "mutable": false,
+          "input_type": "text",
+          "default_value": "On the mirror image, click the right outer edge of the premaxilla.",
+          "values": [
+            "On the mirror image, click the right outer edge of the premaxilla."
+          ]
+        }
+      ]
+    }
+  ]
+}

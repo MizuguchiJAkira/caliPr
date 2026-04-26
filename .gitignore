@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+build/
+dist/
+
+# Tests / tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Harvested image bytes — keep metadata CSVs under version control but
+# don't commit the image data itself (size + licensing heterogeneity).
+data/*/images/
+data/*/csvs/
+data/idigbio_harvest.log
+data/fish_vista_filter.log
+
+# DLC scaffolding generated artifacts
+/tmp/dlc_scaffold/
+
+# Raw and processed Cornell lab photos (large JPEGs)
+data/cornell_raw/*.JPG
+data/cornell_raw/*.jpg
+data/cornell/lateral/
+data/cornell/frontal/
+
+# Pipeline outputs
+results/
+
+# CVAT exports
+exports/
+
+# OS
+.DS_Store

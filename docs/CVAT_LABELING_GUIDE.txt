@@ -1,0 +1,66 @@
+CVAT LATERAL LABELING — QUICK REFERENCE
+========================================
+Per image: 5 polygons + 19 keypoints + 2 ruler clicks = 26 annotations
+
+KEYBOARD SHORTCUTS (memorize these — they're 5× faster than menus)
+  N          = New annotation (pick label from dropdown)
+  Esc        = Finish / cancel current shape
+  Ctrl+S     = Save work
+  F / G      = Prev / Next frame (specimen)
+
+ORDER OF OPERATIONS (suggested — top to bottom)
+────────────────────────────────────────────────
+POLYGONS (select label from dropdown, then draw polygon with N)
+  1. body_plus_caudal — Trace fish silhouette: snout → dorsal outline,
+       SKIP across dorsal fin base, continue → caudal fin margin →
+       ventral outline, SKIP across anal/pelvic bases → back to snout.
+       The polygon is the fish minus the 4 fins.
+  2. pectoral — Outline the pectoral fin.
+  3. dorsal   — Outline the first dorsal fin (NOT the adipose).
+  4. pelvic   — Outline the pelvic fin.
+  5. anal     — Outline the anal fin.
+
+KEYPOINTS — HEAD (switch to Points shape mode, select label, click)
+  6.  premaxilla_tip              — Tip of upper jaw (snout front)
+  7.  lower_jaw_tip               — Tip of lower jaw
+  8.  maxilla_mandible_intersection — Back corner of mouth, bony joint
+  9.  eye_anterior                — Front of eye socket
+  10. eye_posterior               — Back of eye socket
+  11. eye_dorsal                  — Top of eye socket
+  12. eye_ventral                 — Bottom of eye socket
+  13. operculum_posterior         — Trailing edge of bony gill cover
+
+KEYPOINTS — BODY
+  14. pectoral_insertion_upper    — Top of pectoral fin base
+  15. pectoral_ray_tip            — Tip of longest pectoral ray
+  16. dorsal_base_center          — Center of dorsal fin base on back
+  17. dorsal_tip                  — Outermost point of dorsal fin
+  18. pelvic_base_center          — Center of pelvic fin base on belly
+  19. pelvic_tip                  — Outermost point of pelvic fin
+  20. anal_base_center            — Center of anal fin base on belly
+  21. anal_tip                    — Outermost point of anal fin
+
+KEYPOINTS — TAIL
+  22. peduncle_narrowest_dorsal   — Top of narrowest peduncle spot
+  23. peduncle_narrowest_ventral  — Bottom at same x position
+  24. caudal_base                 — Where scales end and caudal rays begin
+
+CALIBRATION
+  25. ruler_point_a               — One end of a known ruler span
+  26. ruler_point_b               — Other end of that span
+       (e.g., 0 mm and 100 mm marks → pass --known-mm 100 later)
+
+TIPS
+────
+• Zoom in with scroll wheel — precision matters for keypoints.
+• For polygons, double-click to close. Right-click to undo last point.
+• The fish faces LEFT in all images. "Anterior" = left, "posterior" = right.
+• "Dorsal" = top, "ventral" = bottom.
+• Save (Ctrl+S) every few images.
+• When done: Menu → Export task → Format: "CVAT for images 1.1" → Download.
+  Then run:  bash scripts/run_pipeline.sh path/to/annotations.xml 100
+
+AFTER EXPORT
+────────────
+  bash scripts/run_pipeline.sh exports/lateral.xml 100
+  # → results/cornell_measurements.xlsx  (30 morphometric traits)
