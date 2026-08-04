@@ -77,6 +77,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -87,6 +88,7 @@ from .landmark_config import View
 from .measurement_engine import (
     Annotation,
     MeasurementSet,
+    MeasurementValue,
     compute_all,
 )
 from .ruler_calibration import (
@@ -219,6 +221,18 @@ def _calibration_from_block(
         known_mm = float(block["known_mm"])
         return scale_from_known_span(a, b, known_mm)
 
+    if mode == "ticks":
+        # Scale measured from the ruler's millimetre ticks (see
+        # ruler_calibration.detect_tick_scale). Removes the hand-typed
+        # known_mm, which is the one calibration input nothing downstream can
+        # sanity-check — a mistyped span scales every trait silently.
+        return CalibrationResult(
+            px_per_mm=float(block["px_per_mm"]),
+            method="ticks",
+            confidence=float(block.get("confidence", 0.9)),
+            notes=str(block.get("notes", "mm-tick autocalibration")),
+        )
+
     if mode == "auto":
         import cv2  # local import
 
@@ -296,6 +310,28 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
         calibrations=calibrations,
         metadata=metadata,
     )
+
+    # Data-compromise handling: if the labeler flagged a photo problem (e.g. a
+    # fin clipped by the frame), salvage the usable traits but force-NaN the
+    # traits that can't be trusted — tagged 'data_compromise' so the QC sheet
+    # shows *why* they're blank — and log the compromise loudly when we run.
+    sidecar_meta = spec.sidecar.get("metadata", {}) or {}
+    exclude = sidecar_meta.get("exclude_traits") or []
+    data_note = sidecar_meta.get("data_note")
+    for code in exclude:
+        mv = ms.values.get(code)
+        if mv is not None:
+            ms.values[code] = MeasurementValue(
+                key=mv.key, label=mv.label, value=math.nan, unit=mv.unit,
+                view=mv.view, missing_landmarks=("data_compromise",),
+            )
+    if exclude:
+        log.warning(
+            "%s: DATA COMPROMISE — %s | excluded traits: %s",
+            spec.fish_id, data_note or "(no note provided)", ", ".join(exclude),
+        )
+    elif data_note:
+        log.warning("%s: data note — %s", spec.fish_id, data_note)
 
     calibs_for_export: dict[str, CalibrationResult] = {
         View.LATERAL.value: lateral_calib,

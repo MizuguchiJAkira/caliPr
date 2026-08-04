@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JCalipr — Trout Labeler</title>
+<style>
+  :root { --bg:#12151a; --panel:#1b2029; --line:#2b3340; --fg:#e6ebf2; --mut:#8a97a8;
+          --accent:#4aa3ff; --good:#37c871; --warn:#ffb454; --kp:#ff5d6c; --ruler:#c07bff; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+    font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  #app { display:grid; grid-template-columns:290px 1fr; grid-template-rows:100%;
+    height:100vh; max-height:100vh; overflow:hidden; }
+  #side { background:var(--panel); border-right:1px solid var(--line); display:flex;
+    flex-direction:column; min-height:0; }
+  #side h1 { font-size:14px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line);
+    letter-spacing:.3px; }
+  #side h1 small { color:var(--mut); font-weight:400; }
+  .sec { padding:10px 14px; border-bottom:1px solid var(--line); }
+  .sec h2 { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--mut);
+    margin:0 0 8px; }
+  #specWrap { overflow:auto; flex:1; min-height:80px; }
+  .spec { padding:5px 14px; cursor:pointer; display:flex; justify-content:space-between;
+    gap:6px; border-left:3px solid transparent; }
+  .spec:hover { background:#232a35; }
+  .spec.active { background:#26303d; border-left-color:var(--accent); }
+  .spec .st { color:var(--mut); font-size:11px; }
+  .spec.done .st { color:var(--good); }
+  .viewtabs { display:flex; gap:6px; margin-bottom:8px; }
+  .viewtabs button { flex:1; }
+  button { background:#28303c; color:var(--fg); border:1px solid var(--line); border-radius:6px;
+    padding:6px 9px; cursor:pointer; font-size:12px; }
+  button:hover { background:#313b49; }
+  button.on { background:var(--accent); border-color:var(--accent); color:#04121f; font-weight:600; }
+  button.primary { background:var(--good); border-color:var(--good); color:#052; font-weight:600; }
+  button:disabled { opacity:.45; cursor:default; }
+  #tasks { overflow:auto; flex:1; min-height:100px; }
+  .task { display:flex; align-items:center; gap:7px; padding:5px 14px; cursor:pointer;
+    border-left:3px solid transparent; }
+  .task:hover { background:#232a35; }
+  .task.active { background:#26303d; border-left-color:var(--accent); }
+  .task .dot { width:9px; height:9px; border-radius:50%; background:#3a4553; flex:none; }
+  .task.set .dot { background:var(--good); }
+  .task .nm { flex:1; }
+  .task .kind { color:var(--mut); font-size:10px; text-transform:uppercase; }
+  #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
+    min-height:52px; font-size:12px; }
+  #hint b { color:var(--fg); }
+  #cal { display:flex; align-items:center; gap:6px; }
+  #cal input { width:70px; background:#0e1218; border:1px solid var(--line); color:var(--fg);
+    border-radius:5px; padding:4px 6px; }
+  #autocal { display:flex; align-items:center; gap:7px; margin-top:6px; }
+  #autocal button { padding:3px 8px; font-size:11px; }
+  #autotxt { font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
+  #calread { margin-top:6px; font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
+  #calread.warn { color:#04121f; background:var(--warn); border-radius:4px; padding:3px 6px; font-weight:600; }
+  #imgctrl { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11px; color:var(--mut); }
+  #imgctrl label { display:flex; align-items:center; gap:4px; flex:1; }
+  #imgctrl input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
+  #imgctrl button { padding:3px 7px; font-size:11px; }
+  #dcsec { padding:8px 14px; }
+  #clipflags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
+  #clipflags button { padding:3px 7px; font-size:11px; }
+  #clipflags button.on { background:var(--warn); border-color:var(--warn); color:#2a1a00; font-weight:600; }
+  #datanote { width:100%; background:#0e1218; border:1px solid var(--line); color:var(--fg);
+    border-radius:5px; padding:5px 7px; font-size:11px; }
+  #main { position:relative; min-width:0; min-height:0; overflow:hidden; }
+  canvas { display:block; width:100%; height:100%; cursor:crosshair; background:#0b0e12; }
+  #hud { position:absolute; top:10px; left:12px; background:#0d1117cc; padding:6px 10px;
+    border-radius:6px; color:var(--mut); font-size:11px; pointer-events:none; }
+  #toast { position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+    background:#0d1117ee; border:1px solid var(--line); padding:8px 14px; border-radius:8px;
+    opacity:0; transition:opacity .2s; }
+  #toast.show { opacity:1; }
+  .row { display:flex; gap:6px; }
+  .row button { flex:1; }
+  kbd { background:#0e1218; border:1px solid var(--line); border-radius:3px; padding:0 4px; }
+  #refpanel { position:absolute; left:12px; bottom:12px; width:min(430px,calc(100% - 24px)); background:#0d1117f2;
+    border:1px solid var(--line); border-radius:10px; overflow:hidden; box-shadow:0 6px 24px #0008; }
+  #refpanel.hidden { display:none; }
+  #refhead { display:flex; justify-content:space-between; align-items:center; padding:6px 10px;
+    background:#161b22; border-bottom:1px solid var(--line); font-size:11px; color:var(--mut); }
+  #refhead button { padding:2px 7px; font-size:11px; }
+  #refcv { display:block; width:100%; height:190px; background:#0b0e12; cursor:default; }
+  #reflabel { padding:5px 10px; font-size:11px; color:var(--fg); border-top:1px solid var(--line);
+    min-height:16px; }
+  #reflabel b { color:var(--accent); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="side">
+    <h1>JCalipr <small>labeler</small></h1>
+    <div class="sec">
+      <div class="viewtabs">
+        <button id="tabL" class="on" data-view="lateral">Lateral</button>
+        <button id="tabF" data-view="frontal">Frontal</button>
+      </div>
+      <div id="cal">
+        <span>known span</span>
+        <input id="knownmm" type="number" step="0.1" value="10" />
+        <span>mm</span>
+      </div>
+      <div id="calread">—</div>
+      <div id="autocal"><button id="useauto">use ruler auto-scale</button><span id="autotxt"></span></div>
+      <div id="imgctrl">
+        <label>contrast<input id="ctrst" type="range" min="1" max="3.5" step="0.05" value="1"></label>
+        <label>bright<input id="brt" type="range" min="0.6" max="1.7" step="0.05" value="1"></label>
+        <button id="enhReset" title="reset image adjustments">reset</button>
+      </div>
+    </div>
+    <div id="hint">Select a specimen to begin.</div>
+    <div id="tasks"></div>
+    <div class="sec" id="dcsec">
+      <h2>data note / compromise</h2>
+      <div id="clipflags"></div>
+      <input id="datanote" type="text" placeholder="note any photo compromise…" />
+    </div>
+    <div class="sec">
+      <div class="row" style="margin-bottom:6px">
+        <button id="undo" title="Undo the SELECTED landmark's point (Z or ⌘/Ctrl+Z)">↶ Undo</button>
+        <button id="finish" title="Close current polygon (Enter)">Finish poly</button>
+        <button id="clear">Clear pt</button>
+      </div>
+      <div class="row">
+        <button id="fit">Fit</button>
+        <button id="save" class="primary">Save sidecar</button>
+      </div>
+    </div>
+    <div class="sec" style="border-bottom:none">
+      <h2>Specimens <span id="progress" style="color:var(--mut)"></span></h2>
+    </div>
+    <div id="specWrap"></div>
+  </div>
+  <div id="main">
+    <canvas id="cv"></canvas>
+    <div id="hud"></div>
+    <div id="toast"></div>
+    <div id="refpanel">
+      <div id="refhead"><span id="reftitle">Reference — example fish</span>
+        <span><button id="refmode" title="Toggle overview / zoom">zoom</button>
+        <button id="refclose" title="Hide (R)">×</button></span></div>
+      <canvas id="refcv"></canvas>
+      <div id="reflabel"></div>
+    </div>
+  </div>
+</div>
+<script>
+const $ = s => document.querySelector(s);
+const api = async (u,o) => (await fetch(u,o)).json();
+let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=null, imgFilter='none';
+let img=new Image(), imgW=0, imgH=0;
+let vs={scale:1, ox:0, oy:0};       // view transform (image px -> screen)
+// model[view] = {keypoints:{name:[x,y]}, polygons:{name:[[x,y]..]}, ruler:{a:[x,y],b:[x,y]}, known_mm}
+let model=null;
+const cv=$('#cv'), ctx=cv.getContext('2d');
+
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
+
+function blankModel(){return {lateral:emptyView(),frontal:emptyView(),data_note:'',exclude:[]};}
+function emptyView(){return {keypoints:{},polygons:{},ruler:{},known_mm:null,auto_ppm:null,auto_notes:null};}
+
+// One-click compromise flags. Each disables the traits that genuinely can't be
+// trusted when that part of the specimen is missing from the photo.
+const CLIP_FLAGS=[
+  {id:'caudal_clipped', label:'caudal clipped', traits:['TL','CFd','CFs'],
+   note:'caudal fin clipped by frame — TL/CFd/CFs unreliable'},
+  {id:'snout_clipped',  label:'snout clipped',  traits:['TL','SL','Hl','Snl','AO','Mo','EMd','EMa'],
+   note:'snout clipped by frame — anterior-anchored traits unreliable'},
+  {id:'fin_damaged',    label:'fin damaged',    traits:[],
+   note:'fin damaged/folded on specimen'},
+];
+function renderClipFlags(){
+  const box=$('#clipflags'); box.innerHTML='';
+  CLIP_FLAGS.forEach(fl=>{
+    const on=model && (model.flags||[]).includes(fl.id);
+    const b=document.createElement('button');
+    b.textContent=fl.label; if(on) b.classList.add('on');
+    b.title='excludes: '+(fl.traits.join(', ')||'(no traits, note only)');
+    b.onclick=()=>{ model.flags=model.flags||[];
+      const i=model.flags.indexOf(fl.id);
+      if(i>=0) model.flags.splice(i,1); else model.flags.push(fl.id);
+      syncCompromise(); renderClipFlags(); persistDraft(); };
+    box.appendChild(b);
+  });
+}
+function syncCompromise(){
+  const flags=model.flags||[];
+  const set=new Set(); const notes=[];
+  CLIP_FLAGS.forEach(fl=>{ if(flags.includes(fl.id)){ fl.traits.forEach(t=>set.add(t)); notes.push(fl.note); } });
+  model.exclude=[...set];
+  const typed=$('#datanote').value.trim();
+  model.data_note=[...notes, typed].filter(Boolean).join('; ');
+}
+
+// ---- draft persistence (survives page reload before an explicit Save) ----
+const draftKey=id=>'jcalipr_draft_'+id;
+function persistDraft(){ if(!cur||!model)return; try{
+  localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
+  localStorage.setItem('jcalipr_last', cur.id);
+}catch(e){} }
+function loadDraft(id){ try{ const s=localStorage.getItem(draftKey(id)); return s?JSON.parse(s):null; }
+  catch(e){ return null; } }
+function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){} }
+
+async function boot(){
+  SCHEMA=await api('/api/schema');
+  await loadSpecs();
+  loadRef(); loadCalStats();
+  resize();
+  const last=localStorage.getItem('jcalipr_last');   // re-open where you left off
+  if(last){ const s=SPECS.find(x=>x.id===last); if(s){ await selectSpec(s);
+    if(loadDraft(last)) toast('Restored unsaved draft'); } }
+  requestAnimationFrame(draw);
+}
+async function loadSpecs(){
+  SPECS=await api('/api/specimens');
+  const done=SPECS.filter(s=>s.labeled).length;
+  $('#progress').textContent=`${done}/${SPECS.length} done`;
+  const w=$('#specWrap'); w.innerHTML='';
+  SPECS.forEach(s=>{
+    const d=document.createElement('div');
+    d.className='spec'+(s.labeled?' done':'')+(cur&&cur.id===s.id?' active':'');
+    d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span><span class="st">${s.labeled?'✓':'·'}</span>`;
+    d.onclick=()=>selectSpec(s);
+    w.appendChild(d);
+  });
+}
+async function selectSpec(s){
+  cur=s; model=blankModel();
+  const draft=loadDraft(s.id);
+  if(draft){ model=draft; }                 // unsaved in-progress work wins
+  else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id));
+    ingest(sc);}catch(e){} }               // else fall back to the committed sidecar
+  localStorage.setItem('jcalipr_last', s.id);
+  // Show only the human-typed remainder; the flag notes are regenerated by
+  // syncCompromise() and must not be echoed back into the free-text field.
+  $('#datanote').value = (model.data_note||'')
+      .split(';').map(s=>s.trim())
+      .filter(s=>s && !CLIP_FLAGS.some(fl=>fl.note===s))
+      .join('; ');
+  renderClipFlags();
+  setView('lateral');
+  await loadImage();
+  loadAutoCal();
+  updateCalRead();
+  loadSpecs();
+}
+function ingest(sc){
+  for(const v of ['lateral','frontal']){
+    const b=sc[v]; if(!b) continue;
+    model[v].keypoints=Object.assign({},b.keypoints||{});
+    model[v].polygons=Object.assign({},b.polygons||{});
+    if(b.calibration){
+      if(b.calibration.mode==='ticks'){ model[v].auto_ppm=b.calibration.px_per_mm;
+        model[v].auto_notes=b.calibration.notes; }
+      else { model[v].ruler={a:b.calibration.point_a,b:b.calibration.point_b};
+        model[v].known_mm=b.calibration.known_mm; } }
+  }
+  // Restore the data-compromise record, else re-opening a saved specimen and
+  // saving again would silently drop its note and trait exclusions.
+  const meta=sc.metadata||{};
+  model.data_note=meta.data_note||'';
+  model.exclude=meta.exclude_traits||[];
+  // Re-derive which flag buttons were on from the excluded traits.
+  model.flags=CLIP_FLAGS.filter(fl=>fl.traits.length &&
+      fl.traits.every(t=>model.exclude.includes(t))).map(fl=>fl.id);
+  if(model.data_note){ CLIP_FLAGS.forEach(fl=>{                 // note-only flags
+    if(!fl.traits.length && model.data_note.includes(fl.note) && !model.flags.includes(fl.id))
+      model.flags.push(fl.id); }); }
+}
+function loadImage(){
+  return new Promise(res=>{
+    const file = view==='lateral'?cur.lateral:cur.frontal;
+    if(!file){ img=new Image(); imgW=imgH=0; buildTasks(); draw(); return res(); }
+    img=new Image();
+    img.onload=()=>{imgW=img.naturalWidth;imgH=img.naturalHeight;resize();fit();buildTasks();draw();res();};
+    img.src='/img/'+view+'/'+encodeURIComponent(file);
+  });
+}
+function setView(v){ view=v; $('#tabL').classList.toggle('on',v==='lateral');
+  $('#tabF').classList.toggle('on',v==='frontal');
+  if(model&&model[view].known_mm) $('#knownmm').value=model[view].known_mm;
+  activeTask=null; loadImage(); }
+
+function buildTasks(){
+  const box=$('#tasks'); box.innerHTML='';
+  const sc=SCHEMA[view]; if(!sc){return;}
+  const groups=[['ruler',sc.ruler],['keypoint',sc.keypoints],['polygon',sc.polygons]];
+  const m=model[view];
+  groups.forEach(([kind,items])=>{
+    (items||[]).forEach(it=>{
+      const set = kind==='polygon' ? (m.polygons[it.name]&&m.polygons[it.name].length>=3)
+                : kind==='ruler'   ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
+                : !!m.keypoints[it.name];
+      const el=document.createElement('div');
+      el.className='task'+(set?' set':'')+(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
+      el.innerHTML=`<span class="dot"></span><span class="nm">${it.name}</span><span class="kind">${kind[0]}</span>`;
+      el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description};
+        showHint(); buildTasks();};
+      box.appendChild(el);
+    });
+  });
+}
+function showHint(){
+  if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
+    '<kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan';return;}
+  const t=activeTask;
+  $('#hint').innerHTML=`<b>${t.name}</b> — ${t.hint||t.desc||''}` +
+    (t.kind==='polygon'?' &nbsp;(trace vertices; <kbd>Enter</kbd>=finish. On a finished outline: click the line to insert a vertex, drag any vertex to move.)':'');
+  drawRef();
+}
+
+// ---- view transform ----
+function fit(){ if(!imgW){return;} const r=cv.getBoundingClientRect();
+  if(!r.width||!r.height){ requestAnimationFrame(fit); return; }  // canvas not laid out yet
+  const s=Math.min(r.width/imgW, r.height/imgH)*0.96;
+  vs.scale=s; vs.ox=(r.width-imgW*s)/2; vs.oy=(r.height-imgH*s)/2; }
+function toImg(sx,sy){return [(sx-vs.ox)/vs.scale,(sy-vs.oy)/vs.scale];}
+function toScr(ix,iy){return [ix*vs.scale+vs.ox, iy*vs.scale+vs.oy];}
+
+function draw(){
+  const r=cv.getBoundingClientRect();
+  ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+  if(imgW){ ctx.imageSmoothingEnabled=false; ctx.filter=imgFilter;
+    ctx.drawImage(img, vs.ox, vs.oy, imgW*vs.scale, imgH*vs.scale); ctx.filter='none'; }
+  const m=model?model[view]:null; if(m){
+    // polygons
+    for(const [nm,verts] of Object.entries(m.polygons)){
+      if(!verts||!verts.length) continue;
+      ctx.beginPath();
+      verts.forEach((p,i)=>{const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+      const active=activeTask&&activeTask.kind==='polygon'&&activeTask.name===nm;
+      if(!active||verts.length>=3) ctx.closePath();
+      ctx.strokeStyle=active?'#7fd0ff':'#4aa3ff88'; ctx.lineWidth=active?2.5:1.5; ctx.stroke();
+      ctx.fillStyle=active?'#7fd0ff2e':'#4aa3ff1a'; if(verts.length>=3) ctx.fill();
+      verts.forEach(p=>dot(p,active?'#7fd0ff':'#4aa3ff',active?3:2.5));
+      if(active){ let cx=0,cy=0; verts.forEach(p=>{cx+=p[0];cy+=p[1];});
+        label([cx/verts.length, cy/verts.length], nm); }   // name the selected polygon
+    }
+    // keypoints — only label the ACTIVE landmark or the one under the cursor,
+    // so placed labels don't pile up and obscure the fish.
+    const kpc=getComputedStyle(document.documentElement).getPropertyValue('--kp');
+    for(const [nm,p] of Object.entries(m.keypoints)){ dot(p,kpc,3.5);
+      if(nm===(activeTask&&activeTask.name) || nm===hoverName) label(p,nm); }
+    // ruler
+    if(m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
+      ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
+      ctx.strokeStyle='#c07bff';ctx.lineWidth=1.5;ctx.stroke(); }
+    if(m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
+    if(m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
+  }
+  $('#hud').textContent=`${cur?cur.id.replace('Salvelinus_fontinalis_',''):'—'} · ${view} · ${(vs.scale*100|0)}%`;
+}
+function dot(p,color,rr){const [x,y]=toScr(p[0],p[1]);ctx.beginPath();ctx.arc(x,y,rr,0,7);
+  ctx.fillStyle=color;ctx.fill();ctx.lineWidth=1;ctx.strokeStyle='#000a';ctx.stroke();}
+function label(p,t){const [x,y]=toScr(p[0],p[1]);ctx.font='10px sans-serif';
+  ctx.fillStyle='#000a';ctx.fillRect(x+5,y-6,ctx.measureText(t).width+4,11);
+  ctx.fillStyle='#fff';ctx.fillText(t,x+7,y+3);}
+
+function place(ix,iy){
+  if(!activeTask){toast('Pick a landmark first');return;}
+  const m=model[view], t=activeTask, pt=[Math.round(ix),Math.round(iy)];
+  if(t.kind==='keypoint'){ m.keypoints[t.name]=pt; warnOverlap(t.name,pt); advance(); }
+  else if(t.kind==='ruler'){ const key=t.name==='ruler_point_a'?'a':'b'; m.ruler[key]=pt;
+    if(t.name==='ruler_point_a'){activeTask=null;pickByName('ruler','ruler_point_b');} else advance(); }
+  else if(t.kind==='polygon'){ const arr=m.polygons[t.name]||(m.polygons[t.name]=[]);
+    const e = arr.length>=3 ? findEdgeAt(ix,iy,t.name) : null;
+    if(e){ arr.splice(e.index,0,pt); toast('Inserted vertex — drag to adjust'); }  // click on outline
+    else arr.push(pt); }                                                            // extend the trace
+  persistDraft(); buildTasks(); draw(); updateCalRead();
+}
+function warnOverlap(name,pt){
+  const m=model[view];
+  for(const [nm,p] of Object.entries(m.keypoints)){
+    if(nm!==name && Math.abs(p[0]-pt[0])<4 && Math.abs(p[1]-pt[1])<4){
+      toast(`⚠ on top of ${nm} — select it + press Z to undo`); return; }
+  }
+}
+// Undo acts on the CURRENTLY SELECTED landmark: clears its point (or pops the
+// last vertex for a polygon) and keeps it selected so you can re-place it.
+function undo(){
+  if(!activeTask){ toast('Select the landmark you want to undo'); return; }
+  const m=model[view], t=activeTask;
+  if(t.kind==='polygon'){ const arr=m.polygons[t.name];
+    if(arr&&arr.length){ arr.pop(); if(!arr.length) delete m.polygons[t.name]; toast('Removed a vertex of '+t.name); }
+    else toast(t.name+': no vertex to undo'); }
+  else if(t.kind==='keypoint'){ if(m.keypoints[t.name]){ delete m.keypoints[t.name]; toast('Cleared '+t.name); }
+    else toast(t.name+' isn’t placed'); }
+  else if(t.kind==='ruler'){ const k=t.name==='ruler_point_a'?'a':'b';
+    if(m.ruler[k]){ m.ruler[k]=undefined; toast('Cleared '+t.name); } else toast(t.name+' isn’t placed'); }
+  hoverName=null; persistDraft(); buildTasks(); draw();
+}
+function pickByName(kind,name){const it=(SCHEMA[view][kind==='ruler'?'ruler':kind+'s']||[]).find(x=>x.name===name);
+  if(it){activeTask={kind,name,hint:it.hint,desc:it.description};showHint();buildTasks();}}
+function taskOrder(){
+  const sc=SCHEMA[view];
+  return [...sc.ruler.map(x=>['ruler',x]), ...sc.keypoints.map(x=>['keypoint',x]),
+          ...sc.polygons.map(x=>['polygon',x])];
+}
+// Move to the NEXT task in list order — not the next empty one. Landmarks are
+// often skipped deliberately (obscured, damaged, not applicable), and jumping
+// back to them would fight the labeler instead of following the list.
+function advance(){
+  const order=taskOrder();
+  const i=order.findIndex(([kind,it]) =>
+      activeTask && kind===activeTask.kind && it.name===activeTask.name);
+  const nxt=order[i+1];
+  if(!nxt){ activeTask=null; showHint(); return; }
+  const [kind,it]=nxt;
+  activeTask={kind,name:it.name,hint:it.hint,desc:it.description};
+  showHint();
+}
+
+// ---- mouse / keyboard ----
+// Find an existing point near screen (mx,my). Keypoints/ruler take priority
+// over polygon vertices so you can grab a landmark that sits on the outline.
+function findPointAt(mx,my,thresh=12){
+  const m=model?model[view]:null; if(!m) return null;
+  let best=null, bd=thresh;
+  for(const [nm,p] of Object.entries(m.keypoints)){ const [sx,sy]=toScr(p[0],p[1]);
+    const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'keypoint',name:nm};} }
+  for(const k of ['a','b']){ const p=m.ruler[k]; if(!p)continue; const [sx,sy]=toScr(p[0],p[1]);
+    const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'ruler',key:k};} }
+  if(best) return best;
+  bd=thresh;
+  for(const [nm,verts] of Object.entries(m.polygons)){ verts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1]);
+    const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'polyvtx',name:nm,index:i};} }); }
+  return best;
+}
+function moveDrag(t,ix,iy){ const m=model[view], pt=[Math.round(ix),Math.round(iy)];
+  if(t.kind==='keypoint') m.keypoints[t.name]=pt;
+  else if(t.kind==='ruler') m.ruler[t.key]=pt;
+  else if(t.kind==='polyvtx') m.polygons[t.name][t.index]=pt; }
+function dragName(t){ return t.kind==='ruler'?('ruler_point_'+t.key)
+  : t.kind==='polyvtx'?(t.name+' vertex') : t.name; }
+// distance (image space) from point p to segment a-b
+function distToSeg(p,a,b){ const vx=b[0]-a[0],vy=b[1]-a[1], wx=p[0]-a[0],wy=p[1]-a[1];
+  const c1=vx*wx+vy*wy; if(c1<=0) return Math.hypot(wx,wy);
+  const c2=vx*vx+vy*vy; if(c2<=c1) return Math.hypot(p[0]-b[0],p[1]-b[1]);
+  const t=c1/c2; return Math.hypot(p[0]-(a[0]+t*vx), p[1]-(a[1]+t*vy)); }
+// If (ix,iy) is within ~8 screen-px of an edge of the given (closed) polygon,
+// return the index at which to splice a new vertex; else null.
+function findEdgeAt(ix,iy,polyName){
+  const verts=model[view].polygons[polyName]; if(!verts||verts.length<3) return null;
+  const threshImg=8/Math.max(vs.scale,1e-6); let best=null, bd=threshImg;
+  for(let i=0;i<verts.length;i++){ const d=distToSeg([ix,iy],verts[i],verts[(i+1)%verts.length]);
+    if(d<bd){ bd=d; best={index:i+1}; } }
+  return best;
+}
+
+let down=null, moved=0, dragTarget=null, dragStarted=false;
+cv.addEventListener('mousedown',e=>{
+  const r=cv.getBoundingClientRect();
+  dragTarget=findPointAt(e.clientX-r.left, e.clientY-r.top);  // grab a point if we're on one
+  dragStarted=false; down=[e.clientX,e.clientY]; moved=0;
+});
+cv.addEventListener('mousemove',e=>{
+  const r=cv.getBoundingClientRect(), mx=e.clientX-r.left, my=e.clientY-r.top;
+  if(down){ const dx=e.clientX-down[0],dy=e.clientY-down[1]; moved+=Math.abs(dx)+Math.abs(dy);
+    if(dragTarget){ if(moved>3){ dragStarted=true; const [ix,iy]=toImg(mx,my); moveDrag(dragTarget,ix,iy); draw(); }
+      down=[e.clientX,e.clientY]; return; }               // dragging a point (not panning)
+    vs.ox+=dx; vs.oy+=dy; down=[e.clientX,e.clientY]; draw(); return; }  // panning
+  const found=findPointAt(mx,my); cv.style.cursor=found?'move':'crosshair';
+  const hn=found&&found.kind==='keypoint'?found.name:null;
+  if(hn!==hoverName){ hoverName=hn; draw(); }
+});
+cv.addEventListener('mouseleave',()=>{ if(hoverName){hoverName=null;draw();} });
+window.addEventListener('mouseup',e=>{
+  if(dragTarget&&dragStarted){ persistDraft(); buildTasks(); draw(); toast('Moved '+dragName(dragTarget)); }
+  else if(down&&moved<5){ const r=cv.getBoundingClientRect();      // plain click → place
+    const [ix,iy]=toImg(e.clientX-r.left,e.clientY-r.top);
+    if(ix>=0&&iy>=0&&ix<=imgW&&iy<=imgH) place(ix,iy); }
+  down=null; dragTarget=null; dragStarted=false;
+});
+const ZOOM_SENS=0.0010;  // lower = less sensitive wheel zoom
+cv.addEventListener('wheel',e=>{e.preventDefault(); const r=cv.getBoundingClientRect();
+  const mx=e.clientX-r.left,my=e.clientY-r.top; const [ix,iy]=toImg(mx,my);
+  // proportional to scroll amount (smooth across mouse/trackpad), clamped per event
+  let d=e.deltaY; if(e.deltaMode===1) d*=16; else if(e.deltaMode===2) d*=r.height; // lines/pages→px
+  d=Math.max(-60,Math.min(60,d));                 // cap a single big flick
+  const f=Math.exp(-d*ZOOM_SENS);
+  const ns=Math.max(0.02, Math.min(30, vs.scale*f));
+  vs.scale=ns; vs.ox=mx-ix*ns; vs.oy=my-iy*ns; draw();},{passive:false});
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}}
+  if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undo(); }
+});
+$('#undo').onclick=undo;
+$('#finish').onclick=()=>{advance();buildTasks();draw();};
+$('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
+  if(activeTask.kind==='keypoint')delete m.keypoints[activeTask.name];
+  else if(activeTask.kind==='polygon')delete m.polygons[activeTask.name];
+  else m.ruler[activeTask.name==='ruler_point_a'?'a':'b']=undefined; persistDraft();buildTasks();draw();};
+$('#fit').onclick=()=>{fit();draw();};
+$('#useauto').onclick=applyAutoCal;
+// Ruler auto-scale: measures px/mm from the ruler's mm ticks, so calibration
+// needs no clicked points and no typed span.
+let autoCal=null;
+async function loadAutoCal(){
+  autoCal=null; $('#autotxt').textContent='detecting…';
+  if(!cur||!cur.lateral){ $('#autotxt').textContent=''; return; }
+  try{
+    const r=await api('/api/autocal/'+encodeURIComponent(cur.lateral));
+    if(r && r.px_per_mm){ autoCal=r;
+      $('#autotxt').textContent=`${r.px_per_mm.toFixed(2)} px/mm detected`; }
+    else { $('#autotxt').textContent='auto-scale unavailable'; }
+  }catch(e){ $('#autotxt').textContent='auto-scale unavailable'; }
+}
+function applyAutoCal(){
+  if(!autoCal){ toast('No auto-scale for this image'); return; }
+  model[view].auto_ppm=autoCal.px_per_mm;
+  model[view].auto_notes=autoCal.notes;
+  persistDraft(); updateCalRead(); buildTasks(); draw();
+  toast(`Using ${autoCal.px_per_mm.toFixed(2)} px/mm from ruler ticks`);
+}
+
+// Live px/mm readout — catches a mistyped known_mm (the one calibration error
+// nothing downstream can detect, since the wrong scale is self-consistent).
+let calMedian=null;
+async function loadCalStats(){ try{ const s=await api('/api/calibstats');
+  calMedian=s.median_px_per_mm; }catch(e){} }
+function updateCalRead(){
+  const el=$('#calread'); if(!el||!model) return;
+  const m=model[view], km=parseFloat($('#knownmm').value);
+  if(m.auto_ppm){ el.className='';
+    el.textContent=`✓ auto-scale ${m.auto_ppm.toFixed(2)} px/mm (ruler ticks)`; return; }
+  if(!(m.ruler.a&&m.ruler.b)||!(km>0)){ el.className=''; el.textContent='ruler: place both points, or use auto-scale'; return; }
+  const px=Math.hypot(m.ruler.b[0]-m.ruler.a[0], m.ruler.b[1]-m.ruler.a[1]);
+  const ppm=px/km;
+  let msg=`${px.toFixed(0)} px ÷ ${km} mm = ${ppm.toFixed(2)} px/mm`;
+  const off = calMedian && (ppm>calMedian*1.35 || ppm<calMedian*0.74);
+  if(off){ el.className='warn';
+    el.textContent=`⚠ ${ppm.toFixed(1)} px/mm — others ≈ ${calMedian.toFixed(1)}. Check "known span".`; }
+  else { el.className=''; el.textContent=msg + (calMedian?`  (batch ≈ ${calMedian.toFixed(1)})`:''); }
+}
+function updateImgFilter(){ const c=$('#ctrst').value, b=$('#brt').value;
+  imgFilter=(c==='1'&&b==='1')?'none':`contrast(${c}) brightness(${b})`; draw(); }
+$('#ctrst').oninput=updateImgFilter; $('#brt').oninput=updateImgFilter;
+$('#enhReset').onclick=()=>{$('#ctrst').value=1;$('#brt').value=1;updateImgFilter();};
+$('#datanote').oninput=()=>{ if(model){ syncCompromise(); persistDraft(); } };
+$('#tabL').onclick=()=>setView('lateral');
+$('#tabF').onclick=()=>setView('frontal');
+$('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownmm').value);persistDraft();updateCalRead();}};
+window.addEventListener('resize',()=>{resize();draw();drawRef();});
+function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
+  const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height; }
+
+// ---- reference panel ----
+let refAnnot=new Image(), refBase=new Image(), refData=null, refMode='zoom';
+const rcv=$('#refcv'), rctx=rcv.getContext('2d');
+async function loadRef(){
+  try{ refData=await api('/ui/reference.json'); }catch(e){ return; }
+  refAnnot.onload=()=>drawRef(); refAnnot.src='/ui/reference_annot.jpg';
+  refBase.src='/ui/reference_base.jpg';
+}
+function refPointFor(task){
+  if(!task||!refData) return null;
+  if(task.kind==='keypoint') return refData.keypoints[task.name]||null;
+  if(task.kind==='polygon'){ const v=refData.polygons[task.name]; if(!v||!v.length) return null;
+    let cx=0,cy=0; v.forEach(p=>{cx+=p[0];cy+=p[1];}); return [cx/v.length,cy/v.length]; }
+  return null; // ruler → overview
+}
+function drawRef(){
+  if(!refData||!refAnnot.complete){return;}
+  const W=rcv.width=rcv.clientWidth, H=rcv.height=rcv.clientHeight;
+  rctx.setTransform(1,0,0,1,0,0); rctx.fillStyle='#0b0e12'; rctx.fillRect(0,0,W,H);
+  const pt = refMode==='zoom' ? refPointFor(activeTask) : null;
+  const lbl=$('#reflabel');
+  if(pt){ // zoomed focus on landmark
+    const zoom=3.2, bw=refData.w, bh=refData.h;
+    const sx=pt[0]-W/(2*zoom), sy=pt[1]-H/(2*zoom);
+    rctx.imageSmoothingEnabled=false;
+    rctx.drawImage(refBase, sx,sy, W/zoom,H/zoom, 0,0, W,H);
+    const cx=(pt[0]-sx)*zoom, cy=(pt[1]-sy)*zoom;
+    rctx.beginPath();rctx.arc(cx,cy,7,0,7);rctx.strokeStyle='#ff5d6c';rctx.lineWidth=2;rctx.stroke();
+    rctx.beginPath();rctx.moveTo(cx-14,cy);rctx.lineTo(cx+14,cy);rctx.moveTo(cx,cy-14);rctx.lineTo(cx,cy+14);
+    rctx.strokeStyle='#ff5d6c88';rctx.stroke();
+    lbl.innerHTML=`<b>${activeTask.name}</b> — where it goes on the example`;
+  } else { // overview
+    const s=Math.min(W/refAnnot.naturalWidth,H/refAnnot.naturalHeight);
+    const dw=refAnnot.naturalWidth*s, dh=refAnnot.naturalHeight*s;
+    rctx.drawImage(refAnnot,(W-dw)/2,(H-dh)/2,dw,dh);
+    const who=(refData&&refData.specimen||'').replace('Salvelinus_fontinalis_','')||'example';
+    lbl.innerHTML = activeTask ? `Pick <b>overview→zoom</b> to focus on <b>${activeTask.name}</b>`
+      : `Annotated example (${who}). Select a landmark + Zoom to focus.`;
+  }
+}
+$('#refmode').onclick=()=>{refMode=refMode==='overview'?'zoom':'overview';
+  $('#refmode').textContent=refMode; drawRef();};
+$('#refclose').onclick=()=>$('#refpanel').classList.add('hidden');
+window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return;
+  if(e.key==='r'||e.key==='R') $('#refpanel').classList.toggle('hidden'); });
+
+$('#save').onclick=async()=>{
+  if(!cur){toast('No specimen');return;}
+  // capture the "known span" field value even if it was left at its default
+  const km=parseFloat($('#knownmm').value);
+  if(!isNaN(km) && (model[view].ruler.a||model[view].ruler.b)) model[view].known_mm=km;
+  syncCompromise();
+  const strain=(cur.id.match(/_([A-Z]{2,4})_\d+$/)||[])[1]||'';
+  const out={fish_id:cur.id, metadata:{strain, source:'hand-labeled'}};
+  if(model.data_note) out.metadata.data_note=model.data_note;
+  if(model.exclude&&model.exclude.length) out.metadata.exclude_traits=model.exclude;
+  for(const v of ['lateral','frontal']){
+    const m=model[v]; const has=Object.keys(m.keypoints).length||Object.keys(m.polygons).length;
+    if(!has) continue;
+    const blk={}; if(Object.keys(m.polygons).length)blk.polygons=m.polygons;
+    blk.keypoints=m.keypoints;
+    if(m.auto_ppm)
+      blk.calibration={mode:'ticks',px_per_mm:m.auto_ppm,notes:m.auto_notes||'ruler mm-tick autocalibration'};
+    else if(m.ruler.a&&m.ruler.b&&m.known_mm)
+      blk.calibration={mode:'manual',point_a:m.ruler.a,point_b:m.ruler.b,known_mm:m.known_mm};
+    out[v]=blk;
+  }
+  const res=await api('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});
+  if(res.ok){clearDraft(cur.id); toast('Saved '+res.saved); loadSpecs();} else toast('Error: '+(res.error||'?'));
+};
+boot();
+</script>
+</body>
+</html>
