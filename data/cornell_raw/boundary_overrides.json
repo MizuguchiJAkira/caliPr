@@ -1,0 +1,9 @@
+{
+  "_comment": "Manual mirror-split boundary (x, in the EXIF-oriented full frame) for photos where detect_mirror_boundary picks a column that cuts into the fish. Verified visually. Key = catalog stem without the _L suffix.",
+  "Salvelinus_fontinalis_TXD_49": 1360,
+  "Salvelinus_fontinalis_TXD_41": 1500,
+  "Salvelinus_fontinalis_TXD_42": 1500,
+  "Salvelinus_fontinalis_TXD_43": 1560,
+  "Salvelinus_fontinalis_TXD_44": 1620,
+  "Salvelinus_fontinalis_TXD_45": 1660
+}

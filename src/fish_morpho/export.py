@@ -131,6 +131,7 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
         "confidence",
         "calibration_notes",
         "missing_landmarks",
+        "data_note",
     ]
     sheet.append(header)
     header_font = Font(bold=True)
@@ -149,6 +150,7 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
             }
         )
         missing_str = ", ".join(missing) if missing else ""
+        data_note = str(rec.measurements.metadata.get("data_note", "") or "")
         for view_name, calib in rec.calibrations.items():
             sheet.append(
                 [
@@ -160,6 +162,7 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
                     round(calib.confidence, 3),
                     calib.notes,
                     missing_str,
+                    data_note,
                 ]
             )
 

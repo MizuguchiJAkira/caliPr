@@ -52,18 +52,54 @@ log = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
+def _ruler_band_energy(gray: np.ndarray) -> tuple[float, float]:
+    """Return (top_energy, bottom_energy) of ruler-like tick texture.
+
+    The metric ruler is the densest field of regularly spaced vertical
+    edges in the frame, so a horizontal Sobel summed over a band picks it
+    out clearly against styrofoam, fish, and handwritten cards.
+    """
+    h, w = gray.shape[:2]
+    sob = np.abs(cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3))
+    # Ignore the outer margins where the mirror rig and tray edges sit.
+    x0, x1 = int(w * 0.35), int(w * 0.95)
+    top = sob[: int(h * 0.30), x0:x1]
+    bottom = sob[int(h * 0.70):, x0:x1]
+    return float(top.mean()), float(bottom.mean())
+
+
+def is_upside_down(bgr: np.ndarray) -> bool:
+    """True if the frame is 180° from canonical (ruler at the bottom).
+
+    In the lab's canonical layout the ruler lies along the TOP of the frame
+    with the fish below it. A 180° rotation moves the ruler to the bottom,
+    which is exactly the state that leaves the fish facing right with the
+    mirror on the right.
+    """
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    top, bottom = _ruler_band_energy(gray)
+    return bottom > top
+
+
 def normalize_orientation(raw_path: Path) -> np.ndarray:
     """Load a JPEG and return a BGR OpenCV array in canonical orientation.
 
-    Steps:
-      1. Apply EXIF orientation metadata (handles 180° flip, 90° camera
-         rotations, and any other EXIF orientation tag).
-      2. If the result is portrait (height > width), rotate 90° CW so
-         the fish is horizontal facing left, ruler at top, mirror on
-         left. This matches the lab setup where some photos were taken
-         with the camera rotated 90°.
+    Canonical = landscape, fish facing LEFT, mirror on the LEFT.
 
-    Returns an OpenCV BGR ndarray in landscape orientation.
+    Steps:
+      1. Apply EXIF orientation metadata.
+      2. If the result is portrait (height > width), rotate 90° CW.
+      3. Detect whether the frame is upside-down (ruler at the bottom) and
+         rotate 180° if so.
+
+    Step 3 exists because the EXIF tag is NOT consistent across this
+    collection: most lab photos carry orientation 6, but a substantial
+    minority carry orientation 1 and are already landscape, so steps 1-2
+    leave them 180° from canonical — fish facing right with the mirror on
+    the right. The mirror split then cut the left side of the frame, which
+    is where those specimens' caudal peduncle and fin were, silently
+    truncating the fish. Detecting the layout from pixels instead of
+    trusting EXIF fixes that whole class of specimens.
     """
     pil = Image.open(raw_path)
     pil = ImageOps.exif_transpose(pil)
@@ -79,10 +115,16 @@ def normalize_orientation(raw_path: Path) -> np.ndarray:
     rgb = np.array(pil)
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
+    flipped = False
+    if is_upside_down(bgr):
+        bgr = cv2.rotate(bgr, cv2.ROTATE_180)
+        flipped = True
+
     log.info(
-        "%s: EXIF applied%s → %dx%d",
+        "%s: EXIF applied%s%s → %dx%d",
         raw_path.name,
         " + 90° CW (portrait→landscape)" if rotated else "",
+        " + 180° (was upside-down: ruler at bottom)" if flipped else "",
         bgr.shape[1],
         bgr.shape[0],
     )
@@ -142,19 +184,39 @@ def process_one(
     specimen_number: int | str,
     genus: str = "Salvelinus",
     species: str = "fontinalis",
+    boundary_override: int | None = None,
+    lateral_margin: int = 0,
 ) -> tuple[Path, Path]:
     """Split one raw photo into lateral + frontal crops.
+
+    ``boundary_override`` forces the mirror-split column instead of running
+    :func:`detect_mirror_boundary`. The detector keys on the strongest vertical
+    edge in the left 35%, and on a few photos the ruler's dense tick marks
+    out-shout the mirror frame, pushing the split to the search ceiling and
+    slicing through the fish's head. Those are recorded in
+    ``data/cornell_raw/boundary_overrides.json`` after visual verification.
 
     Returns (lateral_path, frontal_path).
     """
     image = normalize_orientation(raw_path)
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    boundary = detect_mirror_boundary(gray)
+    boundary = (
+        int(boundary_override)
+        if boundary_override is not None
+        else detect_mirror_boundary(gray)
+    )
 
-    # Mirror on left, fish on right.
+    # Mirror on left, fish on right. The two crops deliberately OVERLAP by
+    # ``lateral_margin``: detect_mirror_boundary keys on the strongest vertical
+    # edge in the left 35%, and the ruler's tick marks can out-shout the mirror
+    # frame and push the split right, through the fish's snout. Extending the
+    # lateral crop leftward costs only some mirror background in frame, while
+    # cutting a snout destroys data that cannot be recovered — so the margin is
+    # applied asymmetrically. The frontal crop keeps its full extent.
+    lat_start = max(0, boundary - lateral_margin)
     frontal_crop = image[:, :boundary]
-    lateral_crop = image[:, boundary:]
+    lateral_crop = image[:, lat_start:]
 
     base = f"{genus}_{species}_{strain}_{specimen_number}"
     lateral_name = f"{base}_L.JPEG"
