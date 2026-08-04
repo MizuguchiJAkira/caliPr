@@ -21,7 +21,14 @@ data/fish_vista_filter.log
 # DLC scaffolding generated artifacts
 /tmp/dlc_scaffold/
 
-# Raw and processed Cornell lab photos (large JPEGs)
+# Raw and processed Cornell lab photos (large JPEGs). Match nested batch
+# subdirectories too (e.g. data/cornell_raw/jonah/), keeping provenance
+# CSVs like data/cornell_raw/*_info*.csv under version control.
+data/cornell_raw/**/*.JPG
+data/cornell_raw/**/*.jpg
+data/cornell_raw/**/*.JPEG
+data/cornell_raw/**/*.jpeg
+data/cornell_raw/**/*.NEF
 data/cornell_raw/*.JPG
 data/cornell_raw/*.jpg
 data/cornell/lateral/
@@ -35,3 +42,9 @@ exports/
 
 # OS
 .DS_Store
+
+# DLC training artifacts (derived from sidecars; regenerate with
+# scripts/build_dlc_dataset.py + scripts/train_dlc.py)
+dlc/
+dlc_project/
+.venv-train/
