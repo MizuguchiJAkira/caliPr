@@ -1,0 +1,265 @@
+{
+  "fish_id": "Salvelinus_fontinalis_TXD_45",
+  "metadata": {
+    "strain": "TXD",
+    "source": "hand-labeled",
+    "data_note": "caudal fin clipped by frame \u2014 TL/CFd/CFs unreliable",
+    "exclude_traits": [
+      "TL",
+      "CFd",
+      "CFs"
+    ]
+  },
+  "lateral": {
+    "polygons": {
+      "body_plus_caudal": [
+        [
+          852,
+          1767
+        ]
+      ],
+      "pectoral": [
+        [
+          1359,
+          2024
+        ],
+        [
+          1563,
+          2029
+        ],
+        [
+          1723,
+          2051
+        ],
+        [
+          1857,
+          2100
+        ],
+        [
+          1906,
+          2153
+        ],
+        [
+          1781,
+          2247
+        ],
+        [
+          1701,
+          2278
+        ],
+        [
+          1661,
+          2296
+        ],
+        [
+          1528,
+          2220
+        ],
+        [
+          1408,
+          2136
+        ]
+      ],
+      "dorsal": [
+        [
+          2479,
+          1553
+        ],
+        [
+          2653,
+          1513
+        ],
+        [
+          2773,
+          1544
+        ],
+        [
+          2866,
+          1611
+        ],
+        [
+          2902,
+          1638
+        ],
+        [
+          2715,
+          1615
+        ]
+      ],
+      "pelvic": [
+        [
+          2471,
+          2394
+        ],
+        [
+          2546,
+          2296
+        ],
+        [
+          2640,
+          2273
+        ],
+        [
+          2764,
+          2242
+        ],
+        [
+          2795,
+          2322
+        ],
+        [
+          2769,
+          2358
+        ],
+        [
+          2648,
+          2380
+        ]
+      ],
+      "anal": [
+        [
+          3356,
+          2318
+        ],
+        [
+          3573,
+          2291
+        ],
+        [
+          3787,
+          2273
+        ],
+        [
+          3898,
+          2238
+        ],
+        [
+          3965,
+          2185
+        ],
+        [
+          3916,
+          2162
+        ],
+        [
+          3694,
+          2229
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        865,
+        1509
+      ],
+      "eye_posterior": [
+        1070,
+        1540
+      ],
+      "eye_dorsal": [
+        994,
+        1460
+      ],
+      "eye_ventral": [
+        972,
+        1606
+      ],
+      "premaxilla_tip": [
+        705,
+        1500
+      ],
+      "maxilla_mandible_intersection": [
+        856,
+        1767
+      ],
+      "lower_jaw_tip": [
+        616,
+        1727
+      ],
+      "operculum_posterior": [
+        1443,
+        1895
+      ],
+      "pectoral_insertion_upper": [
+        1372,
+        2024
+      ],
+      "pectoral_ray_tip": [
+        1879,
+        2145
+      ],
+      "peduncle_narrowest_dorsal": [
+        4374,
+        1767
+      ],
+      "peduncle_narrowest_ventral": [
+        4423,
+        2016
+      ],
+      "caudal_base": [
+        4445,
+        1869
+      ],
+      "dorsal_base_center": [
+        2653,
+        1593
+      ],
+      "dorsal_tip": [
+        2733,
+        1544
+      ],
+      "pelvic_base_center": [
+        2506,
+        2394
+      ],
+      "pelvic_tip": [
+        2751,
+        2251
+      ],
+      "anal_base_center": [
+        3711,
+        2207
+      ],
+      "anal_tip": [
+        3920,
+        2229
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        723,
+        735
+      ],
+      "point_b": [
+        1959,
+        797
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        727,
+        1774
+      ],
+      "mouth_right": [
+        984,
+        1795
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1609,
+        1601
+      ],
+      "point_b": [
+        1613,
+        1829
+      ],
+      "known_mm": 10
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "_comment": "Specimens excluded from the CALIPER validation only. Their measurements are sound \u2014 TXD_46 SL was verified independently as 3.12x a 50mm ruler span (156mm), TXD_42 as 3.13x (156.6mm) \u2014 but their spreadsheet sl(mm) rows do not correspond to the photographed fish. The mismatch is SCATTERED, not a block shift: TXD 4/6/7/8/9/43 agree to <=2.3% while 42/44/46/47/48/49/50 are off 5-32% with mixed sign, so no single numbering offset explains it. Filename numbering is authoritative per the lab. These specimens REMAIN valid for measurement and for model training.",
+  "reason": "spreadsheet caliper rows do not match the photographed specimen",
+  "excluded_from_caliper_validation": [
+    "Salvelinus_fontinalis_TXD_42",
+    "Salvelinus_fontinalis_TXD_44",
+    "Salvelinus_fontinalis_TXD_46",
+    "Salvelinus_fontinalis_TXD_47",
+    "Salvelinus_fontinalis_TXD_48",
+    "Salvelinus_fontinalis_TXD_49",
+    "Salvelinus_fontinalis_TXD_50"
+  ]
+}

@@ -186,8 +186,14 @@ def process_one(
     species: str = "fontinalis",
     boundary_override: int | None = None,
     lateral_margin: int = 0,
+    frontal_margin: int = 0,
 ) -> tuple[Path, Path]:
     """Split one raw photo into lateral + frontal crops.
+
+    ``frontal_margin`` extends the frontal crop rightward for the mirror-image
+    view, the mirror of ``lateral_margin``: when the split lands too far LEFT
+    the mirror head-shot ends up in the lateral crop and the frontal crop is
+    too small to label mouth width on.
 
     ``boundary_override`` forces the mirror-split column instead of running
     :func:`detect_mirror_boundary`. The detector keys on the strongest vertical
@@ -215,7 +221,8 @@ def process_one(
     # cutting a snout destroys data that cannot be recovered — so the margin is
     # applied asymmetrically. The frontal crop keeps its full extent.
     lat_start = max(0, boundary - lateral_margin)
-    frontal_crop = image[:, :boundary]
+    fro_end = min(image.shape[1], boundary + frontal_margin)
+    frontal_crop = image[:, :fro_end]
     lateral_crop = image[:, lat_start:]
 
     base = f"{genus}_{species}_{strain}_{specimen_number}"

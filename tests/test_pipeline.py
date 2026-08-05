@@ -181,7 +181,10 @@ def test_discover_specimens_skips_image_without_sidecar(tmp_path: Path, caplog):
 # ---------------------------------------------------------------------------
 
 
-def test_pipeline_rejects_sidecar_without_lateral_block(tmp_path: Path):
+def test_pipeline_accepts_frontal_only_sidecar(tmp_path: Path):
+    """Mouth width comes solely from the mirror view, so a frontal-only
+    sidecar is legitimate: MW must compute and the lateral traits must
+    degrade to missing-input NaNs rather than aborting the specimen."""
     from fish_morpho.pipeline import process_specimen, SpecimenInput
 
     sidecar = {
@@ -202,7 +205,24 @@ def test_pipeline_rejects_sidecar_without_lateral_block(tmp_path: Path):
         sidecar_path=tmp_path / "x.json",
         sidecar=sidecar,
     )
-    with pytest.raises(ValueError, match="lateral"):
+    record = process_specimen(spec)
+    mw = record.measurements.values["MW"]
+    assert mw.value == pytest.approx(5.0)  # 10 px over a 10 px = 5 mm span
+    assert record.measurements.values["SL"].missing_landmarks  # NaN, not raised
+    assert "lateral" not in record.calibrations
+
+
+def test_pipeline_rejects_sidecar_with_no_views(tmp_path: Path):
+    """An empty sidecar has nothing to measure and should say so."""
+    from fish_morpho.pipeline import process_specimen, SpecimenInput
+
+    spec = SpecimenInput(
+        fish_id="empty",
+        image_path=tmp_path / "x.jpg",
+        sidecar_path=tmp_path / "x.json",
+        sidecar={"fish_id": "empty", "metadata": {}},
+    )
+    with pytest.raises(ValueError, match="neither"):
         process_specimen(spec)
 
 

@@ -389,5 +389,29 @@
       ],
       "known_mm": 10
     }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        631,
+        1470
+      ],
+      "mouth_right": [
+        876,
+        1462
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1513,
+        1491
+      ],
+      "point_b": [
+        1526,
+        1719
+      ],
+      "known_mm": 10
+    }
   }
 }
