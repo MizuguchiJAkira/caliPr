@@ -1,4 +1,4 @@
-# JCalipr
+# caliPr
 
 Automated morphometrics pipeline for brook trout (*Salvelinus fontinalis*)
 specimens at the Cornell Museum of Vertebrates. Raw lab photos → landmark
@@ -11,10 +11,19 @@ ImageJ with a reproducible pipeline that emits the same trait set (plus
 Cornell-specific extras) into a single spreadsheet — and keeps the annotations
 as data, so the same labels can train a model to place them automatically.
 
-**Validated against physical caliper measurements** on 17 hand-labeled
-specimens spanning three hatchery strains: standard length agrees to a
-**median 1.05%** (mean 1.28%), with a **systematic bias of +0.66%** — i.e. the
-error is random scatter, not a measurement offset. Pearson r = 0.993.
+**Validated against physical caliper measurements.** Across 35 hand-labeled
+specimens spanning three hatchery strains, standard length agrees to a
+**median 1.12%** (mean 1.39%) with a **+0.69% bias** — random scatter rather
+than a measurement offset.
+
+The specimen-to-caliper mapping was itself verified rather than assumed: an
+offset sweep confirms ASN and HRN align at offset 0 (1.40% / 1.56% mean error,
+versus 12–20% at any shift). Seven TXD rows disagree with their photos by
+5–32% with mixed sign and no offset explains it; those measurements check out
+independently (SL in *ruler spans*, which needs no millimetre assumption and no
+choice of posterior endpoint), so the spreadsheet rows are the suspect party.
+They are listed in `data/validation/caliper_exclusions.json` and excluded from
+validation only — still valid for measurement and for training.
 
 ## What it measures
 
@@ -145,7 +154,7 @@ scripts/
 
 data/cornell/sidecars/    Hand-labeled annotations (the valuable artifact).
 docs/                     Labeling guide + figures.
-tests/                    95 tests: geometry, calibration, schema, I/O.
+tests/                    96 tests: geometry, calibration, schema, I/O.
 ```
 
 ## Install
@@ -161,14 +170,19 @@ install it into its own environment rather than alongside the pipeline.
 ## Tests
 
 ```bash
-python -m pytest        # 95 passed
+python -m pytest        # 96 passed
 ```
 
 ## Status
 
 Manual mode (sidecar JSON in, Excel out) is production-ready and validated
-against calipers. Auto mode is in training: the labeled set is being built
-toward ~60–80 specimens, with a pilot model trained on the first 35.
+against calipers. 55 specimens are labeled (46 lateral, 35 frontal, 27 with
+both views) and mouth width is populated for the first time.
+
+Auto mode is in training. A pilot on 28 images reached a 0.84 mm *training*
+error — better than the manual pipeline's own agreement with calipers — but
+3.88 mm on held-out fish, a gap that says the architecture works and data is
+the constraint. The labeled set is being built toward ~60–80.
 
 ## Acknowledgements
 
