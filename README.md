@@ -139,9 +139,17 @@ but costs accuracy — see below.
 
 ### Current model
 
-37 train / 9 held-out. **Median held-out error 1.10 mm** (1.05 mm excluding one
-outlier landmark), better than the manual pipeline's own caliper agreement of
-~1.4 mm. Eight landmarks are now under 1 mm, led by `eye_dorsal` at 0.38 mm.
+37 train / 9 held-out. **Median held-out error 0.81 mm** — comfortably better
+than the manual pipeline's own caliper agreement of ~1.4 mm. Thirteen of
+nineteen landmarks are under 1 mm and five are under 0.5 mm, led by `eye_dorsal`
+at 0.22 mm.
+
+Report medians, not means. DLC's summary CSV gives per-landmark *means*, and on
+a 9-specimen held-out set a single failure dominates: `pectoral_ray_tip` reads
+12.26 mm by mean and **0.94 mm by median**, because eight of nine specimens are
+sub-millimetre and one is off by 104 mm. `pelvic_tip` is similarly 2.09 mean
+against 0.77 median. `scripts/dlc_report.py` reads the raw prediction HDF5 and
+reports both.
 
 Resolution turned out to matter more than data volume for the posterior
 landmarks. `peduncle_narrowest_dorsal`/`_ventral` sit only ~105 full-res px from
@@ -155,13 +163,25 @@ Progression: 3.88 mm (28 images, 0.15) → 1.40 mm (37 images, 0.15) → 1.10 mm
 (37 images, 0.25). The first step removed overfitting; the second removed a
 resolution limit.
 
-**Open problem:** `pectoral_ray_tip` regressed from 1.18 mm to 12.26 mm at the
-higher scale while its *training* error stayed at 1.09 mm — it fits the training
-fish and fails on held-out ones. It is the only landmark with no fixed
-anatomical anchor (the tip of the longest ray, whose splay depends on how each
-specimen was pinned), and with 9 held-out fish one unusual posture can dominate.
-`dorsal_tip` and `pelvic_tip` also remain above 2 mm; those three share the same
-character of being fin extremities rather than skeletal points.
+**Still weak:** `dorsal_tip` (2.10 mm) and `peduncle_narrowest_ventral`
+(2.01 mm) are the only landmarks above 2 mm by median. `dorsal_tip` is one of
+the two whose anatomical definition is still marked pending, and it also shows
+the widest placement scatter in the hand labels — the definition is likely the
+limiting factor, not the model.
+
+**The model signals its own failures, but confidence is not comparable across
+landmarks.** The single 104 mm `pectoral_ray_tip` miss came with likelihood 0.21
+against 0.62–0.89 for that landmark's good predictions — clearly flagged. But
+`caudal_base` sits at 0.24–0.45 on *every* specimen while being accurate to
+0.97 mm, so a flat cutoff of 0.5 discards all nine good predictions. The report
+therefore gates each landmark against its own median likelihood (`--relative`),
+which rejects 2.4% of predictions instead of 19%. Rejected points become missing
+landmarks, which the pipeline already handles by NaN-ing the dependent traits
+with a reason — a declared gap rather than a confident wrong number.
+
+That single failure is a size-generalisation gap, not a bad photo: HRN_46 is the
+smallest fish in the set (SL 92 mm against a 138.6 mm median), and the model saw
+mostly 130–160 mm specimens.
 
 For the polygons, `scripts/eval_sam_polygons.py` benchmarks zero-shot SAM
 against the hand-traced outlines. Prompted by keypoints, SAM reaches **1.5%
