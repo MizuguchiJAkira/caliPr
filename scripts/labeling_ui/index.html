@@ -25,6 +25,12 @@
     gap:6px; border-left:3px solid transparent; }
   .spec:hover { background:#232a35; }
   .spec.active { background:#26303d; border-left-color:var(--accent); }
+  .mk { display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+    border-radius:3px; font-size:10px; font-weight:700; margin-left:3px;
+    background:#2b3340; color:#59657a; }
+  .mk.on { background:var(--good); color:#052; }
+  .mk.f.on { background:#c07bff; color:#1a0033; }
+  #progress .mk { margin-left:6px; margin-right:2px; }
   .spec .st { color:var(--mut); font-size:11px; }
   .spec.done .st { color:var(--good); }
   .viewtabs { display:flex; gap:6px; margin-bottom:8px; }
@@ -217,13 +223,19 @@ async function boot(){
 }
 async function loadSpecs(){
   SPECS=await api('/api/specimens');
-  const done=SPECS.filter(s=>s.labeled).length;
-  $('#progress').textContent=`${done}/${SPECS.length} done`;
+  const dl=SPECS.filter(s=>s.lateral_done).length;
+  const df=SPECS.filter(s=>s.frontal_done).length;
+  $('#progress').innerHTML=`<span class="mk on">L</span>${dl}/${SPECS.length} `+
+                           `<span class="mk f on">F</span>${df}/${SPECS.length}`;
   const w=$('#specWrap'); w.innerHTML='';
   SPECS.forEach(s=>{
     const d=document.createElement('div');
-    d.className='spec'+(s.labeled?' done':'')+(cur&&cur.id===s.id?' active':'');
-    d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span><span class="st">${s.labeled?'✓':'·'}</span>`;
+    d.className='spec'+(s.lateral_done?' done':'')+(cur&&cur.id===s.id?' active':'');
+    // two independent marks: L = lateral labeled, F = mouth width collected
+    const L=`<span class="mk ${s.lateral_done?'on':''}" title="lateral">L</span>`;
+    const F=`<span class="mk f ${s.frontal_done?'on':''}" title="frontal / mouth width">F</span>`;
+    d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span>`+
+                `<span class="st">${L}${F}</span>`;
     d.onclick=()=>selectSpec(s);
     w.appendChild(d);
   });
@@ -280,9 +292,15 @@ function loadImage(){
     img.src='/img/'+view+'/'+encodeURIComponent(file);
   });
 }
+// Per-view default span. The frontal mirror ruler is small — its usable span
+// is 10 mm — while the lateral ruler is normally clicked over 50 mm. Without a
+// per-view default, switching tabs silently inherited the other view's value,
+// which is a 5x calibration error that nothing downstream can detect.
+const DEFAULT_MM={lateral:50, frontal:10};
 function setView(v){ view=v; $('#tabL').classList.toggle('on',v==='lateral');
   $('#tabF').classList.toggle('on',v==='frontal');
-  if(model&&model[view].known_mm) $('#knownmm').value=model[view].known_mm;
+  $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
+  if(model) model[view].known_mm = parseFloat($('#knownmm').value);
   activeTask=null; loadImage(); }
 
 function buildTasks(){

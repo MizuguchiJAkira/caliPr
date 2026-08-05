@@ -1,0 +1,31 @@
+{
+  "fish_id": "Salvelinus_fontinalis_TXD_41",
+  "metadata": {
+    "strain": "TXD",
+    "source": "hand-labeled"
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        575,
+        1867
+      ],
+      "mouth_right": [
+        850,
+        1850
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1360,
+        1052
+      ],
+      "point_b": [
+        1365,
+        1276
+      ],
+      "known_mm": 10
+    }
+  }
+}

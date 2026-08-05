@@ -273,20 +273,30 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
     annotation = Annotation()
 
     lateral_block = spec.sidecar.get("lateral")
-    if not lateral_block:
-        raise ValueError(
-            f"{spec.sidecar_path}: sidecar must contain a 'lateral' block"
-        )
-    _load_view_annotation(lateral_block, annotation, "lateral")
-
     frontal_block = spec.sidecar.get("frontal")
+    if not lateral_block and not frontal_block:
+        raise ValueError(
+            f"{spec.sidecar_path}: sidecar has neither a 'lateral' nor a "
+            "'frontal' block"
+        )
+    if lateral_block:
+        _load_view_annotation(lateral_block, annotation, "lateral")
     if frontal_block:
         _load_view_annotation(frontal_block, annotation, "frontal")
 
-    lateral_calib = _calibration_from_block(
-        lateral_block.get("calibration"), spec.image_path, "lateral"
+    # A frontal-only sidecar is legitimate — mouth width is collected from the
+    # mirror view and needs no lateral data. Refusing to process it would
+    # discard a real measurement to satisfy a shape requirement; the lateral
+    # traits simply surface as missing-input NaNs, which is what the QC sheet
+    # is for. (The reverse, lateral-only, has always been supported.)
+    lateral_calib = (
+        _calibration_from_block(
+            lateral_block.get("calibration"), spec.image_path, "lateral"
+        )
+        if lateral_block
+        else None
     )
-    if lateral_calib is None:
+    if lateral_block and lateral_calib is None:
         raise ValueError(
             f"{spec.sidecar_path}: lateral.calibration is required"
         )
@@ -297,7 +307,9 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
             frontal_block.get("calibration"), spec.image_path, "frontal"
         )
 
-    calibrations = {View.LATERAL: lateral_calib}
+    calibrations: dict[View, CalibrationResult] = {}
+    if lateral_calib is not None:
+        calibrations[View.LATERAL] = lateral_calib
     if frontal_calib is not None:
         calibrations[View.FRONTAL] = frontal_calib
 
@@ -333,9 +345,9 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
     elif data_note:
         log.warning("%s: data note — %s", spec.fish_id, data_note)
 
-    calibs_for_export: dict[str, CalibrationResult] = {
-        View.LATERAL.value: lateral_calib,
-    }
+    calibs_for_export: dict[str, CalibrationResult] = {}
+    if lateral_calib is not None:
+        calibs_for_export[View.LATERAL.value] = lateral_calib
     if frontal_calib is not None:
         calibs_for_export[View.FRONTAL.value] = frontal_calib
 
