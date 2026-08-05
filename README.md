@@ -130,25 +130,38 @@ The split is stratified by strain, and absent landmarks are written as NaN
 rather than a placeholder, so a clipped snout never teaches the model to predict
 the frame edge.
 
-**Use the `--scale` and `--batch-size` above.** The defaults (0.25 / 8) exhaust
+**Keep `--batch-size` small.** The default batch of 8 at 0.25 scale exhausts
 memory on a 16 GB machine once the crops carry the lateral margin: training
 wedges at epoch 3 with the process in uninterruptible disk wait and swap
-effectively full. At 0.15 scale the frames are 585–885 px and 300 epochs take
-~25 min on Apple MPS. Retrain at 0.25 when memory allows — the smaller frames
-put a floor on precision, so there is probably headroom below the current
-result.
+effectively full. Batch 2 at 0.25 scale completes 300 epochs in ~37 min on
+Apple MPS with room to spare. Dropping to `--scale 0.15` also works (~25 min)
+but costs accuracy — see below.
 
 ### Current model
 
-37 train / 9 held-out. **Median held-out error 1.40 mm**, down from 3.88 mm on a
-28-image pilot; the train/test gap closed from 4.6× to 0.8×, so the earlier
-overfitting is resolved. That median is parity with the manual pipeline's own
-caliper agreement (~1.4 mm), but it is not uniform — only `eye_anterior` is
-under 1 mm, and `peduncle_narrowest_ventral` (2.60 mm),
-`peduncle_narrowest_dorsal` (2.31 mm) and `pelvic_tip` (2.26 mm) are not yet
-usable. The peduncle pair matters most: it defines reference line A, so its
-error propagates into Bs, CFs, CFd, MBd, Eh, Mo, PFi and PFb, and it directly
-measures CPd.
+37 train / 9 held-out. **Median held-out error 1.10 mm** (1.05 mm excluding one
+outlier landmark), better than the manual pipeline's own caliper agreement of
+~1.4 mm. Eight landmarks are now under 1 mm, led by `eye_dorsal` at 0.38 mm.
+
+Resolution turned out to matter more than data volume for the posterior
+landmarks. `peduncle_narrowest_dorsal`/`_ventral` sit only ~105 full-res px from
+`caudal_base`; at 0.15 scale that is ~16 px, close enough that the model could
+not separate three distinct landmarks. Retraining at 0.25 scale halved their
+error (2.31 → 1.26 mm and 2.60 → 1.79 mm). This was worth chasing because the
+pair defines reference line A, so it propagates into Bs, CFs, CFd, MBd, Eh, Mo,
+PFi and PFb, and directly measures CPd.
+
+Progression: 3.88 mm (28 images, 0.15) → 1.40 mm (37 images, 0.15) → 1.10 mm
+(37 images, 0.25). The first step removed overfitting; the second removed a
+resolution limit.
+
+**Open problem:** `pectoral_ray_tip` regressed from 1.18 mm to 12.26 mm at the
+higher scale while its *training* error stayed at 1.09 mm — it fits the training
+fish and fails on held-out ones. It is the only landmark with no fixed
+anatomical anchor (the tip of the longest ray, whose splay depends on how each
+specimen was pinned), and with 9 held-out fish one unusual posture can dominate.
+`dorsal_tip` and `pelvic_tip` also remain above 2 mm; those three share the same
+character of being fin extremities rather than skeletal points.
 
 For the polygons, `scripts/eval_sam_polygons.py` benchmarks zero-shot SAM
 against the hand-traced outlines. Prompted by keypoints, SAM reaches **1.5%
