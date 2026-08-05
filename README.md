@@ -121,14 +121,39 @@ for the 5 polygons — so **only the keypoints require training data**; SAM is
 zero-shot.
 
 ```bash
-python scripts/build_dlc_dataset.py --out dlc      # sidecars → DLC format
-python scripts/train_dlc.py --epochs 300           # train + per-keypoint eval
-python scripts/dlc_report.py --project dlc_project/jcalipr-*  # error in mm
+python scripts/build_dlc_dataset.py --out dlc --scale 0.15   # sidecars → DLC
+python scripts/train_dlc.py --epochs 300 --batch-size 2      # train + evaluate
+python scripts/dlc_report.py --project dlc_project/jcalipr-* # error in mm
 ```
 
 The split is stratified by strain, and absent landmarks are written as NaN
 rather than a placeholder, so a clipped snout never teaches the model to predict
 the frame edge.
+
+**Use the `--scale` and `--batch-size` above.** The defaults (0.25 / 8) exhaust
+memory on a 16 GB machine once the crops carry the lateral margin: training
+wedges at epoch 3 with the process in uninterruptible disk wait and swap
+effectively full. At 0.15 scale the frames are 585–885 px and 300 epochs take
+~25 min on Apple MPS. Retrain at 0.25 when memory allows — the smaller frames
+put a floor on precision, so there is probably headroom below the current
+result.
+
+### Current model
+
+37 train / 9 held-out. **Median held-out error 1.40 mm**, down from 3.88 mm on a
+28-image pilot; the train/test gap closed from 4.6× to 0.8×, so the earlier
+overfitting is resolved. That median is parity with the manual pipeline's own
+caliper agreement (~1.4 mm), but it is not uniform — only `eye_anterior` is
+under 1 mm, and `peduncle_narrowest_ventral` (2.60 mm),
+`peduncle_narrowest_dorsal` (2.31 mm) and `pelvic_tip` (2.26 mm) are not yet
+usable. The peduncle pair matters most: it defines reference line A, so its
+error propagates into Bs, CFs, CFd, MBd, Eh, Mo, PFi and PFb, and it directly
+measures CPd.
+
+For the polygons, `scripts/eval_sam_polygons.py` benchmarks zero-shot SAM
+against the hand-traced outlines. Prompted by keypoints, SAM reaches **1.5%
+area error on `body_plus_caudal`** — good enough to retire the most tedious
+polygon — but fins need box prompts and still sit at 18–49%.
 
 ## Layout
 
