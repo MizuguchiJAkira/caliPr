@@ -120,11 +120,25 @@ class Handler(BaseHTTPRequestHandler):
             fid = m.group(1) if m else path.stem
             fname = path.name.replace("_L.", "_F.")
             sidecar = self.out_dir / f"{fid}.json"
+            # Report lateral and frontal completion separately — a saved
+            # sidecar says nothing about whether mouth width was collected.
+            lat_done = fro_done = False
+            if sidecar.is_file():
+                try:
+                    data = json.loads(sidecar.read_text())
+                    lat = data.get("lateral") or {}
+                    lat_done = bool((lat.get("keypoints") or {}) or (lat.get("polygons") or {}))
+                    fkp = ((data.get("frontal") or {}).get("keypoints") or {})
+                    fro_done = "mouth_left" in fkp and "mouth_right" in fkp
+                except Exception:
+                    lat_done = True
             out.append({
                 "id": fid,
                 "lateral": path.name,
                 "frontal": fname if fname in fro else None,
                 "labeled": sidecar.is_file(),
+                "lateral_done": lat_done,
+                "frontal_done": fro_done,
             })
         return out
 

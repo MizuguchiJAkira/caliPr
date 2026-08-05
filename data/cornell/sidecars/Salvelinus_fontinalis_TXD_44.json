@@ -2,7 +2,8 @@
   "fish_id": "Salvelinus_fontinalis_TXD_44",
   "metadata": {
     "strain": "TXD",
-    "source": "hand-labeled"
+    "source": "hand-labeled",
+    "data_note": "lateral known_mm corrected 10->50 (1239px span is 50mm; 10 gave 123.9 px/mm vs batch 25.0, making SL 5x too small)"
   },
   "lateral": {
     "polygons": {
@@ -336,6 +337,30 @@
       "point_b": [
         1993,
         774
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        817,
+        1795
+      ],
+      "mouth_right": [
+        1032,
+        1795
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1513,
+        1149
+      ],
+      "point_b": [
+        1522,
+        1382
       ],
       "known_mm": 10
     }

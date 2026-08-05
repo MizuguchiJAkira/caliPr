@@ -2,7 +2,8 @@
   "fish_id": "Salvelinus_fontinalis_ASN_22",
   "metadata": {
     "strain": "ASN",
-    "source": "hand-labeled"
+    "source": "hand-labeled",
+    "data_note": "faulty frontal"
   },
   "lateral": {
     "polygons": {

@@ -93,6 +93,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--lateral-margin", type=int, default=0,
                    help="Extend the lateral crop this many px left of the split "
                         "(crops overlap; guards against clipping the snout).")
+    p.add_argument("--frontal-margin", type=int, default=0,
+                   help="Extend the frontal crop this many px right of the split "
+                        "(keeps the mirror head-shot when the split lands left).")
     p.add_argument("--genus", default="Salvelinus")
     p.add_argument("--species", default="fontinalis")  # corrects the source typo
     args = p.parse_args(argv)
@@ -142,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
                 species=args.species,
                 boundary_override=overrides.get(stem),
                 lateral_margin=args.lateral_margin,
+                frontal_margin=args.frontal_margin,
             )
             ok += 1
             per_strain[strain] = per_strain.get(strain, 0) + 1
