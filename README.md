@@ -209,29 +209,43 @@ mostly 130–160 mm specimens.
 ### Polygons: SAM
 
 `scripts/eval_sam_polygons.py` benchmarks zero-shot SAM against the hand-traced
-outlines; `scripts/eval_sam_zoom.py` adds cropping and negative-point prompts
-for the fins. Median area error over 46 specimens:
+outlines at full frame; `scripts/eval_sam_zoom.py` adds cropping and
+negative-point prompts. Median area error, **best prompt per polygon**, over
+45–46 specimens:
 
-| polygon | SAM | verdict |
-|---|---|---|
-| `body_plus_caudal` | **1.4%** | matches hand tracing |
-| anal | 11.1% | hand-trace |
-| pelvic | 22.0% | hand-trace |
-| dorsal | 22.6% | hand-trace |
-| pectoral | 26.1% | hand-trace |
+| polygon | SAM | how | verdict |
+|---|---|---|---|
+| `body_plus_caudal` | **1.4%** | full frame, point prompts | matches hand tracing |
+| anal | 11.1% | full frame | hand-trace |
+| pelvic | 16.7% | crop + negative points | hand-trace |
+| dorsal | 22.6% | full frame | hand-trace |
+| pectoral | 29.2% | crop + ventral negatives | hand-trace |
 
 The body outline is **52 of the 82 vertices** traced per fish, so SAM can take
-62% of the polygon work at hand-tracing accuracy.
+62% of the polygon work at hand-tracing accuracy. No fin comes close, and the
+gap is not a tuning problem — see below.
 
-The fins resist for a measurable reason: fin-to-surround contrast is 5.7
-intensity levels for the pectoral, 10.6 pelvic, 17.7 dorsal, 29.7 anal — and
-SAM's error tracks that almost monotonically. There is no edge to find. Two
-things that did help: cropping to the fin before segmenting (pectoral 238% →
-26%, since SAM resizes its input to 1024 px and the fin is otherwise a few
-pixels), and placing negative points only on the *ventral* side, because the
-pectoral sits dorsal to the belly margin and symmetric negatives clip its upper
-edge. CLAHE did not help — it amplifies styrofoam texture along with the
-boundary.
+**Cropping helps only the two small fins, and hurts the other two.** SAM resizes
+its input to 1024 px, so on a full 4400 px frame the pectoral is a handful of
+pixels; cropping to it takes the pectoral from 238% to 31% and the pelvic from
+27% to 17%. The dorsal and anal are large enough to survive the resize, and
+cropping tight around them *removes* the body context that tells SAM where the
+fin ends — dorsal degrades 23% → 45%, anal 11% → 18%. So the two strategies are
+not interchangeable, and the table above mixes them deliberately.
+
+**Negative points must go ventral for the pectoral, and only the pectoral.**
+Prompting a point on a fin makes SAM return object-level masks — often the whole
+fish — so negative points on the flank are what separate a part from its whole.
+Where they go matters: brook trout pectorals angle dorsally and never run along
+the belly margin, so a symmetric pair clips the fin's upper edge. Ventral-only
+negatives fix that (48% → 29%). For the other three fins the same change is a
+wash or worse (anal 18% → 27%), which is what you would expect — the asymmetry
+is a fact about pectoral geometry, not a general prompting trick.
+
+The residual is contrast. Fin-to-surround separation is 5.7 intensity levels for
+the pectoral, 10.6 pelvic, 17.7 dorsal, 29.7 anal, and SAM's full-frame error
+tracks that almost monotonically. There is no edge to find. CLAHE did not help —
+it amplifies styrofoam texture along with the boundary.
 
 Subtracting the body mask to isolate the dorsal and anal fins does **not** work,
 despite those fins sitting 96% outside the hand-traced body outline: SAM's mask
