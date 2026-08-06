@@ -117,22 +117,37 @@ Two routes, both producing px/mm:
 
 Two separate things degrade the fin traits, and they need untangling.
 
-**Tracing density.** A polygon's straight edges cut inside a curved margin, so a
-sparse outline always reads the fin *smaller* than it is. The body outline is
-traced with ~52 vertices and the fins with 7–9, which is not enough. Measured on
-the body, which is dense enough to serve as its own ground truth — subsample it
-to k of its own real vertices and the area falls by:
+**Tracing density.** A sparse outline is *imprecise*, and — this took a direct
+test to establish — not biased in a predictable direction. The body outline is
+traced with ~52 vertices and the fins were traced with 7–9, which is not enough.
+Subsampling the body outline (dense enough to be its own ground truth) down to k
+of its own real vertices loses area monotonically:
 
 | vertices kept | 5 | 7 | 9 | 12 | 16 | 24 |
 |---|---|---|---|---|---|---|
 | area error | −26% | −13% | −9% | −9% | −5% | −2% |
 
-Fins curve much harder per unit size, so those are a floor for them. It shows in
-the data directly: size-corrected fin area correlates with vertex count on every
-fin (pelvic *r* = +0.57), which should not happen if the tracings were measuring
-fins rather than clicking effort. `FIN_POLYGON_TARGET_VERTICES` is 16 for this
-reason; the labeler shows a live `n/16` counter per fin and the pipeline stamps
-a `data_note` on any specimen below it.
+That measures *subsampling an accurate dense trace*, though, which is not what a
+human does with 7 clicks — they place a few points and interpolate by eye, which
+can run generous as easily as tight. Re-tracing one fish (HRN_5) at 46–86
+vertices per fin and comparing to its own 7–11-vertex original:
+
+| fin | old → new vertices | area change |
+|---|---|---|
+| anal | 7 → 55 | **+27.1%** |
+| pelvic | 10 → 86 | +1.3% |
+| pectoral | 11 → 46 | −3.1% |
+| dorsal | 10 → 62 | **−7.8%** |
+
+So the sign varies. `FIN_POLYGON_TARGET_VERTICES` is 16 because errors of that
+size in *either* direction cannot be corrected after the fact, not because sparse
+tracing reads low. The labeler shows a live `n/16` counter per fin and the
+pipeline stamps a `data_note` on any specimen below it.
+
+(An earlier version of this section cited a positive correlation between vertex
+count and size-corrected fin area as evidence of a density bias. That is
+confounded: click count also tracks fin *size* — r = +0.49 dorsal, +0.43 pelvic —
+so a bigger fin gets both more clicks and more area without any bias at all.)
 
 **Preservation.** The larger term, and the one no amount of tracing precision
 fixes. Restricting to fins already traced at ≥8 vertices, size-corrected
@@ -259,6 +274,17 @@ the belly margin, so a symmetric pair clips the fin's upper edge. Ventral-only
 negatives fix that (48% → 29%). For the other three fins the same change is a
 wash or worse (anal 18% → 27%), which is what you would expect — the asymmetry
 is a fact about pectoral geometry, not a general prompting trick.
+
+**The fin figures above are measured against the sparse tracings, so treat them
+as provisional.** Re-tracing HRN_5 densely moved SAM's apparent error on that
+fish from 27.3% to **2.3%** on the anal — SAM had been right all along and the
+reference was wrong — while the dorsal went the other way, 16.2% to **35.4%**,
+because a loose hand outline had been partly cancelling SAM's habit of
+swallowing the specimen pin. Two errors were hiding each other. On the redone
+fish SAM sits at 1.7% pelvic, 2.3% anal, 15.3% pectoral, 35.4% dorsal, which is
+a much sharper picture than the table above: usable on the pelvic and anal,
+leaking at the pectoral base, and definitively broken on the dorsal. These
+numbers will be re-measured across all specimens once the re-tracing is done.
 
 The residual is contrast. Fin-to-surround separation is 5.7 intensity levels for
 the pectoral, 10.6 pelvic, 17.7 dorsal, 29.7 anal, and SAM's full-frame error
