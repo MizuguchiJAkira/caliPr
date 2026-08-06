@@ -213,6 +213,20 @@ POLYGONS: tuple[Polygon, ...] = (
 
 FIN_POLYGONS: tuple[str, ...] = ("pectoral", "dorsal", "pelvic", "anal")
 
+#: Each fin's ``(base, tip)`` keypoints, paired with its outline polygon.
+#:
+#: These three annotations describe one structure and are only consistent if
+#: placed together — the base and tip should sit *on* the outline, and the traits
+#: mix them freely (PFl runs base→tip while PFs is the polygon's area). Grouping
+#: them lets the labeler present one fin at a time instead of walking the whole
+#: keypoint list and then the whole polygon list separately.
+FIN_KEYPOINTS: dict[str, tuple[str, str]] = {
+    "pectoral": ("pectoral_insertion_upper", "pectoral_ray_tip"),
+    "dorsal": ("dorsal_base_center", "dorsal_tip"),
+    "pelvic": ("pelvic_base_center", "pelvic_tip"),
+    "anal": ("anal_base_center", "anal_tip"),
+}
+
 #: Vertices a fin outline needs before its area can be trusted.
 #:
 #: A polygon's straight edges cut *inside* a curved margin, so a sparse tracing
