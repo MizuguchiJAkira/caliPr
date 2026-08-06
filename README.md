@@ -412,14 +412,29 @@ are not, which is worth reading before re-attempting any of them.
 
 ## Status
 
-Manual mode (sidecar JSON in, Excel out) is production-ready and validated
-against calipers. 55 specimens are labeled (46 lateral, 35 frontal, 27 with
-both views) and mouth width is populated for the first time.
+**Manual mode is production-ready** — sidecar JSON in, Excel out, 33 traits
+covering all 22 photo-measurable columns of the lab's spreadsheet, validated
+against calipers at 1.39% mean absolute difference on the 35-specimen verified
+set. 46 specimens are labeled on the lateral view, 35 on the frontal.
 
-Auto mode is in training. A pilot on 28 images reached a 0.84 mm *training*
-error — better than the manual pipeline's own agreement with calipers — but
-3.88 mm on held-out fish, a gap that says the architecture works and data is
-the constraint. The labeled set is being built toward ~60–80.
+**The fin traces are being redone.** Every fin base, tip and outline was cleared
+and is being re-traced at a 16-vertex target, because the originals at 7–9
+vertices carried area errors of up to ±27% in an unpredictable direction. Five
+specimens are done. Until a specimen is redone, its twelve fin-derived traits
+export as blank with the reason attached rather than as a plausible wrong number.
+Nothing outside the fins is affected.
+
+**Auto mode is not ready.** The keypoint model reaches 0.92 mm median error on
+9 held-out specimens — the eye landmarks are good to 0.23–0.49 mm, the skeletal
+ones are usable, and `dorsal_tip` (2.55 mm) and `peduncle_narrowest_ventral`
+(2.00 mm) are not. The split is verified leak-free, but train error is 0.38 mm
+against test 0.92 mm, so 37 training fish is still the binding constraint rather
+than the architecture.
+
+For polygons, SAM segments `body_plus_caudal` to 0.7% median area error against a
+dense hand tracing — 52 of the 82 vertices per fish, and worth automating. It
+cannot do the fins: 8–35% median depending on which, with the sign changing
+between specimens. `predict_annotation()` remains a stub.
 
 ## Acknowledgements
 
