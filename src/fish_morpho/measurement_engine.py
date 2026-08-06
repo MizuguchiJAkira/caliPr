@@ -234,6 +234,26 @@ def _sutherland_hodgman(
     return out
 
 
+def clip_polygon_to_halfplane(
+    poly: list[Point], la: Point, lb: Point, inside: Point
+) -> list[Point]:
+    """Keep the part of ``poly`` lying on the same side of line (la, lb) as ``inside``.
+
+    Public wrapper over the Sutherland-Hodgman half-plane clip. The side is named
+    by a reference point rather than a +1/-1 sign, because callers encoding an
+    anatomical constraint know which side the structure is on ("the fin is on the
+    far side of the back from the body interior") and should not also have to
+    derive a sign convention from the winding of the clip line.
+
+    Returns ``[]`` if ``inside`` lies exactly on the line, which is degenerate --
+    the caller has not actually specified a side.
+    """
+    s = _side_of_line(inside, la, lb)
+    if s == 0:
+        return []
+    return _sutherland_hodgman(poly, la, lb, _sign(s))
+
+
 def _split_polygon_along_line_a(
     poly: list[Point], la: Point, lb: Point
 ) -> tuple[list[Point], list[Point]]:
