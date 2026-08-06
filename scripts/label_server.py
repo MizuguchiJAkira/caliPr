@@ -42,6 +42,7 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
+    FIN_KEYPOINTS,
     FIN_POLYGON_TARGET_VERTICES,
     FIN_POLYGONS,
     KEYPOINTS,
@@ -80,7 +81,31 @@ def build_schema() -> dict:
             if p.view == view
         ]
 
+    # Fin-retrace grouping: one fin's base keypoint, tip keypoint, and outline
+    # travel together. The labeler drives its retrace mode off this rather than
+    # hardcoding fin names, so adding a fin here is the only change needed.
+    kp_by_name = {k.name: k for k in KEYPOINTS}
+
+    def fin_groups():
+        groups = []
+        for name in FIN_POLYGONS:
+            base, tip = FIN_KEYPOINTS[name]
+            groups.append({
+                "fin": name,
+                "polygon": name,
+                "target": FIN_POLYGON_TARGET_VERTICES,
+                "keypoints": [
+                    {"name": n, "role": role,
+                     "description": kp_by_name[n].description,
+                     "hint": kp_by_name[n].labeling_hint}
+                    for n, role in ((base, "base"), (tip, "tip"))
+                    if n in kp_by_name
+                ],
+            })
+        return groups
+
     return {
+        "fin_groups": fin_groups(),
         "lateral": {
             "polygons": poly(View.LATERAL),
             "keypoints": kp(KEYPOINTS, View.LATERAL),
@@ -144,9 +169,17 @@ class Handler(BaseHTTPRequestHandler):
                     # Fins are tracked apart from "lateral labeled": a specimen
                     # can be fully landmarked and still have fin outlines too
                     # sparse to give a trustworthy area.
+                    # A fin is re-done only when its outline is dense enough AND
+                    # its base and tip are placed. The three describe one
+                    # structure and the traits mix them (PFl is base->tip, PFs is
+                    # the polygon), so a dense outline with a stale tip is not
+                    # finished work. Must match finState() in the labeler.
+                    kps = block.get("keypoints") or {}
                     traced = [n for n in FIN_POLYGONS if polys.get(n)]
                     fins_done = bool(traced) and all(
-                        len(polys[n]) >= FIN_POLYGON_TARGET_VERTICES for n in traced
+                        len(polys[n]) >= FIN_POLYGON_TARGET_VERTICES
+                        and all(k in kps for k in FIN_KEYPOINTS[n])
+                        for n in traced
                     )
                     fkp = ((data.get("frontal") or {}).get("keypoints") or {})
                     fro_done = "mouth_left" in fkp and "mouth_right" in fkp

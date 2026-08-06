@@ -3,6 +3,9 @@
 import pytest
 
 from fish_morpho.landmark_config import (
+    FIN_KEYPOINTS,
+    FIN_POLYGON_TARGET_VERTICES,
+    FIN_POLYGONS,
     CALIBRATION_KEYPOINTS,
     DERIVED_REFERENCE_LINES,
     KEYPOINTS,
@@ -313,3 +316,47 @@ def test_trait_labels_include_unit():
     assert labels["TL"].endswith("(mm)")
     assert labels["Bs"].endswith("(mm^2)")
     assert labels["EMa"].endswith("(deg)")
+
+
+# ---------------------------------------------------------------------------
+# Fin annotation grouping
+# ---------------------------------------------------------------------------
+
+
+def test_every_fin_polygon_is_a_real_polygon():
+    names = {p.name for p in POLYGONS}
+    assert set(FIN_POLYGONS) <= names
+    # body_plus_caudal is not a fin: it is traced densely and its area is trusted
+    assert "body_plus_caudal" not in FIN_POLYGONS
+
+
+def test_every_fin_has_a_base_and_tip_that_exist_as_keypoints():
+    kp_names = {k.name for k in KEYPOINTS}
+    assert set(FIN_KEYPOINTS) == set(FIN_POLYGONS)
+    for fin, pair in FIN_KEYPOINTS.items():
+        assert len(pair) == 2, fin
+        for name in pair:
+            assert name in kp_names, f"{fin}: {name} is not a keypoint"
+
+
+def test_fin_keypoints_are_not_shared_between_fins():
+    seen: set[str] = set()
+    for pair in FIN_KEYPOINTS.values():
+        for name in pair:
+            assert name not in seen, f"{name} claimed by two fins"
+            seen.add(name)
+
+
+def test_fin_vertex_target_is_where_the_measured_chord_loss_becomes_small():
+    # Subsampling the densely traced body outline loses 13% of the area at 7
+    # vertices and 5% at 16 (see FIN_POLYGON_TARGET_VERTICES). A target at or
+    # below the 9-vertex band would bake in a bias larger than the trait signal.
+    assert FIN_POLYGON_TARGET_VERTICES >= 12
+
+
+def test_every_fin_area_trait_depends_on_a_fin_polygon():
+    # If a fin-area trait stopped requiring its polygon, the density flag in the
+    # pipeline would no longer cover it.
+    for code in ("DFs", "PlFs", "AFs", "PFs"):
+        required = set(trait_by_code(code).required_polygons)
+        assert required & set(FIN_POLYGONS), code
