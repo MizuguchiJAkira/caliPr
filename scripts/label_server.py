@@ -333,6 +333,23 @@ def main(argv=None) -> int:
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"Labeling server: http://localhost:{args.port}/  "
           f"(images={Handler.images_dir}, out={Handler.out_dir})")
+
+    # The specimen list is built by globbing the image directories, and a missing
+    # or empty one globs to nothing -- so the UI would open to a blank list with
+    # no clue why. The photographs are not in the repository (they are large, and
+    # they are the museum's), so this is the normal state of a fresh clone.
+    n_lat = len(list((Handler.images_dir / "lateral").glob("*.JP*G"))) \
+        if (Handler.images_dir / "lateral").is_dir() else 0
+    if n_lat == 0:
+        print()
+        print(f"  WARNING: no lateral images under {Handler.images_dir}/lateral —")
+        print("  the specimen list will be empty. Photographs are not tracked in")
+        print("  git; produce the crops first, e.g.")
+        print("      python scripts/preprocess_jonah.py --raw-dir <raw photos> \\")
+        print(f"          --out-dir {Handler.images_dir} --lateral-margin 450")
+        print(f"  or point elsewhere with --images. "
+              f"{len(list(Handler.out_dir.glob('*.json')))} sidecars are present.")
+        print()
     srv.serve_forever()
     return 0
 

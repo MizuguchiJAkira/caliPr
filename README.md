@@ -93,7 +93,19 @@ CVAT round-trip.
 - **Contrast/brightness** sliders for faint fins against shadow (display only —
   never touches coordinates).
 - **Drafts autosave** to the browser and survive reload; **Save sidecar** writes
-  the file the pipeline reads.
+  the file the pipeline reads. A draft older than its sidecar on disk is
+  discarded, so an out-of-band edit cannot silently reappear as the old values.
+- **Fin retrace mode** walks one fin at a time — base, tip, outline — framed and
+  zoomed, hiding every other landmark so the specimen is actually visible (hold
+  `H` to reveal them). The specimen list becomes a worklist of fish whose fins are
+  not yet dense enough.
+
+The labeler and its reference assets are in the repository, but **the photographs
+are not** — they are large and they are the museum's. A fresh clone therefore
+opens to an empty specimen list until crops exist under
+`data/cornell/{lateral,frontal}/`; the server says so on startup. The 55 sidecars
+*are* tracked, so the annotations and everything computed from them travel with
+the repo.
 
 ## Calibration
 
