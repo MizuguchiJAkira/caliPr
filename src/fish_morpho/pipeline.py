@@ -84,7 +84,11 @@ from pathlib import Path
 from typing import Any
 
 from .export import ExportRecord, export_to_xlsx
-from .landmark_config import View
+from .landmark_config import (
+    FIN_POLYGON_TARGET_VERTICES,
+    FIN_POLYGONS,
+    View,
+)
 from .measurement_engine import (
     Annotation,
     MeasurementSet,
@@ -206,6 +210,24 @@ def _load_view_annotation(
     )
 
 
+def _sparse_fin_polygons(annotation: Annotation) -> dict[str, int]:
+    """Fin outlines traced with too few vertices, name -> vertex count."""
+    return {
+        name: len(annotation.polygons[name])
+        for name in FIN_POLYGONS
+        if name in annotation.polygons
+        and len(annotation.polygons[name]) < FIN_POLYGON_TARGET_VERTICES
+    }
+
+
+def _sparse_fin_note(sparse: dict[str, int]) -> str:
+    detail = ", ".join(f"{n}={c}" for n, c in sorted(sparse.items()))
+    return (
+        f"fin area biased low: {detail} vertices, under the "
+        f"{FIN_POLYGON_TARGET_VERTICES} needed for a reliable outline"
+    )
+
+
 def _calibration_from_block(
     block: dict[str, Any] | None,
     image_path: Path,
@@ -315,6 +337,16 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
 
     metadata = dict(spec.sidecar.get("metadata", {}))
     metadata.setdefault("image_filename", spec.image_path.name)
+
+    # Under-traced fins read small (see FIN_POLYGON_TARGET_VERTICES). The areas
+    # are still computed — the bias is systematic, not random, so the numbers
+    # stay comparable within a density band — but the QC sheet has to say which
+    # rows are affected, or a low fin area is indistinguishable from a small fin.
+    sparse = _sparse_fin_polygons(annotation)
+    if sparse:
+        metadata["data_note"] = "; ".join(
+            filter(None, [metadata.get("data_note"), _sparse_fin_note(sparse)])
+        )
 
     ms: MeasurementSet = compute_all(
         fish_id=spec.fish_id,
