@@ -47,6 +47,7 @@ sys.path.insert(0, str(_ROOT / "src"))
 
 from fish_morpho.landmark_config import (  # noqa: E402
     FIN_KEYPOINTS,
+    FIN_POLYGON_TARGET_VERTICES,
     TRAITS,
 )
 
@@ -100,6 +101,11 @@ def main(argv=None) -> int:
                     help="Comma-separated substrings; default is every sidecar.")
     ap.add_argument("--apply", action="store_true",
                     help="Actually write. Without it this only reports.")
+    ap.add_argument("--skip-done", action="store_true",
+                    help="Leave a fin alone if it has already been re-done: outline "
+                         "at or above the target vertex count AND both keypoints "
+                         "placed. Without this, a bulk wipe throws away completed "
+                         "re-tracing along with the stale work it is meant to clear.")
     ap.add_argument("--force", action="store_true",
                     help="Proceed even if the sidecars have uncommitted changes.")
     args = ap.parse_args(argv)
@@ -144,8 +150,15 @@ def main(argv=None) -> int:
         block = data.get("lateral") or {}
         kps = block.get("keypoints") or {}
         pg = block.get("polygons") or {}
-        gone = [n for n in sorted(names) if n in kps]
-        gone_polys = [n for n in sorted(polys) if n in pg]
+        skip: set[str] = set()
+        if args.skip_done:
+            for fin in fins:
+                base, tip = FIN_KEYPOINTS[fin]
+                if (len(pg.get(fin, [])) >= FIN_POLYGON_TARGET_VERTICES
+                        and base in kps and tip in kps):
+                    skip |= {fin, base, tip}
+        gone = [n for n in sorted(names) if n in kps and n not in skip]
+        gone_polys = [n for n in sorted(polys) if n in pg and n not in skip]
         if not gone and not gone_polys:
             continue
         total += len(gone) + len(gone_polys)
