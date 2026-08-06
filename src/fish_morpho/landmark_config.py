@@ -367,10 +367,15 @@ KEYPOINTS: tuple[Keypoint, ...] = (
     ),
     Keypoint(
         "dorsal_tip",
-        "Distal tip of the first dorsal fin (farthest from base). Used with "
+        "Distal tip (apex) of the first dorsal fin. Used with "
         "dorsal_base_center to compute dorsal fin height.",
         View.LATERAL,
-        "Click the outermost point of the dorsal fin margin.",
+        "Click the apex of the dorsal fin margin — the top of the tallest ray. "
+        "NOTE this is NOT the point farthest from dorsal_base_center: the "
+        "dorsal here is long and low (base 16-25 mm against a height of "
+        "3-11 mm), so a corner of the base sits farther from the centre than "
+        "the apex does. The anal and pelvic apexes ARE their farthest points; "
+        "the dorsal is the exception.",
     ),
     Keypoint(
         "pelvic_base_center",
