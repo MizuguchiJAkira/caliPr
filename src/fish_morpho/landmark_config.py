@@ -880,7 +880,7 @@ TRAITS: tuple[Trait, ...] = (
         view=View.LATERAL,
         source=TraitSource.EXTRAS,
         required_polygons=("pelvic",),
-        number=20,
+        number=21,
     ),
     Trait(
         code="AFh",
@@ -901,7 +901,48 @@ TRAITS: tuple[Trait, ...] = (
         view=View.LATERAL,
         source=TraitSource.EXTRAS,
         required_polygons=("anal",),
-        number=21,
+        number=22,
+    ),
+    Trait(
+        code="DFbl",
+        label="Dorsal Fin Base Length",
+        description="Distance from the anterior to the posterior margin of the "
+        "first dorsal fin base (reference sheet #7). Taken as the span of the "
+        "dorsal polygon's vertices that lie against the body outline, so it "
+        "needs no extra keypoint.",
+        unit=Unit.MM,
+        view=View.LATERAL,
+        source=TraitSource.EXTRAS,
+        required_polygons=("dorsal", "body_plus_caudal"),
+        number=7,
+    ),
+    Trait(
+        code="CFl",
+        label="Caudal Fin Length",
+        description="Horizontal distance from the caudal fin base (H) to the "
+        "posterior caudal tip (E) — equivalently TL minus SL. Requested by the "
+        "lab spreadsheet as 'caudal_length'; it has no reference-sheet number, "
+        "so it is filed after the sheet's last item (36).",
+        unit=Unit.MM,
+        view=View.LATERAL,
+        source=TraitSource.EXTRAS,
+        required_polygons=("body_plus_caudal",),
+        required_keypoints=("caudal_base",),
+        number=37,
+    ),
+    Trait(
+        code="CPl",
+        label="Caudal Peduncle Length",
+        description="Horizontal distance from the posterior end of the anal fin "
+        "base to the caudal fin base (reference sheet #17). The posterior end of "
+        "the anal base is taken as the anal polygon's posterior-most vertex "
+        "lying against the body outline.",
+        unit=Unit.MM,
+        view=View.LATERAL,
+        source=TraitSource.EXTRAS,
+        required_polygons=("anal", "body_plus_caudal"),
+        required_keypoints=("caudal_base",),
+        number=17,
     ),
     Trait(
         code="MW",

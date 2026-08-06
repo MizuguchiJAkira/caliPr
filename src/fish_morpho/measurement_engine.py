@@ -604,6 +604,56 @@ def _compute_AFs(ann: Annotation, cache: _RefCache) -> float:
     return shoelace_area(ann.polygons["anal"])
 
 
+def _base_vertices(fin: list[Point], body: list[Point]) -> list[Point]:
+    """Vertices of ``fin`` that lie against ``body`` — i.e. the fin's base.
+
+    A fin polygon is traced as a closed outline, so its attachment to the body
+    is not marked explicitly. But the base is by definition the part touching
+    the body outline, so the vertices nearest that outline identify it without
+    needing another keypoint. The threshold is relative to the fin's own
+    stand-off, which keeps it scale-free across specimen sizes.
+    """
+    import math as _m
+
+    def dist_to_outline(p: Point) -> float:
+        best = float("inf")
+        n = len(body)
+        for i in range(n):
+            a, b = body[i], body[(i + 1) % n]
+            vx, vy = b[0] - a[0], b[1] - a[1]
+            wx, wy = p[0] - a[0], p[1] - a[1]
+            L2 = vx * vx + vy * vy
+            t = 0.0 if L2 == 0 else max(0.0, min(1.0, (wx * vx + wy * vy) / L2))
+            best = min(best, _m.hypot(p[0] - (a[0] + t * vx), p[1] - (a[1] + t * vy)))
+        return best
+
+    ds = [dist_to_outline(p) for p in fin]
+    cutoff = max(ds) * 0.25
+    near = [p for p, d in zip(fin, ds) if d <= cutoff]
+    return near if len(near) >= 2 else fin
+
+
+def _compute_DFbl(ann: Annotation, cache: _RefCache) -> float:
+    # Dorsal fin base length: widest separation among the base vertices.
+    base = _base_vertices(ann.polygons["dorsal"], ann.polygons["body_plus_caudal"])
+    return max(_distance(a, b) for i, a in enumerate(base) for b in base[i + 1:]) \
+        if len(base) >= 2 else math.nan
+
+
+def _compute_CFl(ann: Annotation, cache: _RefCache) -> float:
+    # Caudal fin length: caudal base (H) to the posterior caudal tip (E).
+    return _caudal_tip_x(ann) - ann.keypoints["caudal_base"][0]
+
+
+def _compute_CPl(ann: Annotation, cache: _RefCache) -> float:
+    # Caudal peduncle length: posterior end of the anal fin base -> caudal base.
+    base = _base_vertices(ann.polygons["anal"], ann.polygons["body_plus_caudal"])
+    if not base:
+        return math.nan
+    posterior = max(base, key=lambda p: p[0])
+    return ann.keypoints["caudal_base"][0] - posterior[0]
+
+
 def _compute_MW(ann: Annotation, cache: _RefCache) -> float:
     # Mouth width: frontal-view mouth_left → mouth_right.
     return _distance(
@@ -643,6 +693,9 @@ TRAIT_COMPUTERS: dict[str, _TraitComputer] = {
     "PlFs": _compute_PlFs,
     "AFh": _compute_AFh,
     "AFs": _compute_AFs,
+    "DFbl": _compute_DFbl,
+    "CFl": _compute_CFl,
+    "CPl": _compute_CPl,
     "MW": _compute_MW,
 }
 

@@ -27,11 +27,19 @@ validation only — still valid for measurement and for training.
 
 ## What it measures
 
-22 traits from the MorFishJ schema (SL, MBd, Hl, Ed, CPd, PFl, …) plus 8
-Cornell extras (mouth width from the frontal mirror view, dorsal/pelvic/anal fin
-heights and areas, lower jaw length). All 30 land in one `Measurements` sheet
-with a parallel `QC` sheet carrying calibration provenance, missing landmarks,
-and any recorded data compromise.
+22 traits from the MorFishJ schema (SL, MBd, Hl, Ed, CPd, PFl, …) plus 11
+Cornell extras. All 33 land in one `Measurements` sheet with a parallel `QC`
+sheet carrying calibration provenance, missing landmarks, and any recorded data
+compromise.
+
+The lab's own spreadsheet is the requirements list, and the pipeline now covers
+**every one of its 22 photo-measurable columns**. Three of its columns are
+deliberately out of scope: `weight(g)` is a mass, and `body_width` /
+`caudal_peduncle_width` are lateral dimensions measured *across* the fish, which
+a lateral photograph cannot show. (That is also why those two columns cannot be
+used to validate body depth or peduncle depth — they measure a perpendicular
+axis.) `tests/test_landmark_config.py` pins the coverage so a column cannot be
+dropped silently.
 
 ## Pipeline
 
@@ -104,6 +112,21 @@ Two routes, both producing px/mm:
    one calibration error nothing downstream can catch (the wrong scale is
    self-consistent), so the labeler shows a live px/mm readout and warns when a
    specimen drifts from the batch median.
+
+## A caveat on the fin traits
+
+Size-corrected variability is far higher for fins than for the body: body area
+varies 5.4% between specimens, while dorsal fin area varies 72.8%, pelvic 51.6%,
+and dorsal fin height 60.4%. The same photographs and the same tracing give 5.4%
+on the body, so this is not annotation error — alcohol preservation dries the
+fins to the point that they cannot splay without fraying, and how far a fin
+extends depends largely on how that specimen dried and was pinned.
+
+Seven traits are affected (DFh, AFh, PlFl, DFs, PlFs, AFs, and to a lesser
+extent PFs). They are still computed, but they record preservation state as much
+as morphology, and no amount of tracing precision or model accuracy changes
+that. Some of the spread is genuine between-fish variation in fin size, which
+this data cannot fully separate.
 
 ## Data compromises
 
@@ -183,10 +206,36 @@ That single failure is a size-generalisation gap, not a bad photo: HRN_46 is the
 smallest fish in the set (SL 92 mm against a 138.6 mm median), and the model saw
 mostly 130–160 mm specimens.
 
-For the polygons, `scripts/eval_sam_polygons.py` benchmarks zero-shot SAM
-against the hand-traced outlines. Prompted by keypoints, SAM reaches **1.5%
-area error on `body_plus_caudal`** — good enough to retire the most tedious
-polygon — but fins need box prompts and still sit at 18–49%.
+### Polygons: SAM
+
+`scripts/eval_sam_polygons.py` benchmarks zero-shot SAM against the hand-traced
+outlines; `scripts/eval_sam_zoom.py` adds cropping and negative-point prompts
+for the fins. Median area error over 46 specimens:
+
+| polygon | SAM | verdict |
+|---|---|---|
+| `body_plus_caudal` | **1.4%** | matches hand tracing |
+| anal | 11.1% | hand-trace |
+| pelvic | 22.0% | hand-trace |
+| dorsal | 22.6% | hand-trace |
+| pectoral | 26.1% | hand-trace |
+
+The body outline is **52 of the 82 vertices** traced per fish, so SAM can take
+62% of the polygon work at hand-tracing accuracy.
+
+The fins resist for a measurable reason: fin-to-surround contrast is 5.7
+intensity levels for the pectoral, 10.6 pelvic, 17.7 dorsal, 29.7 anal — and
+SAM's error tracks that almost monotonically. There is no edge to find. Two
+things that did help: cropping to the fin before segmenting (pectoral 238% →
+26%, since SAM resizes its input to 1024 px and the fin is otherwise a few
+pixels), and placing negative points only on the *ventral* side, because the
+pectoral sits dorsal to the belly margin and symmetric negatives clip its upper
+edge. CLAHE did not help — it amplifies styrofoam texture along with the
+boundary.
+
+Subtracting the body mask to isolate the dorsal and anal fins does **not** work,
+despite those fins sitting 96% outside the hand-traced body outline: SAM's mask
+is the whole *animal* and already contains 55–70% of them.
 
 ## Layout
 
@@ -208,11 +257,13 @@ scripts/
   build_dlc_dataset.py    Sidecars → DeepLabCut project + stratified split.
   train_dlc.py            Train + evaluate the keypoint model.
   dlc_report.py           Per-landmark error in specimen millimetres.
+  eval_sam_polygons.py    Zero-shot SAM vs the hand-traced polygons.
+  eval_sam_zoom.py        SAM with cropping + negative prompts (fins).
   cvat_to_sidecar.py      CVAT XML 1.1 → sidecars (alternative to the labeler).
 
 data/cornell/sidecars/    Hand-labeled annotations (the valuable artifact).
 docs/                     Labeling guide + figures.
-tests/                    96 tests: geometry, calibration, schema, I/O.
+tests/                    98 tests: geometry, calibration, schema, I/O.
 ```
 
 ## Install
@@ -228,7 +279,7 @@ install it into its own environment rather than alongside the pipeline.
 ## Tests
 
 ```bash
-python -m pytest        # 96 passed
+python -m pytest        # 98 passed
 ```
 
 ## Status

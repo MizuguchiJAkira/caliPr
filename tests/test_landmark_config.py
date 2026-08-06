@@ -188,10 +188,48 @@ def test_user_reference_lines_reference_real_keypoints():
 
 
 def test_trait_counts():
-    """22 MorFishJ traits + 8 Cornell extras = 30 total."""
-    assert len(TRAITS) == 30
+    """22 MorFishJ traits + 11 Cornell extras = 33 total."""
+    assert len(TRAITS) == 33
     assert len(traits_by_source(TraitSource.MORFISHJ)) == 22
-    assert len(traits_by_source(TraitSource.EXTRAS)) == 8
+    assert len(traits_by_source(TraitSource.EXTRAS)) == 11
+
+
+def test_covers_every_photo_measurable_column_the_lab_asks_for():
+    """The lab's spreadsheet is the requirements list, so pin it down here.
+
+    Three of its columns are deliberately absent: weight is a mass, and
+    body_width / caudal_peduncle_width are lateral dimensions measured across
+    the fish, which a lateral photograph cannot show.
+    """
+    required = {
+        "sl(mm)": "SL", "body_depth": "MBd", "dorsal_lenght": "DFbl",
+        "dorsal_height": "DFh", "pectoral_length": "PFl",
+        "pelvic_length": "PlFl", "anal_height": "AFh",
+        "caudal_height": "CFd", "caudal_length": "CFl",
+        "peduncle_depth": "CPd", "peduncle_length": "CPl",
+        "dorsal_area": "DFs", "pectoral_area": "PFs", "pelvic_area": "PlFs",
+        "anal_area": "AFs", "caudal_area": "CFs", "eye_width": "Ed",
+        "lower_jaw_length": "LJl", "head_depth": "Hd", "head_length": "Hl",
+        "snout_length": "Snl", "mouth_width": "MW",
+    }
+    codes = {t.code for t in TRAITS}
+    missing = {col: code for col, code in required.items() if code not in codes}
+    assert not missing, f"spreadsheet columns with no trait: {missing}"
+
+
+def test_extras_reference_sheet_numbers_match_the_printed_sheet():
+    """Guards the off-by-one that had pelvic/anal areas shifted down by one.
+
+    Sheet items 18-23 are first dorsal, SECOND dorsal, pectoral, pelvic, anal,
+    caudal — brook trout have an adipose second dorsal, which an earlier
+    numbering omitted.
+    """
+    sheet = {"DFbl": 7, "DFh": 8, "PlFl": 12, "AFh": 13, "CPl": 17,
+             "DFs": 18, "PlFs": 21, "AFs": 22, "MW": 25, "LJl": 32}
+    for t in TRAITS:
+        if t.code in sheet:
+            assert t.number == sheet[t.code], (
+                f"{t.code} numbered {t.number}, sheet says {sheet[t.code]}")
 
 
 def test_all_trait_codes_unique():
