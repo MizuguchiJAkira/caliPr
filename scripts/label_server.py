@@ -51,6 +51,21 @@ from fish_morpho.landmark_config import (  # noqa: E402
 )
 
 UI_DIR = _ROOT / "scripts" / "labeling_ui"
+
+def _heldout_ids() -> set[str]:
+    """The DLC held-out specimens, if a split has been written.
+
+    These are worth re-tracing first: they are stratified across strains, and
+    because they are excluded from training, better labels there sharpen the
+    held-out evaluation immediately without a retrain.
+    """
+    try:
+        return set(json.loads((_ROOT / "dlc/split.json").read_text())["test"])
+    except Exception:
+        return set()
+
+
+HELDOUT = _heldout_ids()
 _ID_RE = re.compile(r"^(.*)_[LF]$")
 
 
@@ -199,6 +214,7 @@ class Handler(BaseHTTPRequestHandler):
                 "lateral_done": lat_done,
                 "frontal_done": fro_done,
                 "fins_done": fins_done,
+                "heldout": fid in HELDOUT,
             })
         return out
 
