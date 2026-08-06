@@ -30,6 +30,8 @@
     background:#2b3340; color:#59657a; }
   .mk.on { background:var(--good); color:#052; }
   .mk.f.on { background:#c07bff; color:#1a0033; }
+  .mk.v.on { background:var(--good); color:#052; }
+  .mk.v.thin { background:var(--warn); color:#2a1a00; }
   #progress .mk { margin-left:6px; margin-right:2px; }
   .spec .st { color:var(--mut); font-size:11px; }
   .spec.done .st { color:var(--good); }
@@ -50,6 +52,12 @@
   .task.set .dot { background:var(--good); }
   .task .nm { flex:1; }
   .task .kind { color:var(--mut); font-size:10px; text-transform:uppercase; }
+  /* vertex counter for fin outlines: amber until the outline is dense enough */
+  .task .cnt { font-size:10px; font-variant-numeric:tabular-nums; color:var(--mut);
+               background:#232a35; border-radius:3px; padding:1px 5px; flex:none; }
+  .task.thin .dot { background:var(--warn); }
+  .task.thin .cnt { color:#2a1a00; background:var(--warn); font-weight:600; }
+  .task.set .cnt { color:#052; background:var(--good); font-weight:600; }
   #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
     min-height:52px; font-size:12px; }
   #hint b { color:var(--fg); }
@@ -238,17 +246,24 @@ async function loadSpecs(){
   SPECS=await api('/api/specimens');
   const dl=SPECS.filter(s=>s.lateral_done).length;
   const df=SPECS.filter(s=>s.frontal_done).length;
+  const dv=SPECS.filter(s=>s.fins_done).length;
   $('#progress').innerHTML=`<span class="mk on">L</span>${dl}/${SPECS.length} `+
-                           `<span class="mk f on">F</span>${df}/${SPECS.length}`;
+                           `<span class="mk f on">F</span>${df}/${SPECS.length} `+
+                           `<span class="mk v on">V</span>${dv}/${dl}`;
   const w=$('#specWrap'); w.innerHTML='';
   SPECS.forEach(s=>{
     const d=document.createElement('div');
     d.className='spec'+(s.lateral_done?' done':'')+(cur&&cur.id===s.id?' active':'');
-    // two independent marks: L = lateral labeled, F = mouth width collected
+    // three independent marks: L = lateral labeled, F = mouth width collected,
+    // V = every traced fin is dense enough for its area to be trusted. V is
+    // separate from L because a fully landmarked fish can still have fins
+    // traced too sparsely — amber means "labeled, but the fins need points".
     const L=`<span class="mk ${s.lateral_done?'on':''}" title="lateral">L</span>`;
     const F=`<span class="mk f ${s.frontal_done?'on':''}" title="frontal / mouth width">F</span>`;
+    const V=`<span class="mk v ${s.fins_done?'on':(s.lateral_done?'thin':'')}" `+
+            `title="fin outlines dense enough for area">V</span>`;
     d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span>`+
-                `<span class="st">${L}${F}</span>`;
+                `<span class="st">${L}${F}${V}</span>`;
     d.onclick=()=>selectSpec(s);
     w.appendChild(d);
   });
@@ -323,13 +338,20 @@ function buildTasks(){
   const m=model[view];
   groups.forEach(([kind,items])=>{
     (items||[]).forEach(it=>{
-      const set = kind==='polygon' ? (m.polygons[it.name]&&m.polygons[it.name].length>=3)
+      // A fin outline isn't "done" at 3 vertices — straight edges cut inside a
+      // curved margin, so a sparse tracing reads the fin smaller than it is.
+      // Show the count against the target and only call it set once it's there.
+      const n = kind==='polygon' ? ((m.polygons[it.name]||[]).length) : 0;
+      const target = (kind==='polygon' && it.target) ? it.target : 0;
+      const set = kind==='polygon' ? (n >= Math.max(3, target))
                 : kind==='ruler'   ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
                 : !!m.keypoints[it.name];
       const el=document.createElement('div');
-      el.className='task'+(set?' set':'')+(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
-      el.innerHTML=`<span class="dot"></span><span class="nm">${it.name}</span><span class="kind">${kind[0]}</span>`;
-      el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description};
+      el.className='task'+(set?' set':'')+(target&&n&&n<target?' thin':'')
+        +(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
+      const count = target ? `<span class="cnt">${n}/${target}</span>` : '';
+      el.innerHTML=`<span class="dot"></span><span class="nm">${it.name}</span>${count}<span class="kind">${kind[0]}</span>`;
+      el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description,target:it.target||0};
         showHint(); buildTasks();};
       box.appendChild(el);
     });
@@ -339,8 +361,14 @@ function showHint(){
   if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
     '<kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan';return;}
   const t=activeTask;
+  const n=(model[view].polygons[t.name]||[]).length;
+  const dens = (t.kind==='polygon' && t.target)
+    ? ` &nbsp;<b style="color:${n>=t.target?'var(--good)':'var(--warn)'}">${n}/${t.target} vertices</b>` +
+      (n<t.target ? ' — a sparse outline cuts corners off the margin and reads the fin smaller than it is' : '')
+    : '';
   $('#hint').innerHTML=`<b>${t.name}</b> — ${t.hint||t.desc||''}` +
-    (t.kind==='polygon'?' &nbsp;(trace vertices; <kbd>Enter</kbd>=finish. On a finished outline: click the line to insert a vertex, drag any vertex to move.)':'');
+    (t.kind==='polygon'?' &nbsp;(trace vertices; <kbd>Enter</kbd>=finish. On a finished outline: click the line to insert a vertex, drag any vertex to move.)':'')
+    + dens;
   drawRef();
 }
 
@@ -401,7 +429,7 @@ function place(ix,iy){
     const e = arr.length>=3 ? findEdgeAt(ix,iy,t.name) : null;
     if(e){ arr.splice(e.index,0,pt); toast('Inserted vertex — drag to adjust'); }  // click on outline
     else arr.push(pt); }                                                            // extend the trace
-  persistDraft(); buildTasks(); draw(); updateCalRead();
+  persistDraft(); buildTasks(); showHint(); draw(); updateCalRead();
 }
 function warnOverlap(name,pt){
   const m=model[view];
@@ -422,7 +450,7 @@ function undo(){
     else toast(t.name+' isn’t placed'); }
   else if(t.kind==='ruler'){ const k=t.name==='ruler_point_a'?'a':'b';
     if(m.ruler[k]){ m.ruler[k]=undefined; toast('Cleared '+t.name); } else toast(t.name+' isn’t placed'); }
-  hoverName=null; persistDraft(); buildTasks(); draw();
+  hoverName=null; persistDraft(); buildTasks(); showHint(); draw();
 }
 function pickByName(kind,name){const it=(SCHEMA[view][kind==='ruler'?'ruler':kind+'s']||[]).find(x=>x.name===name);
   if(it){activeTask={kind,name,hint:it.hint,desc:it.description};showHint();buildTasks();}}

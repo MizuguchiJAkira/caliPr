@@ -115,18 +115,36 @@ Two routes, both producing px/mm:
 
 ## A caveat on the fin traits
 
-Size-corrected variability is far higher for fins than for the body: body area
-varies 5.4% between specimens, while dorsal fin area varies 72.8%, pelvic 51.6%,
-and dorsal fin height 60.4%. The same photographs and the same tracing give 5.4%
-on the body, so this is not annotation error — alcohol preservation dries the
-fins to the point that they cannot splay without fraying, and how far a fin
-extends depends largely on how that specimen dried and was pinned.
+Two separate things degrade the fin traits, and they need untangling.
+
+**Tracing density.** A polygon's straight edges cut inside a curved margin, so a
+sparse outline always reads the fin *smaller* than it is. The body outline is
+traced with ~52 vertices and the fins with 7–9, which is not enough. Measured on
+the body, which is dense enough to serve as its own ground truth — subsample it
+to k of its own real vertices and the area falls by:
+
+| vertices kept | 5 | 7 | 9 | 12 | 16 | 24 |
+|---|---|---|---|---|---|---|
+| area error | −26% | −13% | −9% | −9% | −5% | −2% |
+
+Fins curve much harder per unit size, so those are a floor for them. It shows in
+the data directly: size-corrected fin area correlates with vertex count on every
+fin (pelvic *r* = +0.57), which should not happen if the tracings were measuring
+fins rather than clicking effort. `FIN_POLYGON_TARGET_VERTICES` is 16 for this
+reason; the labeler shows a live `n/16` counter per fin and the pipeline stamps
+a `data_note` on any specimen below it.
+
+**Preservation.** The larger term, and the one no amount of tracing precision
+fixes. Restricting to fins already traced at ≥8 vertices, size-corrected
+variability is still 60.1% for dorsal fin area and 42.7% for pelvic, against
+**5.4% for body area** on the same photographs and the same tracing. Alcohol
+preservation dries the fins to where they cannot splay without fraying, so how
+far a fin extends depends largely on how that specimen dried and was pinned.
 
 Seven traits are affected (DFh, AFh, PlFl, DFs, PlFs, AFs, and to a lesser
 extent PFs). They are still computed, but they record preservation state as much
-as morphology, and no amount of tracing precision or model accuracy changes
-that. Some of the spread is genuine between-fish variation in fin size, which
-this data cannot fully separate.
+as morphology. Some of the spread is genuine between-fish variation in fin size,
+which this data cannot fully separate.
 
 ## Data compromises
 
@@ -256,7 +274,7 @@ is the whole *animal* and already contains 55–70% of them.
 ```
 src/fish_morpho/
   landmark_config.py      Single source of truth: 5 polygons, 19 anatomical
-                          keypoints, 2 calibration keypoints, 30 traits.
+                          keypoints, 2 calibration keypoints, 33 traits.
   measurement_engine.py   Geometry: SL, polygon-area split at the peduncle,
                           distance traits, areas, angles.
   ruler_calibration.py    Manual span, mm-tick auto-scale, ruler detector.
