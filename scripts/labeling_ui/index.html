@@ -180,6 +180,7 @@ const $ = s => document.querySelector(s);
 const api = async (u,o) => (await fetch(u,o)).json();
 let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=null, imgFilter='none';
 let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
+let showAll=false;                  // hold H to reveal the hidden landmarks
 const finGroups = () => (SCHEMA && SCHEMA.fin_groups) || [];
 // A fin counts as re-done only when its outline is dense enough AND its base and
 // tip are placed — the three describe one structure and the traits mix them, so
@@ -484,7 +485,7 @@ function renderRetraceStatus(){
     return `<span class="fin ${st.done?'ok':'thin'}">${g.fin} ${st.n}/${g.target}`+
            `${st.kp<g.keypoints.length?' ·kp':''}</span>`;}).join('');
   el.innerHTML=`${bits}<br><b>${wl}</b> specimens left · <kbd>F</kbd> next fin `+
-               `· <kbd>N</kbd> next specimen`;
+               `· <kbd>N</kbd> next specimen · hold <kbd>H</kbd> to show all`;
 }
 function showHint(){
   if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
@@ -515,9 +516,18 @@ function draw(){
   if(imgW){ ctx.imageSmoothingEnabled=false; ctx.filter=imgFilter;
     ctx.drawImage(img, vs.ox, vs.oy, imgW*vs.scale, imgH*vs.scale); ctx.filter='none'; }
   const m=model?model[view]:null; if(m){
+    // In retrace mode only the fin being worked on is drawn. body_plus_caudal is
+    // 52-86 vertices running the length of the fish and it buries the specimen;
+    // the other fins and the ruler are just as unhelpful when the view is zoomed
+    // into one fin. Hold H to bring everything back when context is wanted.
+    const only = (retrace && view==='lateral' && !showAll && activeTask)
+      ? finOf(activeTask.name) : null;
+    const visiblePoly = nm => !only || nm===only.polygon;
+    const visibleKp   = nm => !only || only.keypoints.some(k=>k.name===nm);
+
     // polygons
     for(const [nm,verts] of Object.entries(m.polygons)){
-      if(!verts||!verts.length) continue;
+      if(!verts||!verts.length||!visiblePoly(nm)) continue;
       ctx.beginPath();
       verts.forEach((p,i)=>{const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
       const active=activeTask&&activeTask.kind==='polygon'&&activeTask.name===nm;
@@ -531,14 +541,16 @@ function draw(){
     // keypoints — only label the ACTIVE landmark or the one under the cursor,
     // so placed labels don't pile up and obscure the fish.
     const kpc=getComputedStyle(document.documentElement).getPropertyValue('--kp');
-    for(const [nm,p] of Object.entries(m.keypoints)){ dot(p,kpc,3.5);
+    for(const [nm,p] of Object.entries(m.keypoints)){
+      if(!visibleKp(nm)) continue;
+      dot(p,kpc,3.5);
       if(nm===(activeTask&&activeTask.name) || nm===hoverName) label(p,nm); }
     // ruler
-    if(m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
+    if(!only && m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
       ctx.strokeStyle='#c07bff';ctx.lineWidth=1.5;ctx.stroke(); }
-    if(m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
-    if(m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
+    if(!only && m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
+    if(!only && m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
   }
   $('#hud').textContent=`${cur?cur.id.replace('Salvelinus_fontinalis_',''):'—'} · ${view} · ${(vs.scale*100|0)}%`;
 }
@@ -659,14 +671,20 @@ function nextSpecimen(){
 // over polygon vertices so you can grab a landmark that sits on the outline.
 function findPointAt(mx,my,thresh=12){
   const m=model?model[view]:null; if(!m) return null;
+  const only=(retrace && view==='lateral' && !showAll && activeTask)?finOf(activeTask.name):null;
+  const hidden=nm=>only && nm!==only.polygon && !only.keypoints.some(k=>k.name===nm);
   let best=null, bd=thresh;
-  for(const [nm,p] of Object.entries(m.keypoints)){ const [sx,sy]=toScr(p[0],p[1]);
+  for(const [nm,p] of Object.entries(m.keypoints)){
+    if(hidden(nm)) continue;
+    const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'keypoint',name:nm};} }
-  for(const k of ['a','b']){ const p=m.ruler[k]; if(!p)continue; const [sx,sy]=toScr(p[0],p[1]);
+  for(const k of ['a','b']){ const p=m.ruler[k]; if(!p||only)continue; const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'ruler',key:k};} }
   if(best) return best;
   bd=thresh;
-  for(const [nm,verts] of Object.entries(m.polygons)){ verts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1]);
+  for(const [nm,verts] of Object.entries(m.polygons)){
+    if(hidden(nm)) continue;                       // never grab an invisible vertex
+    verts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'polyvtx',name:nm,index:i};} }); }
   return best;
 }
@@ -729,7 +747,11 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}}
   if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undo(); }
   if(retrace && (e.key==='f'||e.key==='F')){ e.preventDefault(); nextFin(); }
+  if(retrace && (e.key==='h'||e.key==='H') && !showAll){ showAll=true; draw(); }
   if(retrace && (e.key==='n'||e.key==='N')){ e.preventDefault(); nextSpecimen(); }
+});
+window.addEventListener('keyup',e=>{
+  if(showAll && (e.key==='h'||e.key==='H')){ showAll=false; draw(); }
 });
 $('#undo').onclick=undo;
 $('#finish').onclick=()=>{advance();buildTasks();draw();};
