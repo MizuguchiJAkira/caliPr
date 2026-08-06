@@ -20,9 +20,9 @@ Measurement fixes over the first attempt: the crop is kept inside the frame
 *before* the scale is derived, and any specimen whose ground truth rasterises
 empty is skipped rather than dividing by ~zero (that produced the 4e16% figures).
 
-Usage::
+Usage — needs the torch env, not the pipeline's `.venv`::
 
-    python scripts/eval_sam_zoom.py --limit 15 --dump /tmp/zoom
+    .venv-train/bin/python scripts/eval_sam_zoom.py --limit 15 --dump /tmp/zoom
 """
 
 from __future__ import annotations
