@@ -32,6 +32,7 @@
   .mk.f.on { background:#c07bff; color:#1a0033; }
   .mk.v.on { background:var(--good); color:#052; }
   .mk.v.thin { background:var(--warn); color:#2a1a00; }
+  .mk.h.on { background:var(--accent); color:#04121f; }
   #progress .mk { margin-left:6px; margin-right:2px; }
   .spec .st { color:var(--mut); font-size:11px; }
   .spec.done .st { color:var(--good); }
@@ -298,9 +299,12 @@ async function loadSpecs(){
   // In retrace mode the list IS the worklist: only fish that are landmarked but
   // whose fins are not yet re-done. The one in hand stays visible so it does not
   // vanish from under the cursor the moment its last fin hits target.
-  const shown = retrace
+  let shown = retrace
     ? SPECS.filter(s=>(s.lateral_done&&!s.fins_done)||(cur&&s.id===cur.id))
     : SPECS;
+  // Held-out fish first: they are stratified across strains and they are what
+  // measures model accuracy, so re-tracing them pays twice.
+  if(retrace) shown = [...shown].sort((a,b)=>(b.heldout?1:0)-(a.heldout?1:0));
   shown.forEach(s=>{
     const d=document.createElement('div');
     d.className='spec'+(s.lateral_done?' done':'')+(cur&&cur.id===s.id?' active':'');
@@ -312,8 +316,9 @@ async function loadSpecs(){
     const F=`<span class="mk f ${s.frontal_done?'on':''}" title="frontal / mouth width">F</span>`;
     const V=`<span class="mk v ${s.fins_done?'on':(s.lateral_done?'thin':'')}" `+
             `title="fin outlines dense enough for area">V</span>`;
+    const H=s.heldout?`<span class="mk h on" title="DLC held-out — re-trace these first">H</span>`:'';
     d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span>`+
-                `<span class="st">${L}${F}${V}</span>`;
+                `<span class="st">${H}${L}${F}${V}</span>`;
     d.onclick=()=>selectSpec(s);
     w.appendChild(d);
   });
