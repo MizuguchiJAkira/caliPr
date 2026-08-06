@@ -299,6 +299,9 @@ reason: **hand-trace all four fins, and let SAM take `body_plus_caudal` only.**
 That one holds up under a sharper reference — 0.7% median, 3.2% worst — and it is
 still 52 of the 82 vertices per fish.
 
+`docs/what-we-tried.md` records every approach tried on the fins, including the
+ones that failed and why.
+
 The residual is contrast. Fin-to-surround separation is 5.7 intensity levels for
 the pectoral, 10.6 pelvic, 17.7 dorsal, 29.7 anal, and SAM's full-frame error
 tracks that almost monotonically. There is no edge to find. CLAHE did not help —
@@ -352,6 +355,60 @@ install it into its own environment rather than alongside the pipeline.
 ```bash
 python -m pytest        # 98 passed
 ```
+
+## Future work
+
+Ordered by what blocks what. `docs/what-we-tried.md` records the fixes and dead
+ends behind these — including several approaches that look obviously correct and
+are not, which is worth reading before re-attempting any of them.
+
+**Blocking the next model**
+
+1. **Re-trace the fins on the remaining 41 specimens** — all four fins, bases,
+   tips and outlines, at the 16-vertex target. Five are done. SAM cannot take any
+   of them (see the table above), so this is hand work. The labeler's retrace mode
+   and its worklist exist for exactly this.
+2. **Rebuild the DLC dataset and retrain** once that lands. The fin tips are the
+   model's weakest landmarks (`dorsal_tip` 2.55 mm, `pelvic_tip` 0.77 mm median
+   with a 7.95 mm tail), and they are weak partly because the labels were. Expect
+   the train/test gap (currently 2.4×) to close as much from more data as from
+   better tips — 46 labeled of 131 preprocessed.
+3. **Rename the DLC `SCORER` / `PROJECT` constants** from `jcalipr`. Deferred
+   because it forces a dataset rebuild and retrain; do it as part of step 2, not
+   separately.
+
+**Needs someone else's answer**
+
+4. **Confirm the `CPl` definition.** Sheet #17 gives none, so the implementation
+   (posterior end of the anal fin base → `caudal_base`) is an interpretation. It
+   should be checked against how it was measured by hand before the numbers are
+   used.
+5. **Ask the lab about TXD spreadsheet rows 42, 44, 46–50.** Those rows do not
+   describe those photographs — SL expressed in ruler spans, which needs no mm
+   assumption and no endpoint choice, gives TXD_46 = 156 mm against a recorded
+   117.87. Tracked in `data/validation/caliper_exclusions.json` and excluded from
+   validation only; the measurements themselves are sound.
+6. **Decide on the 11 MorFishJ traits the spreadsheet does not request** (TL, Bs,
+   AO, POC, Eh, Mo, Jl, EMd, EMa, PFi, PFb). They are computed and exported today.
+   Keeping them is free; the question is whether they are wanted.
+7. **Get depth-dimension caliper measurements.** Validation currently rests on SL
+   alone. The spreadsheet's `body_width` and `caudal_peduncle_width` are measured
+   *across* the fish, so they cannot check body depth or peduncle depth.
+
+**Open work**
+
+8. **Auto mode is a stub.** `predict_annotation()` needs wiring: DLC for
+   keypoints, SAM for `body_plus_caudal` only, anatomical constraints applied,
+   low-confidence points demoted to missing landmarks rather than trusted.
+9. **The pectoral and dorsal remain unsolved for automation** — 18% and 35% median
+   area error, and the constraints only bring the dorsal to ~22%. The residual is
+   contrast (5.7 intensity levels at the pectoral), so it likely needs a different
+   imaging or annotation approach rather than a better prompt.
+10. **Re-fit the anatomical allowances** once more specimens are densely re-traced.
+    They are currently fitted against a distribution dominated by sparse outlines.
+11. **ASN_31 has an empty sidecar**; 13 specimens have frontal crops under 700 px
+    (boundary too far left) and cannot be used for mouth width.
+12. **ASN_30's dorsal** has a single spike vertex worth an eye.
 
 ## Status
 
