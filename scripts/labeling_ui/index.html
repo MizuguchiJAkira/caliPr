@@ -59,7 +59,7 @@
   .task.thin .cnt { color:#2a1a00; background:var(--warn); font-weight:600; }
   .task.set .cnt { color:#052; background:var(--good); font-weight:600; }
   #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
-    min-height:52px; font-size:12px; }
+    min-height:52px; max-height:132px; overflow:auto; flex:none; font-size:12px; }
   #hint b { color:var(--fg); }
   #cal { display:flex; align-items:center; gap:6px; }
   #cal input { width:70px; background:#0e1218; border:1px solid var(--line); color:var(--fg);
@@ -73,6 +73,16 @@
   #imgctrl label { display:flex; align-items:center; gap:4px; flex:1; }
   #imgctrl input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
   #imgctrl button { padding:3px 7px; font-size:11px; }
+  #rtsec { padding:8px 14px; }
+  #rtstat { margin-top:6px; font-size:11px; color:var(--mut); line-height:1.5; }
+  #rtstat b { color:var(--fg); }
+  #rtstat .fin { display:inline-block; margin-right:8px; }
+  #rtstat .fin.ok { color:var(--good); }
+  #rtstat .fin.thin { color:var(--warn); }
+  body.retrace #rtoggle { background:var(--accent); border-color:var(--accent);
+                          color:#04121f; font-weight:600; }
+  .grouphdr { padding:6px 14px 2px; font-size:10px; text-transform:uppercase;
+              letter-spacing:.6px; color:var(--mut); }
   #dcsec { padding:8px 14px; }
   #clipflags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
   #clipflags button { padding:3px 7px; font-size:11px; }
@@ -124,6 +134,10 @@
         <button id="enhReset" title="reset image adjustments">reset</button>
       </div>
     </div>
+    <div class="sec" id="rtsec">
+      <button id="rtoggle" style="width:100%">✥ Fin retrace mode</button>
+      <div id="rtstat"></div>
+    </div>
     <div id="hint">Select a specimen to begin.</div>
     <div id="tasks"></div>
     <div class="sec" id="dcsec">
@@ -164,6 +178,18 @@
 const $ = s => document.querySelector(s);
 const api = async (u,o) => (await fetch(u,o)).json();
 let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=null, imgFilter='none';
+let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
+const finGroups = () => (SCHEMA && SCHEMA.fin_groups) || [];
+// A fin counts as re-done only when its outline is dense enough AND its base and
+// tip are placed — the three describe one structure and the traits mix them, so
+// a dense outline with a stale tip is not finished work.
+function finState(g){
+  const m=model?model.lateral:null; if(!m) return {n:0,kp:0,done:false};
+  const n=(m.polygons[g.polygon]||[]).length;
+  const kp=g.keypoints.filter(k=>m.keypoints[k.name]).length;
+  return {n, kp, done: n>=g.target && kp===g.keypoints.length};
+}
+const finsLeft = () => finGroups().filter(g=>!finState(g).done);
 let img=new Image(), imgW=0, imgH=0;
 let vs={scale:1, ox:0, oy:0};       // view transform (image px -> screen)
 // model[view] = {keypoints:{name:[x,y]}, polygons:{name:[[x,y]..]}, ruler:{a:[x,y],b:[x,y]}, known_mm}
@@ -234,12 +260,14 @@ function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){}
 
 async function boot(){
   SCHEMA=await api('/api/schema');
+  restoreRetrace();
   await loadSpecs();
   loadRef(); loadCalStats();
   resize();
   const last=localStorage.getItem('calipr_last');   // re-open where you left off
   if(last){ const s=SPECS.find(x=>x.id===last); if(s){ await selectSpec(s);
     if(loadDraft(last)) toast('Restored unsaved draft'); } }
+  if(retrace && model) nextFin();
   requestAnimationFrame(draw);
 }
 async function loadSpecs(){
@@ -251,7 +279,13 @@ async function loadSpecs(){
                            `<span class="mk f on">F</span>${df}/${SPECS.length} `+
                            `<span class="mk v on">V</span>${dv}/${dl}`;
   const w=$('#specWrap'); w.innerHTML='';
-  SPECS.forEach(s=>{
+  // In retrace mode the list IS the worklist: only fish that are landmarked but
+  // whose fins are not yet re-done. The one in hand stays visible so it does not
+  // vanish from under the cursor the moment its last fin hits target.
+  const shown = retrace
+    ? SPECS.filter(s=>(s.lateral_done&&!s.fins_done)||(cur&&s.id===cur.id))
+    : SPECS;
+  shown.forEach(s=>{
     const d=document.createElement('div');
     d.className='spec'+(s.lateral_done?' done':'')+(cur&&cur.id===s.id?' active':'');
     // three independent marks: L = lateral labeled, F = mouth width collected,
@@ -282,11 +316,15 @@ async function selectSpec(s){
       .filter(s=>s && !CLIP_FLAGS.some(fl=>fl.note===s))
       .join('; ');
   renderClipFlags();
-  setView('lateral');
-  await loadImage();
+  await setView('lateral');
   loadAutoCal();
   updateCalRead();
   loadSpecs();
+}
+function restoreRetrace(){
+  if(localStorage.getItem('calipr_retrace')){
+    retrace=true; document.body.classList.add('retrace');
+  }
 }
 function ingest(sc){
   for(const v of ['lateral','frontal']){
@@ -329,33 +367,91 @@ function setView(v){ view=v; $('#tabL').classList.toggle('on',v==='lateral');
   $('#tabF').classList.toggle('on',v==='frontal');
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
-  activeTask=null; loadImage(); }
+  activeTask=null; return loadImage(); }
 
 function buildTasks(){
   const box=$('#tasks'); box.innerHTML='';
   const sc=SCHEMA[view]; if(!sc){return;}
-  const groups=[['ruler',sc.ruler],['keypoint',sc.keypoints],['polygon',sc.polygons]];
   const m=model[view];
-  groups.forEach(([kind,items])=>{
-    (items||[]).forEach(it=>{
-      // A fin outline isn't "done" at 3 vertices — straight edges cut inside a
-      // curved margin, so a sparse tracing reads the fin smaller than it is.
-      // Show the count against the target and only call it set once it's there.
-      const n = kind==='polygon' ? ((m.polygons[it.name]||[]).length) : 0;
-      const target = (kind==='polygon' && it.target) ? it.target : 0;
-      const set = kind==='polygon' ? (n >= Math.max(3, target))
-                : kind==='ruler'   ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
-                : !!m.keypoints[it.name];
-      const el=document.createElement('div');
-      el.className='task'+(set?' set':'')+(target&&n&&n<target?' thin':'')
-        +(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
-      const count = target ? `<span class="cnt">${n}/${target}</span>` : '';
-      el.innerHTML=`<span class="dot"></span><span class="nm">${it.name}</span>${count}<span class="kind">${kind[0]}</span>`;
-      el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description,target:it.target||0};
-        showHint(); buildTasks();};
-      box.appendChild(el);
+
+  const mkTask=(kind,it,extra)=>{
+    const n = kind==='polygon' ? ((m.polygons[it.name]||[]).length) : 0;
+    const target = (kind==='polygon' && it.target) ? it.target : 0;
+    const set = kind==='polygon' ? (n >= Math.max(3, target))
+              : kind==='ruler'   ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
+              : !!m.keypoints[it.name];
+    const el=document.createElement('div');
+    el.className='task'+(set?' set':'')+(target&&n&&n<target?' thin':'')
+      +(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
+    const count = target ? `<span class="cnt">${n}/${target}</span>` : '';
+    el.innerHTML=`<span class="dot"></span><span class="nm">${extra||it.name}</span>`+
+                 `${count}<span class="kind">${kind[0]}</span>`;
+    el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description,
+                               target:it.target||0};
+      if(retrace) zoomToFin(finOf(it.name));
+      showHint(); buildTasks();};
+    box.appendChild(el);
+  };
+
+  // Retrace mode: walk fin by fin — base, tip, then the outline. Keeps the three
+  // annotations that describe one structure next to each other.
+  if(retrace && view==='lateral'){
+    const polyByName={}; (sc.polygons||[]).forEach(p=>polyByName[p.name]=p);
+    finGroups().forEach(g=>{
+      const st=finState(g);
+      const h=document.createElement('div');
+      h.className='grouphdr';
+      h.innerHTML=`${g.fin} <span style="color:${st.done?'var(--good)':'var(--warn)'}">`+
+                  `${st.done?'done':st.n+'/'+g.target+' pts, '+st.kp+'/2 kp'}</span>`;
+      box.appendChild(h);
+      g.keypoints.forEach(k=>mkTask('keypoint',k,`${k.name} (${k.role})`));
+      if(polyByName[g.polygon]) mkTask('polygon',polyByName[g.polygon],`${g.fin} outline`);
     });
-  });
+    renderRetraceStatus();
+    return;
+  }
+
+  [['ruler',sc.ruler],['keypoint',sc.keypoints],['polygon',sc.polygons]]
+    .forEach(([kind,items])=>(items||[]).forEach(it=>mkTask(kind,it)));
+  renderRetraceStatus();
+}
+// Which fin a task belongs to (null if it is not a fin annotation).
+function finOf(name){
+  const g=finGroups().find(g=>g.polygon===name||g.keypoints.some(k=>k.name===name));
+  return g||null;
+}
+// Frame the fin being worked on: zoom to its outline, or to its base/tip pair if
+// no outline exists yet. Dense clicking is impossible at whole-fish zoom.
+function zoomToFin(g){
+  if(!g||!imgW) return;
+  // Same guard as fit(): a hidden or not-yet-laid-out canvas measures 0x0, and
+  // dividing by that clamps the scale to the floor and wrecks the framing.
+  const rc=cv.getBoundingClientRect();
+  if(!rc.width||!rc.height){ requestAnimationFrame(()=>zoomToFin(g)); return; }
+  const m=model.lateral;
+  let pts=(m.polygons[g.polygon]||[]).slice();
+  g.keypoints.forEach(k=>{ if(m.keypoints[k.name]) pts.push(m.keypoints[k.name]); });
+  if(pts.length<2) return;                       // nothing placed yet — leave the view alone
+  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
+  const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
+  const pad=Math.max(0.35*Math.max(w,h), 60);
+  const r=cv.getBoundingClientRect();
+  const s=Math.min(r.width/(w+2*pad), r.height/(h+2*pad));
+  vs.scale=Math.max(0.02,Math.min(30,s));
+  vs.ox=r.width/2-((Math.min(...xs)+Math.max(...xs))/2)*vs.scale;
+  vs.oy=r.height/2-((Math.min(...ys)+Math.max(...ys))/2)*vs.scale;
+  draw();
+}
+function renderRetraceStatus(){
+  const el=$('#rtstat'); if(!el) return;
+  if(!retrace){ el.innerHTML=''; return; }
+  const wl=SPECS.filter(s=>s.lateral_done&&!s.fins_done).length;
+  if(!model){ el.innerHTML=`<b>${wl}</b> specimens need fin work.`; return; }
+  const bits=finGroups().map(g=>{const st=finState(g);
+    return `<span class="fin ${st.done?'ok':'thin'}">${g.fin} ${st.n}/${g.target}`+
+           `${st.kp<g.keypoints.length?' ·kp':''}</span>`;}).join('');
+  el.innerHTML=`${bits}<br><b>${wl}</b> specimens left · <kbd>F</kbd> next fin `+
+               `· <kbd>N</kbd> next specimen`;
 }
 function showHint(){
   if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
@@ -364,7 +460,7 @@ function showHint(){
   const n=(model[view].polygons[t.name]||[]).length;
   const dens = (t.kind==='polygon' && t.target)
     ? ` &nbsp;<b style="color:${n>=t.target?'var(--good)':'var(--warn)'}">${n}/${t.target} vertices</b>` +
-      (n<t.target ? ' — a sparse outline cuts corners off the margin and reads the fin smaller than it is' : '')
+      (n<t.target ? ' — sparse outlines read the fin small' : '')
     : '';
   $('#hint').innerHTML=`<b>${t.name}</b> — ${t.hint||t.desc||''}` +
     (t.kind==='polygon'?' &nbsp;(trace vertices; <kbd>Enter</kbd>=finish. On a finished outline: click the line to insert a vertex, drag any vertex to move.)':'')
@@ -463,6 +559,7 @@ function taskOrder(){
 // often skipped deliberately (obscured, damaged, not applicable), and jumping
 // back to them would fight the labeler instead of following the list.
 function advance(){
+  if(retrace && view==='lateral'){ advanceFin(); return; }
   const order=taskOrder();
   const i=order.findIndex(([kind,it]) =>
       activeTask && kind===activeTask.kind && it.name===activeTask.name);
@@ -471,6 +568,57 @@ function advance(){
   const [kind,it]=nxt;
   activeTask={kind,name:it.name,hint:it.hint,desc:it.description};
   showHint();
+}
+
+// Retrace order: base -> tip -> outline, then on to the next unfinished fin.
+// Stops rather than wrapping, so finishing the last fin is an explicit signal.
+function advanceFin(){
+  const seq=[];
+  finGroups().forEach(g=>{
+    g.keypoints.forEach(k=>seq.push({kind:'keypoint',name:k.name,hint:k.hint,
+                                     desc:k.description,target:0,g}));
+    const po=(SCHEMA.lateral.polygons||[]).find(p=>p.name===g.polygon);
+    if(po) seq.push({kind:'polygon',name:po.name,hint:po.hint,desc:po.description,
+                     target:po.target||0,g});
+  });
+  const i=seq.findIndex(t=>activeTask&&t.kind===activeTask.kind&&t.name===activeTask.name);
+  const next=seq.slice(i+1).find(t=>{
+    const st=finState(t.g);
+    if(t.kind==='keypoint') return !model.lateral.keypoints[t.name];
+    return st.n < t.target;
+  });
+  if(!next){
+    const left=finsLeft();
+    if(!left.length){ activeTask=null; showHint();
+      toast('All four fins re-done — save, then N for the next specimen'); return; }
+    // nothing unfinished after here, but earlier fins remain — jump back to one
+    const g=left[0];
+    const miss=g.keypoints.find(k=>!model.lateral.keypoints[k.name]);
+    const po=(SCHEMA.lateral.polygons||[]).find(p=>p.name===g.polygon);
+    activeTask=miss?{kind:'keypoint',name:miss.name,hint:miss.hint,desc:miss.description,target:0}
+                   :{kind:'polygon',name:po.name,hint:po.hint,desc:po.description,target:po.target||0};
+    zoomToFin(g); showHint(); return;
+  }
+  activeTask={kind:next.kind,name:next.name,hint:next.hint,desc:next.desc,target:next.target};
+  zoomToFin(next.g); showHint();
+}
+function nextFin(){
+  const curG=activeTask?finOf(activeTask.name):null;
+  const gs=finGroups();
+  const start=curG?gs.indexOf(curG)+1:0;
+  const order=[...gs.slice(start),...gs.slice(0,start)];
+  const g=order.find(g=>!finState(g).done)||order[0];
+  if(!g) return;
+  const miss=g.keypoints.find(k=>!model.lateral.keypoints[k.name]);
+  const po=(SCHEMA.lateral.polygons||[]).find(p=>p.name===g.polygon);
+  activeTask=miss?{kind:'keypoint',name:miss.name,hint:miss.hint,desc:miss.description,target:0}
+                 :{kind:'polygon',name:po.name,hint:po.hint,desc:po.description,target:po.target||0};
+  zoomToFin(g); showHint(); buildTasks();
+}
+function nextSpecimen(){
+  const wl=SPECS.filter(s=>s.lateral_done&&!s.fins_done&&(!cur||s.id!==cur.id));
+  if(!wl.length){ toast('No specimens left needing fin work'); return; }
+  selectSpec(wl[0]).then(()=>{ if(retrace) nextFin(); });
 }
 
 // ---- mouse / keyboard ----
@@ -547,6 +695,8 @@ window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}}
   if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undo(); }
+  if(retrace && (e.key==='f'||e.key==='F')){ e.preventDefault(); nextFin(); }
+  if(retrace && (e.key==='n'||e.key==='N')){ e.preventDefault(); nextSpecimen(); }
 });
 $('#undo').onclick=undo;
 $('#finish').onclick=()=>{advance();buildTasks();draw();};
@@ -555,6 +705,16 @@ $('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
   else if(activeTask.kind==='polygon')delete m.polygons[activeTask.name];
   else m.ruler[activeTask.name==='ruler_point_a'?'a':'b']=undefined; persistDraft();buildTasks();draw();};
 $('#fit').onclick=()=>{fit();draw();};
+$('#rtoggle').onclick=async()=>{
+  retrace=!retrace;
+  document.body.classList.toggle('retrace',retrace);
+  localStorage.setItem('calipr_retrace',retrace?'1':'');
+  if(retrace){
+    await setView('lateral');
+    if(model) nextFin(); else toast('Pick a specimen from the worklist');
+  } else { activeTask=null; showHint(); fit(); draw(); }
+  loadSpecs(); buildTasks();
+};
 $('#useauto').onclick=applyAutoCal;
 // Ruler auto-scale: measures px/mm from the ruler's mm ticks, so calibration
 // needs no clicked points and no typed span.
@@ -676,7 +836,16 @@ $('#save').onclick=async()=>{
     out[v]=blk;
   }
   const res=await api('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});
-  if(res.ok){clearDraft(cur.id); toast('Saved '+res.saved); loadSpecs();} else toast('Error: '+(res.error||'?'));
+  if(res.ok){
+    clearDraft(cur.id);
+    // Report what is still short rather than refusing the save: partial fin work
+    // is worth keeping, it just must not read as finished.
+    const short=finGroups().map(g=>({g,st:finState(g)})).filter(x=>!x.st.done);
+    toast(short.length
+      ? `Saved ${res.saved} — still short: `+short.map(x=>`${x.g.fin} ${x.st.n}/${x.g.target}`).join(', ')
+      : 'Saved '+res.saved+' — all four fins at target');
+    loadSpecs();
+  } else toast('Error: '+(res.error||'?'));
 };
 boot();
 </script>
