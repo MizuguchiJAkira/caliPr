@@ -1,0 +1,80 @@
+{
+  "fish_id": "BKT-2025-EXAMPLE",
+  "metadata": {
+    "locality": "Example Brook, Tompkins County NY",
+    "collection_date": "2025-07-14",
+    "collector": "Cornell MV"
+  },
+
+  "_comment": "Example sidecar for pipeline.py in --mode manual under the new MorFishJ-port schema. Pixel coordinates are placeholders — replace with real CVAT exports. Any missing polygon or keypoint will show up as a blank cell in the exported xlsx with the reason on the QC sheet, instead of a silently-wrong number. body_plus_caudal traces the outline from snout through the caudal fin tip and back, skipping over the dorsal/pectoral/pelvic/anal fin insertions (those get their own polygons). The five polygons + 19 lateral + 2 frontal keypoints here cover all 22 MorFishJ traits plus the 8 Cornell extras — see src/fish_morpho/landmark_config.py for the source of truth.",
+
+  "lateral": {
+    "polygons": {
+      "body_plus_caudal": [
+        [ 120, 345], [ 205, 300], [ 370, 290], [ 520, 280], [ 615, 285],
+        [ 620, 305], [ 780, 300], [ 885, 310], [ 950, 320],
+        [ 985, 330],
+        [1020, 310], [1080, 290], [1120, 300], [1110, 360],
+        [1120, 420], [1080, 430], [1020, 410],
+        [ 985, 400],
+        [ 950, 410], [ 885, 420], [ 810, 430], [ 635, 445],
+        [ 610, 440], [ 530, 440], [ 385, 410], [ 205, 372]
+      ],
+      "pectoral": [
+        [ 395, 370], [ 430, 395], [ 470, 430], [ 440, 445], [ 400, 420]
+      ],
+      "dorsal": [
+        [ 620, 285], [ 650, 250], [ 700, 220], [ 740, 260], [ 780, 290]
+      ],
+      "pelvic": [
+        [ 610, 440], [ 630, 470], [ 660, 500], [ 645, 485], [ 635, 445]
+      ],
+      "anal": [
+        [ 870, 430], [ 895, 460], [ 925, 485], [ 945, 460], [ 965, 430]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior":                  [ 190, 335],
+      "eye_posterior":                 [ 230, 335],
+      "eye_dorsal":                    [ 210, 320],
+      "eye_ventral":                   [ 210, 350],
+      "premaxilla_tip":                [ 120, 345],
+      "maxilla_mandible_intersection": [ 205, 372],
+      "lower_jaw_tip":                 [ 122, 360],
+      "operculum_posterior":           [ 380, 352],
+      "pectoral_insertion_upper":      [ 395, 370],
+      "pectoral_ray_tip":              [ 470, 430],
+      "peduncle_narrowest_dorsal":     [ 985, 330],
+      "peduncle_narrowest_ventral":    [ 985, 400],
+      "caudal_base":                   [ 985, 365],
+      "dorsal_base_center":            [ 700, 285],
+      "dorsal_tip":                    [ 700, 220],
+      "pelvic_base_center":            [ 623, 445],
+      "pelvic_tip":                    [ 660, 500],
+      "anal_base_center":              [ 918, 430],
+      "anal_tip":                      [ 925, 485]
+    },
+    "calibration": {
+      "mode": "manual",
+      "_comment": "Two points on the main ruler with a known mm distance.",
+      "point_a": [100, 1200],
+      "point_b": [1100, 1200],
+      "known_mm": 150.0
+    }
+  },
+
+  "frontal": {
+    "_comment": "Mirror view for mouth width. Omit this block entirely if mouth width wasn't photographed for a specimen — the MW trait will surface as a missing-input NaN on the QC sheet.",
+    "keypoints": {
+      "mouth_left":  [1420, 210],
+      "mouth_right": [1478, 208]
+    },
+    "calibration": {
+      "mode": "manual",
+      "_comment": "Two points on the small perpendicular mirror ruler.",
+      "point_a": [1400, 1150],
+      "point_b": [1460, 1150],
+      "known_mm": 10.0
+    }
+  }
+}
