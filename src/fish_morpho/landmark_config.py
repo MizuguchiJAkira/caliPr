@@ -211,6 +211,24 @@ POLYGONS: tuple[Polygon, ...] = (
     ),
 )
 
+FIN_POLYGONS: tuple[str, ...] = ("pectoral", "dorsal", "pelvic", "anal")
+
+#: Vertices a fin outline needs before its area can be trusted.
+#:
+#: A polygon's straight edges cut *inside* a curved margin, so a sparse tracing
+#: always under-reads the area. Measured on the body outline, which is traced
+#: densely enough (~52 vertices) to serve as its own ground truth: subsampling
+#: it to k of its own real vertices loses 26% of the area at k=5, 13% at k=7,
+#: 9% at k=9, 5% at k=16, 2% at k=24. Fins curve far harder per unit size, so
+#: those figures are a floor for them, not an estimate.
+#:
+#: 16 is where the body's loss falls to ~5%; below it the bias is large enough
+#: to move a fin-area trait more than the between-specimen signal does. It also
+#: shows up directly in the data — size-corrected fin area correlates with
+#: vertex count on every fin (pelvic r = +0.57), which it should not do if the
+#: tracings were dense enough to be measuring the fin rather than the clicking.
+FIN_POLYGON_TARGET_VERTICES = 16
+
 
 # ---------------------------------------------------------------------------
 # Keypoints

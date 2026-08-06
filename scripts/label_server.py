@@ -42,6 +42,8 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
+    FIN_POLYGON_TARGET_VERTICES,
+    FIN_POLYGONS,
     KEYPOINTS,
     POLYGONS,
     View,
@@ -62,8 +64,18 @@ def build_schema() -> dict:
         ]
 
     def poly(view):
+        # `target` drives the vertex counter in the labeler. Fin areas read low
+        # when the outline is sparse, so the UI has to show progress toward a
+        # usable density rather than just "3+ points, done".
         return [
-            {"name": p.name, "description": p.description, "hint": p.labeling_hint}
+            {
+                "name": p.name,
+                "description": p.description,
+                "hint": p.labeling_hint,
+                "target": (
+                    FIN_POLYGON_TARGET_VERTICES if p.name in FIN_POLYGONS else 0
+                ),
+            }
             for p in POLYGONS
             if p.view == view
         ]
@@ -122,12 +134,20 @@ class Handler(BaseHTTPRequestHandler):
             sidecar = self.out_dir / f"{fid}.json"
             # Report lateral and frontal completion separately — a saved
             # sidecar says nothing about whether mouth width was collected.
-            lat_done = fro_done = False
+            lat_done = fro_done = fins_done = False
             if sidecar.is_file():
                 try:
                     data = json.loads(sidecar.read_text())
-                    lat = data.get("lateral") or {}
-                    lat_done = bool((lat.get("keypoints") or {}) or (lat.get("polygons") or {}))
+                    block = data.get("lateral") or {}
+                    polys = block.get("polygons") or {}
+                    lat_done = bool((block.get("keypoints") or {}) or polys)
+                    # Fins are tracked apart from "lateral labeled": a specimen
+                    # can be fully landmarked and still have fin outlines too
+                    # sparse to give a trustworthy area.
+                    traced = [n for n in FIN_POLYGONS if polys.get(n)]
+                    fins_done = bool(traced) and all(
+                        len(polys[n]) >= FIN_POLYGON_TARGET_VERTICES for n in traced
+                    )
                     fkp = ((data.get("frontal") or {}).get("keypoints") or {})
                     fro_done = "mouth_left" in fkp and "mouth_right" in fkp
                 except Exception:
@@ -139,6 +159,7 @@ class Handler(BaseHTTPRequestHandler):
                 "labeled": sidecar.is_file(),
                 "lateral_done": lat_done,
                 "frontal_done": fro_done,
+                "fins_done": fins_done,
             })
         return out
 
