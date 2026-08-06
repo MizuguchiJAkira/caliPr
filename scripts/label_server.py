@@ -190,6 +190,12 @@ class Handler(BaseHTTPRequestHandler):
                 "lateral": path.name,
                 "frontal": fname if fname in fro else None,
                 "labeled": sidecar.is_file(),
+                # Epoch seconds of the committed sidecar. The labeler compares
+                # this against its localStorage draft's timestamp: a draft that
+                # predates the file on disk is stale and must not shadow it, or
+                # an out-of-band edit (a bulk keypoint wipe, a hand fix, a pull)
+                # silently reappears as the old values.
+                "mtime": sidecar.stat().st_mtime if sidecar.is_file() else 0,
                 "lateral_done": lat_done,
                 "frontal_done": fro_done,
                 "fins_done": fins_done,
