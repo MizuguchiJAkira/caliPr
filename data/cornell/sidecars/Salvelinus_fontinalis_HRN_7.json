@@ -419,10 +419,6 @@
         549,
         2404
       ],
-      "pectoral_ray_tip": [
-        1010,
-        2644
-      ],
       "peduncle_narrowest_dorsal": [
         2969,
         2167
@@ -439,25 +435,13 @@
         1714,
         2005
       ],
-      "dorsal_tip": [
-        1775,
-        1835
-      ],
       "pelvic_base_center": [
         1569,
         2697
       ],
-      "pelvic_tip": [
-        1804,
-        2554
-      ],
       "anal_base_center": [
         2473,
         2482
-      ],
-      "anal_tip": [
-        2753,
-        2537
       ]
     },
     "calibration": {

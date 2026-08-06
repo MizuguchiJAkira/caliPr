@@ -251,11 +251,27 @@ function syncCompromise(){
 })();
 const draftKey=id=>'calipr_draft_'+id;
 function persistDraft(){ if(!cur||!model)return; try{
+  model._draft_at = Date.now();
   localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
   localStorage.setItem('calipr_last', cur.id);
 }catch(e){} }
-function loadDraft(id){ try{ const s=localStorage.getItem(draftKey(id)); return s?JSON.parse(s):null; }
-  catch(e){ return null; } }
+// A draft older than the sidecar on disk is stale: the file changed outside this
+// browser (bulk edit, hand fix, git checkout) and the draft would silently
+// resurrect the old values. Drop it and say so rather than showing stale work.
+function loadDraft(id){
+  try{
+    const s=localStorage.getItem(draftKey(id)); if(!s) return null;
+    const d=JSON.parse(s);
+    const spec=SPECS.find(x=>x.id===id);
+    const fileMs=spec&&spec.mtime?spec.mtime*1000:0;
+    if(fileMs && (!d._draft_at || d._draft_at < fileMs)){
+      clearDraft(id);
+      toast('Sidecar changed on disk — discarded an older local draft');
+      return null;
+    }
+    return d;
+  }catch(e){ return null; }
+}
 function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){} }
 
 async function boot(){
