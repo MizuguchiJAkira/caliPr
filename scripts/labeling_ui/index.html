@@ -454,7 +454,9 @@ function zoomToFin(g){
   if(pts.length===1){
     const a=m.keypoints['premaxilla_tip'], b=m.keypoints['caudal_base'];
     const sl=(a&&b)?Math.hypot(b[0]-a[0],b[1]-a[1]):Math.max(imgW,imgH)*0.35;
-    const r=0.16*sl, [x,y]=pts[0];
+    // a brook trout fin runs ~0.10-0.15 SL, so 0.09 SL either side frames it
+    // at roughly 1.5x its own size — comparable to what an intact outline gives
+    const r=0.09*sl, [x,y]=pts[0];
     pts=[[x-r,y-r],[x+r,y+r]];
   }
   if(pts.length<2) return;                       // nothing placed at all
