@@ -447,7 +447,17 @@ function zoomToFin(g){
   const m=model.lateral;
   let pts=(m.polygons[g.polygon]||[]).slice();
   g.keypoints.forEach(k=>{ if(m.keypoints[k.name]) pts.push(m.keypoints[k.name]); });
-  if(pts.length<2) return;                       // nothing placed yet — leave the view alone
+  // A fin whose outline AND tip were both wiped leaves only the base point, and
+  // one point has no extent to frame. Rather than give up — which drops the user
+  // at whole-fish zoom on precisely the fins that need dense clicking — put a box
+  // around what is left, sized from the fish itself so it scales with the photo.
+  if(pts.length===1){
+    const a=m.keypoints['premaxilla_tip'], b=m.keypoints['caudal_base'];
+    const sl=(a&&b)?Math.hypot(b[0]-a[0],b[1]-a[1]):Math.max(imgW,imgH)*0.35;
+    const r=0.16*sl, [x,y]=pts[0];
+    pts=[[x-r,y-r],[x+r,y+r]];
+  }
+  if(pts.length<2) return;                       // nothing placed at all
   const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
   const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
   const pad=Math.max(0.35*Math.max(w,h), 60);
