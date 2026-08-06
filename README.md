@@ -275,16 +275,29 @@ negatives fix that (48% → 29%). For the other three fins the same change is a
 wash or worse (anal 18% → 27%), which is what you would expect — the asymmetry
 is a fact about pectoral geometry, not a general prompting trick.
 
-**The fin figures above are measured against the sparse tracings, so treat them
-as provisional.** Re-tracing HRN_5 densely moved SAM's apparent error on that
-fish from 27.3% to **2.3%** on the anal — SAM had been right all along and the
-reference was wrong — while the dorsal went the other way, 16.2% to **35.4%**,
-because a loose hand outline had been partly cancelling SAM's habit of
-swallowing the specimen pin. Two errors were hiding each other. On the redone
-fish SAM sits at 1.7% pelvic, 2.3% anal, 15.3% pectoral, 35.4% dorsal, which is
-a much sharper picture than the table above: usable on the pelvic and anal,
-leaking at the pectoral base, and definitively broken on the dorsal. These
-numbers will be re-measured across all specimens once the re-tracing is done.
+**Measured against dense re-tracings, SAM cannot do the fins.** The table above
+used the old sparse outlines as reference, so it was partly measuring our own
+tracing. Five specimens have now been re-traced at 38–86 vertices per fin; against
+those:
+
+| polygon | ASN_24 | ASN_27 | ASN_30 | HRN_42 | HRN_5 | median \|err\| |
+|---|---|---|---|---|---|---|
+| `body_plus_caudal` | +0.2% | +0.7% | +0.7% | +3.2% | −2.4% | **0.7%** |
+| anal | −3.7% | −9.9% | −18.9% | −8.4% | +2.3% | 8.4% |
+| pectoral | +23.9% | +40.5% | −8.4% | +18.2% | +15.3% | 18.2% |
+| pelvic | +39.8% | −20.8% | +52.0% | +12.1% | +1.7% | 20.8% |
+| dorsal | +3.0% | −67.1% | −59.7% | +12.8% | +35.4% | 35.4% |
+
+The first fish re-traced (HRN_5) gave 1.7% pelvic and 2.3% anal, which looked
+like SAM could take both fins and halve the remaining hand-tracing. It does not
+replicate: the other four give +40%, −21%, +52%, +12% on the pelvic. One specimen
+was not enough to see that, and the swing is not a bias that could be corrected —
+it changes sign between fish.
+
+So the recommendation is unchanged from the original benchmark, for a better
+reason: **hand-trace all four fins, and let SAM take `body_plus_caudal` only.**
+That one holds up under a sharper reference — 0.7% median, 3.2% worst — and it is
+still 52 of the 82 vertices per fish.
 
 The residual is contrast. Fin-to-surround separation is 5.7 intensity levels for
 the pectoral, 10.6 pelvic, 17.7 dorsal, 29.7 anal, and SAM's full-frame error
