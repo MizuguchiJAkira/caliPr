@@ -417,6 +417,7 @@ async function selectSpec(s){
   await setView('lateral');
   loadAutoCal();
   updateCalRead();
+  warnIfNoScale();
   loadSpecs();
 }
 function restoreRetrace(){
@@ -915,12 +916,28 @@ function applyAutoCal(){
 let calMedian=null;
 async function loadCalStats(){ try{ const s=await api('/api/calibstats'+dsq());
   calMedian=s.median_px_per_mm; }catch(e){} }
+// Announce a missing scale when the specimen is opened, not when the workbook is
+// exported weeks later. Named, so it is obvious which fish it refers to when
+// several are being worked through.
+function warnIfNoScale(){
+  if(!model||!cur) return;
+  const m=model.lateral;
+  const has = m.auto_ppm || (m.ruler.a && m.ruler.b && (m.known_mm>0 ||
+                             parseFloat($('#knownmm').value)>0));
+  if(!has) toast('No scale on '+cur.id.replace('Salvelinus_fontinalis_','')+
+                 ' — this specimen will measure in pixels');
+}
 function updateCalRead(){
   const el=$('#calread'); if(!el||!model) return;
   const m=model[view], km=parseFloat($('#knownmm').value);
   if(m.auto_ppm){ el.className='';
     el.textContent=`✓ auto-scale ${m.auto_ppm.toFixed(2)} px/mm (ruler ticks)`; return; }
-  if(!(m.ruler.a&&m.ruler.b)||!(km>0)){ el.className=''; el.textContent='ruler: place both points, or use auto-scale'; return; }
+  if(!(m.ruler.a&&m.ruler.b)||!(km>0)){
+    // Unmistakable, because a specimen saved without a scale exports in PIXELS
+    // and that is not visible from the numbers afterwards.
+    el.className='warn';
+    el.textContent='NO SCALE — measurements will be in pixels, not mm';
+    return; }
   const px=Math.hypot(m.ruler.b[0]-m.ruler.a[0], m.ruler.b[1]-m.ruler.a[1]);
   const ppm=px/km;
   let msg=`${px.toFixed(0)} px ÷ ${km} mm = ${ppm.toFixed(2)} px/mm`;
