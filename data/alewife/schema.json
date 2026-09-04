@@ -1,5 +1,8 @@
 {
-  "note": "Alewife: fin OUTLINES are not traced — the pelvic has almost no contrast against the flank and the anal frays badly. All fin keypoints ARE collected, including the base endpoints, which sit on the body at the fin junction and give fin base lengths (DFbl) and caudal peduncle length (CPl) without any outline.",
-  "exclude_polygons": ["pelvic", "anal"],
+  "note": "Alewife: pelvic and anal fin OUTLINES are not traced \u2014 no contrast on the pelvic, the anal frays. All fin keypoints ARE collected, including base endpoints, which give fin base lengths and caudal peduncle length without an outline.",
+  "exclude_polygons": [
+    "anal",
+    "pelvic"
+  ],
   "exclude_keypoints": []
 }

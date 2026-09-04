@@ -459,6 +459,7 @@ def run(
     output_path: Path,
     mode: str,
     model_config: Path | None,
+    drop_traits: tuple[str, ...] = (),
 ) -> Path:
     if mode == "manual":
         if labels_dir is None:
@@ -519,7 +520,10 @@ def run(
                 "This workbook MIXES mm and px rows. Do not compare a length "
                 "across rows without checking 'units'.")
 
-    return export_to_xlsx(records, output_path)
+    if drop_traits:
+        log.info("omitting %d trait column(s) the study does not collect: %s",
+                 len(drop_traits), ", ".join(sorted(drop_traits)))
+    return export_to_xlsx(records, output_path, drop_traits=drop_traits)
 
 
 def _build_parser() -> argparse.ArgumentParser:
