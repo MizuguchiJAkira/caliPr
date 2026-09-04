@@ -78,12 +78,16 @@ import argparse
 import json
 import logging
 import math
+import re
+import subprocess
 import sys
+from datetime import datetime
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from .export import ExportRecord, export_to_xlsx
+from .validation import summarise, validate
 from .landmark_config import (
     FIN_POLYGON_TARGET_VERTICES,
     FIN_POLYGONS,
@@ -102,6 +106,25 @@ from .ruler_calibration import (
 )
 
 log = logging.getLogger("fish_morpho.pipeline")
+
+_LOT_RE = re.compile(r"(?:CUMV[A-Za-z]*_(\d+))|_([A-Z]{2,4})_\d+$", re.IGNORECASE)
+
+
+def _lot_of(fish_id: str) -> str:
+    """Collection lot, used to compare a specimen's scale against its peers."""
+    m = _LOT_RE.search(fish_id)
+    return (m.group(1) or m.group(2) or "") if m else ""
+
+
+def _git_commit() -> str:
+    """Which version of caliPr produced this file. Provenance beats memory."""
+    try:
+        r = subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                           cwd=Path(__file__).resolve().parent.parent.parent,
+                           capture_output=True, text=True, timeout=5)
+        return r.stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -412,10 +435,21 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
     if frontal_calib is not None:
         calibs_for_export[View.FRONTAL.value] = frontal_calib
 
+    size = None
+    try:                                    # cheap: reads the header, not the pixels
+        from PIL import Image
+        with Image.open(spec.image_path) as im:
+            size = im.size
+    except Exception:
+        pass
+
     return ExportRecord(
         measurements=ms,
         calibrations=calibs_for_export,
         image_filename=spec.image_path.name,
+        keypoints=dict(annotation.keypoints),
+        polygons={k: list(v) for k, v in annotation.polygons.items()},
+        image_size=size,
     )
 
 
@@ -523,7 +557,24 @@ def run(
     if drop_traits:
         log.info("omitting %d trait column(s) the study does not collect: %s",
                  len(drop_traits), ", ".join(sorted(drop_traits)))
-    return export_to_xlsx(records, output_path, drop_traits=drop_traits)
+
+    issues = validate(records, lot_of=_lot_of)
+    counts = summarise(issues)
+    if counts["error"]:
+        log.warning("%d validation ERROR(s) — see the Validation sheet", counts["error"])
+        for i in [x for x in issues if x.level == "error"][:5]:
+            log.warning("  %s %s: %s", i.check, i.fish_id, i.message)
+    if counts["warning"]:
+        log.warning("%d validation warning(s) — see the Validation sheet",
+                    counts["warning"])
+
+    return export_to_xlsx(
+        records, output_path, drop_traits=drop_traits, issues=issues,
+        provenance={
+            "dataset": images_dir.parent.name,
+            "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"),
+            "commit": _git_commit(),
+        })
 
 
 def _build_parser() -> argparse.ArgumentParser:
