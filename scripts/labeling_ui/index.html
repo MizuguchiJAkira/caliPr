@@ -888,6 +888,13 @@ $('#save').onclick=async()=>{
       blk.calibration={mode:'ticks',px_per_mm:m.auto_ppm,notes:m.auto_notes||'ruler mm-tick autocalibration'};
     else if(m.ruler.a&&m.ruler.b&&m.known_mm)
       blk.calibration={mode:'manual',point_a:m.ruler.a,point_b:m.ruler.b,known_mm:m.known_mm};
+    else if(v==='lateral')
+      // No ruler placed. Record that as an explicit scale-free calibration rather
+      // than omitting the block: a missing calibration is rejected downstream, so
+      // the landmarks would be stranded. Some series have no usable scale at all
+      // (a specimen suspended mid-tank with the ruler on the near glass), and a
+      // proportion study does not need one.
+      blk.calibration={mode:'none',notes:'no scale reference placed'};
     out[v]=blk;
   }
   const res=await api('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});

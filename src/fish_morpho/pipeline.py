@@ -255,6 +255,27 @@ def _calibration_from_block(
             notes=str(block.get("notes", "mm-tick autocalibration")),
         )
 
+    if mode == "none":
+        # Scale-free. Some studies compare *proportions* between populations and
+        # never need millimetres -- and some rigs cannot supply them honestly. The
+        # alewife series photographs a specimen suspended mid-tank with the ruler
+        # taped to the near glass, so the ruler sits in a different focal plane
+        # than the fish: parallax and refraction through the fluid make any
+        # absolute scale read off it wrong by an unknown factor.
+        #
+        # Ratios are unaffected. Every landmark on a planar specimen shares one
+        # magnification, so trait/SL is exact whatever that magnification is.
+        # px_per_mm = 1.0 leaves the Measurements sheet in PIXELS -- deliberately
+        # not millimetres, because calling them millimetres would be a lie -- and
+        # the Ratios sheet is the one to actually use.
+        return CalibrationResult(
+            px_per_mm=1.0,
+            method="none",
+            confidence=1.0,
+            notes=str(block.get("notes", "scale-free: values are PIXELS, use the "
+                                         "Ratios sheet")),
+        )
+
     if mode == "auto":
         import cv2  # local import
 

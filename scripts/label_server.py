@@ -52,6 +52,24 @@ from fish_morpho.landmark_config import (  # noqa: E402
 
 UI_DIR = _ROOT / "scripts" / "labeling_ui"
 
+#: Image suffixes the labeler will list, matched case-insensitively.
+#:
+#: The CUMV rig writes `.JPEG`; other collections write `.jpg`, and a glob of
+#: "*.JP*G" silently matches neither on a case-sensitive comparison. Silently is
+#: the problem -- the specimen list just comes back empty.
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
+def list_images(directory: Path) -> dict[str, Path]:
+    """Image files in ``directory``, keyed by filename. Empty if it is missing."""
+    if not directory.is_dir():
+        return {}
+    return {
+        p.name: p
+        for p in sorted(directory.iterdir())
+        if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
+    }
+
 def _heldout_ids() -> set[str]:
     """The DLC held-out specimens, if a split has been written.
 
@@ -164,8 +182,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _specimens(self):
-        lat = {p.name: p for p in (self.images_dir / "lateral").glob("*.JP*G")}
-        fro = {p.name: p for p in (self.images_dir / "frontal").glob("*.JP*G")}
+        lat = list_images(self.images_dir / "lateral")
+        fro = list_images(self.images_dir / "frontal")
         out = []
         for name, path in sorted(lat.items()):
             m = _ID_RE.match(path.stem)
@@ -338,8 +356,7 @@ def main(argv=None) -> int:
     # or empty one globs to nothing -- so the UI would open to a blank list with
     # no clue why. The photographs are not in the repository (they are large, and
     # they are the museum's), so this is the normal state of a fresh clone.
-    n_lat = len(list((Handler.images_dir / "lateral").glob("*.JP*G"))) \
-        if (Handler.images_dir / "lateral").is_dir() else 0
+    n_lat = len(list_images(Handler.images_dir / "lateral"))
     if n_lat == 0:
         print()
         print(f"  WARNING: no lateral images under {Handler.images_dir}/lateral —")
