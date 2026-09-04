@@ -48,3 +48,5 @@ exports/
 dlc/
 dlc_project/
 .venv-train/
+data/alewife/lateral/
+data/alewife/frontal/
