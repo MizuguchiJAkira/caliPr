@@ -6,13 +6,21 @@ hand-labeled sidecar, so the reference reflects the lab's actual labeling
 convention rather than an approximation.
 
 Writes into ``scripts/labeling_ui/``:
-  reference_base.jpg   downscaled crop, no annotations (used for the zoom view)
+  reference_base.jpg   crop with no annotations, used for the ZOOM view. Its
+                       resolution sets how sharp that zoom can be: the panel is
+                       ~430 px wide and a dorsal fin is ~625 px in the source, so
+                       anything under ~0.7x native has to upscale and turns to
+                       mush exactly where the annotator is looking hardest.
   reference_annot.jpg  same crop with polygons + keypoints drawn (overview)
   reference.json       landmark coordinates in that crop's pixel space
 
 Usage::
 
     python scripts/make_reference.py --specimen Salvelinus_fontinalis_HRN_5
+
+Rebuild this whenever the labeling convention changes. A reference built from a
+sidecar that has since been re-labelled teaches the OLD convention, which is
+worse than having no reference at all -- it looks authoritative.
 """
 
 from __future__ import annotations
@@ -32,7 +40,7 @@ KP_COLOR = (60, 80, 255)      # BGR — matches the UI's keypoint red
 
 
 def build(specimen: str, sidecars: Path, images: Path, pad: int = 140,
-          target_w: int = 1540) -> None:
+          target_w: int = 3600) -> None:
     sc_path = sidecars / f"{specimen}.json"
     sidecar = json.loads(sc_path.read_text())
     lateral = sidecar.get("lateral") or {}
