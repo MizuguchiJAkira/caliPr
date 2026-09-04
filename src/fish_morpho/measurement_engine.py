@@ -666,8 +666,22 @@ def _compute_CFl(ann: Annotation, cache: _RefCache) -> float:
 
 
 def _compute_CPl(ann: Annotation, cache: _RefCache) -> float:
-    # Caudal peduncle length: posterior end of the anal fin base -> caudal base.
-    base = _base_vertices(ann.polygons["anal"], ann.polygons["body_plus_caudal"])
+    """Caudal peduncle length: posterior end of the anal fin base -> caudal base.
+
+    Two ways to reach the same anatomical point. A clicked
+    ``anal_base_posterior`` wins when present, because it is what the annotator
+    actually judged; otherwise it is derived from the anal polygon. A series that
+    does not trace the anal fin -- because the fin frays, say -- can still supply
+    the keypoint in one click, and the trait keeps its definition rather than
+    quietly becoming a different measurement.
+    """
+    kp = ann.keypoints.get("anal_base_posterior")
+    if kp is not None:
+        return ann.keypoints["caudal_base"][0] - kp[0]
+    anal = ann.polygons.get("anal")
+    if not anal:
+        return math.nan
+    base = _base_vertices(anal, ann.polygons["body_plus_caudal"])
     if not base:
         return math.nan
     posterior = max(base, key=lambda p: p[0])

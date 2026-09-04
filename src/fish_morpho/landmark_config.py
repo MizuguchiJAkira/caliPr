@@ -398,6 +398,18 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "ventral body. Exact definition pending Cornell reference sheet.",
     ),
     Keypoint(
+        "anal_base_posterior",
+        "Posterior end of the anal fin base, where the last anal ray meets the "
+        "body outline. Optional: it exists so caudal peduncle length can be "
+        "measured on a series where the anal fin outline is not traced. Where the "
+        "anal polygon IS traced, the same point is derived from it and this "
+        "keypoint is redundant.",
+        View.LATERAL,
+        "Click where the LAST ray of the anal fin meets the body. This sits on "
+        "the body at the fin junction, not out on the fin margin, so a frayed or "
+        "low-contrast fin does not affect it.",
+    ),
+    Keypoint(
         "anal_tip",
         "Distal tip of the anal fin.",
         View.LATERAL,
@@ -972,12 +984,17 @@ TRAITS: tuple[Trait, ...] = (
         label="Caudal Peduncle Length",
         description="Horizontal distance from the posterior end of the anal fin "
         "base to the caudal fin base (reference sheet #17). The posterior end of "
-        "the anal base is taken as the anal polygon's posterior-most vertex "
-        "lying against the body outline.",
+        "the anal base comes from the `anal_base_posterior` keypoint when it was "
+        "clicked, else from the anal polygon's posterior-most vertex lying "
+        "against the body outline. Both name the same anatomical point, so the "
+        "trait means the same thing in a series that traces the anal fin and one "
+        "that does not.",
         unit=Unit.MM,
         view=View.LATERAL,
         source=TraitSource.EXTRAS,
-        required_polygons=("anal", "body_plus_caudal"),
+        # Neither anal source is declared required: either satisfies the trait,
+        # and _missing_inputs cannot express "one of these two".
+        required_polygons=("body_plus_caudal",),
         required_keypoints=("caudal_base",),
         number=17,
     ),

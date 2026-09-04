@@ -1,0 +1,4 @@
+{
+  "note": "Brook trout: the anal fin outline IS traced, so anal_base_posterior is redundant here and is not asked for. CPl derives that point from the anal polygon.",
+  "exclude_keypoints": ["anal_base_posterior"]
+}
