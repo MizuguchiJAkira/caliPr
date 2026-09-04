@@ -33,6 +33,7 @@
   .mk.v.on { background:var(--good); color:#052; }
   .mk.v.thin { background:var(--warn); color:#2a1a00; }
   .mk.h.on { background:var(--accent); color:#04121f; }
+  .mk.s.on { background:#ffd166; color:#3a2a00; }
   #progress .mk { margin-left:6px; margin-right:2px; }
   .spec .st { color:var(--mut); font-size:11px; }
   .spec.done .st { color:var(--good); }
@@ -296,6 +297,10 @@ async function loadSpecs(){
   $('#progress').innerHTML=`<span class="mk on">L</span>${dl}/${SPECS.length} `+
                            `<span class="mk f on">F</span>${df}/${SPECS.length} `+
                            `<span class="mk v on">V</span>${dv}/${dl}`;
+  const ns=SPECS.filter(x=>x.suggested&&!x.lateral_done).length;
+  const nsTot=SPECS.filter(x=>x.suggested).length;
+  if(nsTot) $('#progress').innerHTML +=
+    ` <span class="mk s on">S</span>${nsTot-ns}/${nsTot}`;
   const w=$('#specWrap'); w.innerHTML='';
   // In retrace mode the list IS the worklist: only fish that are landmarked but
   // whose fins are not yet re-done. The one in hand stays visible so it does not
@@ -306,6 +311,11 @@ async function loadSpecs(){
   // Held-out fish first: they are stratified across strains and they are what
   // measures model accuracy, so re-tracing them pays twice.
   if(retrace) shown = [...shown].sort((a,b)=>(b.heldout?1:0)-(a.heldout?1:0));
+  // Unlabelled specimens from the stratified subset float to the top: labelling
+  // the first n filenames concentrates the sample in a few collection lots, and
+  // lot is confounded with locality and date.
+  else shown = [...shown].sort((a,b)=>
+    ((b.suggested&&!b.lateral_done)?1:0) - ((a.suggested&&!a.lateral_done)?1:0));
   shown.forEach(s=>{
     const d=document.createElement('div');
     d.className='spec'+(s.lateral_done?' done':'')+(cur&&cur.id===s.id?' active':'');
@@ -318,8 +328,10 @@ async function loadSpecs(){
     const V=`<span class="mk v ${s.fins_done?'on':(s.lateral_done?'thin':'')}" `+
             `title="fin outlines dense enough for area">V</span>`;
     const H=s.heldout?`<span class="mk h on" title="DLC held-out — re-trace these first">H</span>`:'';
+    const S=(s.suggested&&!s.lateral_done)
+      ?`<span class="mk s on" title="stratified subset: one per collection lot, label these first">S</span>`:'';
     d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span>`+
-                `<span class="st">${H}${L}${F}${V}</span>`;
+                `<span class="st">${S}${H}${L}${F}${V}</span>`;
     d.onclick=()=>selectSpec(s);
     w.appendChild(d);
   });

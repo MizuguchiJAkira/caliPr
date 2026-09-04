@@ -84,6 +84,49 @@ def _heldout_ids() -> set[str]:
 
 
 HELDOUT = _heldout_ids()
+
+#: How many specimens to mark as the suggested labelling subset.
+SUGGESTED_N = 40
+
+# Case-insensitive: the catalogue prefix is typed by hand and appears as CUMV,
+# CUMVFish and CUmv across the series.
+_LOT_RE = re.compile(r"(?:CUMV[A-Za-z]*_(\d+))|_([A-Z]{2,4})_\d+$", re.IGNORECASE)
+
+
+def _lot_of(fish_id: str) -> str:
+    """Grouping key for stratification: a CUMV lot number, or a strain code."""
+    m = _LOT_RE.search(fish_id)
+    if not m:
+        return ""
+    return m.group(1) or m.group(2) or ""
+
+
+def suggested_subset(ids: list[str], n: int = SUGGESTED_N) -> set[str]:
+    """Pick ``n`` specimens spread round-robin across lots.
+
+    Labelling the first n filenames alphabetically concentrates the sample in a
+    handful of lots, which for a between-population comparison is close to
+    worthless -- lot is confounded with locality and collection date. Taking one
+    per lot in rotation spreads the same effort across every lot present, which
+    is both a better sample and better training variety.
+    """
+    by_lot: dict[str, list[str]] = {}
+    for i in sorted(ids):
+        by_lot.setdefault(_lot_of(i), []).append(i)
+    order: list[str] = []
+    depth = 0
+    while len(order) < n:
+        added = False
+        for lot in sorted(by_lot):
+            if depth < len(by_lot[lot]):
+                order.append(by_lot[lot][depth])
+                added = True
+                if len(order) >= n:
+                    break
+        if not added:
+            break
+        depth += 1
+    return set(order)
 _ID_RE = re.compile(r"^(.*)_[LF]$")
 
 
@@ -184,6 +227,12 @@ class Handler(BaseHTTPRequestHandler):
     def _specimens(self):
         lat = list_images(self.images_dir / "lateral")
         fro = list_images(self.images_dir / "frontal")
+        all_ids = []
+        for name, path in sorted(lat.items()):
+            m0 = _ID_RE.match(Path(name).stem)
+            all_ids.append(m0.group(1) if m0 else Path(name).stem)
+        suggested = suggested_subset(all_ids)
+
         out = []
         for name, path in sorted(lat.items()):
             m = _ID_RE.match(path.stem)
@@ -233,6 +282,7 @@ class Handler(BaseHTTPRequestHandler):
                 "frontal_done": fro_done,
                 "fins_done": fins_done,
                 "heldout": fid in HELDOUT,
+                "suggested": fid in suggested,
             })
         return out
 
