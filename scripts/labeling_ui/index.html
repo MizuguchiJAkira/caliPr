@@ -145,6 +145,16 @@
   /* Collapsible like the others: a compromise note is occasional, and 92px of
      permanent chrome was coming out of the specimen list. The summary shows a
      marker when the open specimen actually has one, so it is not hidden. */
+  #exportbox { padding:8px 14px; border-bottom:1px solid var(--line); }
+  #exportbox summary { cursor:pointer; list-style:none; padding:2px 0;
+    text-transform:uppercase; letter-spacing:.5px; font-size:10px; color:var(--mut); }
+  #exportbox summary::-webkit-details-marker { display:none; }
+  #exportbox summary::before { content:'▸ '; }
+  #exportbox[open] summary::before { content:'▾ '; }
+  #expstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  .exprow { margin-top:6px; }
+  .exprow button { width:100%; }
+  .exprow span { display:block; font-size:10px; color:var(--mut); margin-top:2px; }
   #dcsec { padding:8px 14px; border-bottom:1px solid var(--line); }
   #dcsec summary { cursor:pointer; list-style:none; padding:2px 0;
     text-transform:uppercase; letter-spacing:.5px; font-size:10px; color:var(--mut); }
@@ -228,6 +238,14 @@
       <button id="rtoggle" style="width:100%">✥ Fin retrace mode</button>
       <div id="rtstat"></div>
     </div>
+    <details id="exportbox"><summary>export <span id="expstate"></span></summary>
+      <div class="exprow"><button data-exp="measurements">Measurements (.xlsx)</button>
+        <span>traits per specimen, ratios, QC</span></div>
+      <div class="exprow"><button data-exp="tps">Landmarks for R (.tps)</button>
+        <span>geomorph-ready, with landmark names</span></div>
+      <div class="exprow"><button data-exp="overlays">Labelled images (.zip)</button>
+        <span>each photo with its annotation drawn on</span></div>
+    </details>
     <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
     <div id="specWrap"></div>
     <details id="dcsec"><summary>data note / compromise <span id="dcstate"></span></summary>
@@ -1116,6 +1134,37 @@ Object.entries(COLS).forEach(([v,c])=>{
   window.addEventListener('mouseup',()=>{ if(!dragging) return; dragging=false;
     grip.classList.remove('drag'); document.body.classList.remove('resizing'); });
   grip.addEventListener('dblclick',()=>setCol(v, c.def));
+});
+
+// Exports are built on demand by the server and handed back as a download. They
+// can take a while on a big dataset, so the button reports what is happening
+// rather than appearing to do nothing.
+document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
+  btn.onclick=async()=>{
+    const kind=btn.dataset.exp, label=btn.textContent;
+    const all=[...document.querySelectorAll('#exportbox button[data-exp]')];
+    all.forEach(b=>b.disabled=true);
+    btn.textContent='working…'; $('#expstate').textContent=' — building '+kind;
+    try{
+      const res=await fetch('/api/export/'+kind+dsq());
+      if(!res.ok){
+        let msg='export failed';
+        try{ msg=(await res.json()).error || msg; }catch(e){}
+        alert('Export failed:\n\n'+msg);
+        return;
+      }
+      const blob=await res.blob();
+      const cd=res.headers.get('Content-Disposition')||'';
+      const m=/filename="([^"]+)"/.exec(cd);
+      const a=document.createElement('a');
+      a.href=URL.createObjectURL(blob);
+      a.download=m?m[1]:(dataset+'_'+kind);
+      a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+      toast('Exported '+a.download+' ('+Math.round(blob.size/1024)+' KB)');
+    }catch(e){ alert('Export failed:\n\n'+e.message); }
+    finally{ btn.textContent=label; all.forEach(b=>b.disabled=false);
+             $('#expstate').textContent=''; }
+  };
 });
 
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
