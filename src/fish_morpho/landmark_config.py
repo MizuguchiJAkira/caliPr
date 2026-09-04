@@ -213,6 +213,28 @@ POLYGONS: tuple[Polygon, ...] = (
 
 FIN_POLYGONS: tuple[str, ...] = ("pectoral", "dorsal", "pelvic", "anal")
 
+
+def traits_requiring(
+    excluded_keypoints: Iterable[str] = (),
+    excluded_polygons: Iterable[str] = (),
+) -> list[str]:
+    """Trait codes that CANNOT be computed once those inputs are excluded.
+
+    A study that never collects a landmark should not get a column of blanks for
+    the traits that needed it — an empty column reads as "measured and missing"
+    rather than "never in scope", and the two mean very different things to
+    whoever analyses the sheet.
+
+    Only *declared* requirements count. A trait with two possible sources, like
+    CPl from either the anal polygon or the anal_base_posterior keypoint, is not
+    dropped by excluding one of them, because the other still satisfies it.
+    """
+    kps, polys = set(excluded_keypoints), set(excluded_polygons)
+    return [
+        t.code for t in TRAITS
+        if (set(t.required_keypoints) & kps) or (set(t.required_polygons) & polys)
+    ]
+
 #: Each fin's ``(base, tip)`` keypoints, paired with its outline polygon.
 #:
 #: These three annotations describe one structure and are only consistent if

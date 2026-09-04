@@ -27,6 +27,7 @@ batch.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
 from pathlib import Path
@@ -34,7 +35,25 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 
+from fish_morpho.landmark_config import traits_requiring  # noqa: E402
 from fish_morpho.pipeline import run  # noqa: E402
+
+
+def dropped_traits(dataset_dir: Path) -> tuple[str, ...]:
+    """Traits the dataset's schema profile puts out of scope.
+
+    A landmark the study never collects would otherwise leave a column of blanks,
+    which reads as "measured and missing" rather than "never in scope".
+    """
+    f = dataset_dir / "schema.json"
+    if not f.is_file():
+        return ()
+    try:
+        prof = json.loads(f.read_text())
+    except Exception:
+        return ()
+    return tuple(traits_requiring(prof.get("exclude_keypoints") or [],
+                                  prof.get("exclude_polygons") or []))
 
 log = logging.getLogger("export_measurements")
 
@@ -75,7 +94,8 @@ def main(argv=None) -> int:
 
     try:
         written = run(images_dir=images, labels_dir=labels, output_path=out,
-                      mode="manual", model_config=None)
+                      mode="manual", model_config=None,
+                      drop_traits=dropped_traits(images.parent))
     except Exception as exc:
         log.error("%s", exc)
         return 1
@@ -86,7 +106,11 @@ def main(argv=None) -> int:
     hdr = [c.value for c in ws[1]]
     u = hdr.index("units")
     units = [r[u] for r in ws.iter_rows(min_row=2, values_only=True)]
+    dropped = dropped_traits(images.parent)
     print(f"wrote {written}")
+    if dropped:
+        print(f"  omitted {len(dropped)} trait column(s) out of scope for this "
+              f"study: {', '.join(sorted(dropped))}")
     print(f"  {ws.max_row - 1} specimens x {len(hdr)} columns, "
           f"sheets: {', '.join(wb.sheetnames)}")
     if units:

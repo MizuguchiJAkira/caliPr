@@ -50,6 +50,7 @@ def export_to_xlsx(
     records: Sequence[ExportRecord],
     output_path: str | Path,
     metadata_columns: Iterable[str] = DEFAULT_METADATA_COLUMNS,
+    drop_traits: Iterable[str] = (),
 ) -> Path:
     """Write ``records`` to an xlsx workbook at ``output_path``.
 
@@ -73,10 +74,11 @@ def export_to_xlsx(
     meas_sheet = wb.active
     assert meas_sheet is not None
     meas_sheet.title = "Measurements"
-    _write_measurements_sheet(meas_sheet, records, list(metadata_columns))
+    drop = set(drop_traits)
+    _write_measurements_sheet(meas_sheet, records, list(metadata_columns), drop)
 
     ratio_sheet = wb.create_sheet("Ratios")
-    _write_ratios_sheet(ratio_sheet, records, list(metadata_columns))
+    _write_ratios_sheet(ratio_sheet, records, list(metadata_columns), drop)
 
     qc_sheet = wb.create_sheet("QC")
     _write_qc_sheet(qc_sheet, records)
@@ -89,8 +91,9 @@ def _write_measurements_sheet(
     sheet: Worksheet,
     records: Sequence[ExportRecord],
     metadata_columns: list[str],
+    drop_traits: set[str] = frozenset(),
 ) -> None:
-    measurement_keys = measurement_column_order()
+    measurement_keys = [k for k in measurement_column_order() if k not in drop_traits]
     labels = measurement_labels()
 
     # A workbook can hold both scaled and scale-free specimens -- a series shot
@@ -142,6 +145,7 @@ def _write_ratios_sheet(
     sheet: Worksheet,
     records: Sequence[ExportRecord],
     metadata_columns: list[str],
+    drop_traits: set[str] = frozenset(),
 ) -> None:
     """Size-corrected traits: lengths / SL, areas / SL^2, angles unchanged.
 
@@ -154,7 +158,7 @@ def _write_ratios_sheet(
     which makes this the only sheet where a scale-free specimen and a calibrated
     one can honestly sit in the same column.
     """
-    keys = measurement_column_order()
+    keys = [k for k in measurement_column_order() if k not in drop_traits]
     labels = measurement_labels()
 
     header = [*metadata_columns, *(f"{labels[k]} /SL" for k in keys)]
