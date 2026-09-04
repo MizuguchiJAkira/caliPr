@@ -181,11 +181,15 @@ def build_schema(profile: dict | None = None) -> dict:
     drop_poly = profile.get("exclude_polygons") or set()
     drop_kp = profile.get("exclude_keypoints") or set()
 
+    # Excluded landmarks are MARKED, not omitted: the labeler has to be able to
+    # show them struck through and let someone put one back. Consumers that read
+    # schema.json directly (the standalone build, the TPS export) still filter.
     def kp(items, view):
         return [
-            {"name": k.name, "description": k.description, "hint": k.labeling_hint}
+            {"name": k.name, "description": k.description, "hint": k.labeling_hint,
+             "excluded": k.name in drop_kp}
             for k in items
-            if k.view == view and k.name not in drop_kp
+            if k.view == view
         ]
 
     def poly(view):
@@ -200,9 +204,10 @@ def build_schema(profile: dict | None = None) -> dict:
                 "target": (
                     FIN_POLYGON_TARGET_VERTICES if p.name in FIN_POLYGONS else 0
                 ),
+                "excluded": p.name in drop_poly,
             }
             for p in POLYGONS
-            if p.view == view and p.name not in drop_poly
+            if p.view == view
         ]
 
     # Fin-retrace grouping: one fin's base keypoint, tip keypoint, and outline
@@ -387,6 +392,46 @@ class Handler(BaseHTTPRequestHandler):
         median = vals[len(vals) // 2] if vals else None
         return {"median_px_per_mm": median, "n": len(vals)}
 
+    def _set_exclusions(self):
+        """Record which landmarks and outlines this study does not collect.
+
+        Written into the dataset's own schema.json, because it is a property of
+        the study rather than of a session or a machine: it has to reach the
+        measurement engine, which decides that a trait needing an uncollected
+        landmark gets no column at all rather than a column of blanks.
+        """
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n))
+        except Exception as exc:
+            return self._send(400, {"error": f"bad payload: {exc}"})
+
+        known_kp = {k.name for k in KEYPOINTS}
+        known_poly = {p.name for p in POLYGONS}
+        kps = [k for k in (data.get("exclude_keypoints") or []) if k in known_kp]
+        polys = [p for p in (data.get("exclude_polygons") or []) if p in known_poly]
+
+        path = self.images_dir / "schema.json"
+        prof = {}
+        if path.is_file():
+            try:
+                prof = json.loads(path.read_text())
+            except Exception:
+                prof = {}
+        prof["exclude_keypoints"] = sorted(kps)
+        prof["exclude_polygons"] = sorted(polys)
+        if "note" in data:
+            prof["note"] = str(data["note"])
+        path.write_text(json.dumps(prof, indent=2) + "\n")
+
+        from fish_morpho.landmark_config import traits_requiring
+        return self._send(200, {
+            "ok": True,
+            "exclude_keypoints": prof["exclude_keypoints"],
+            "exclude_polygons": prof["exclude_polygons"],
+            "dropped_traits": sorted(traits_requiring(kps, polys)),
+        })
+
     def _export(self, kind: str):
         """Build an export on demand and hand it back as a download.
 
@@ -556,6 +601,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         route = urlparse(self.path).path
+        self._use(urlparse(self.path).query)
+
+        if route == "/api/schema/exclude":
+            return self._set_exclusions()
+
         if route != "/api/save":
             return self._send(404, {"error": "unknown route"})
         n = int(self.headers.get("Content-Length", 0))
