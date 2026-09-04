@@ -44,13 +44,11 @@
     border-radius:5px; padding:5px 6px; font-size:12px; }
   /* Collapsed by default: a key is looked at once and then never again, so it
      should not hold five lines of a sidebar that is already tight. */
-  /* A wrapping inline run broke mid-counter and left one orphan on its own line.
-     A fixed two-column grid keeps the pairs aligned at any count. */
-  #progress { display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; }
-  #progress .ct { display:flex; align-items:center; gap:6px; font-size:11px;
-    color:var(--mut); font-variant-numeric:tabular-nums; }
-  #progress .ct .mk { margin:0; flex:none; }
-  #progress .ct b { color:var(--fg); font-weight:600; }
+  /* The key and the progress are the same five rows, so they are one block: the
+     badge explains itself and its own count sits against the right edge. */
+  #legend .lr { display:grid; grid-template-columns:auto 1fr auto; align-items:center;
+    gap:6px; padding:1px 0; }
+  #legend .lr .n { font-variant-numeric:tabular-nums; color:var(--fg); font-weight:600; }
   #legendbox { border-bottom:1px solid var(--line); font-size:10.5px; color:var(--mut); }
   #legendbox summary { cursor:pointer; list-style:none; padding:6px 14px;
     text-transform:uppercase; letter-spacing:.5px; font-size:10px; }
@@ -210,11 +208,7 @@
         <button id="save" class="primary">Save sidecar</button>
       </div>
     </div>
-    <div class="sec" style="border-bottom:none">
-      <h2>Specimens</h2>
-      <div id="progress"></div>
-    </div>
-    <details id="legendbox"><summary>badge key</summary><div id="legend"></div></details>
+    <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
     <div id="specWrap"></div>
   </div>
   <div id="main">
@@ -361,23 +355,7 @@ async function boot(){
 }
 async function loadSpecs(){
   SPECS=await api('/api/specimens'+dsq());
-  const dl=SPECS.filter(s=>s.lateral_done).length;
-  const df=SPECS.filter(s=>s.frontal_done).length;
-  const dv=SPECS.filter(s=>s.fins_done).length;
-  const ns=SPECS.filter(x=>x.suggested&&!x.lateral_done).length;
-  const nsTot=SPECS.filter(x=>x.suggested).length;
-  const nh=SPECS.filter(x=>x.heldout).length;
-  const nhd=SPECS.filter(x=>x.heldout&&x.lateral_done).length;
-  const ct=(cls,l,a,b)=>`<span class="ct"><span class="mk ${cls}">${l}</span>`+
-                        `<b>${a}</b>/${b}</span>`;
-  $('#progress').innerHTML=[
-    ct('on','L',dl,SPECS.length),
-    ct('f on','F',df,SPECS.length),
-    dsInfo().has_fin_polygons ? ct('v on','V',dv,dl) : '',
-    nsTot ? ct('s on','S',nsTot-ns,nsTot) : '',
-    nh ? ct('h on','H',nhd,nh) : '',
-  ].filter(Boolean).join('');
-  renderLegend();
+  renderLegend();          // counts live on the key's rows now
   const w=$('#specWrap'); w.innerHTML='';
   // In retrace mode the list IS the worklist: only fish that are landmarked but
   // whose fins are not yet re-done. The one in hand stays visible so it does not
@@ -575,16 +553,25 @@ function zoomToFin(g){
   draw();
 }
 function renderLegend(){
-  const fins=dsInfo().has_fin_polygons;
+  const n=SPECS.length;
+  const dl=SPECS.filter(s=>s.lateral_done).length;
+  const df=SPECS.filter(s=>s.frontal_done).length;
+  const dv=SPECS.filter(s=>s.fins_done).length;
+  const sTot=SPECS.filter(s=>s.suggested).length;
+  const sDone=SPECS.filter(s=>s.suggested&&s.lateral_done).length;
+  const hTot=SPECS.filter(s=>s.heldout).length;
+  const hDone=SPECS.filter(s=>s.heldout&&s.lateral_done).length;
   const rows=[
-    ['mk on','L','lateral view labelled'],
-    ['mk f on','F','frontal labelled (mouth width)'],
-    fins?['mk v on','V','fin outlines dense enough for area']:null,
-    SPECS.some(s=>s.suggested)?['mk s on','S','stratified subset — label these first']:null,
-    SPECS.some(s=>s.heldout)?['mk h on','H','held out from model training']:null,
+    ['mk on','L','lateral view labelled', dl, n],
+    ['mk f on','F','frontal labelled (mouth width)', df, n],
+    dsInfo().has_fin_polygons
+      ? ['mk v on','V','fin outlines dense enough', dv, dl] : null,
+    sTot ? ['mk s on','S','stratified subset — do these first', sDone, sTot] : null,
+    hTot ? ['mk h on','H','held out from model training', hDone, hTot] : null,
   ].filter(Boolean);
-  $('#legend').innerHTML = rows.map(([c,l,t])=>
-    `<div><span class="${c}">${l}</span>${t}</div>`).join('');
+  $('#legend').innerHTML = rows.map(([c,l,t,a,b])=>
+    `<div class="lr"><span class="${c}">${l}</span><span>${t}</span>`+
+    `<span class="n">${a}/${b}</span></div>`).join('');
 }
 function renderRetraceStatus(){
   const el=$('#rtstat'); if(!el) return;
