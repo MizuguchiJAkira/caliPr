@@ -398,6 +398,32 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "ventral body. Exact definition pending Cornell reference sheet.",
     ),
     Keypoint(
+        "anal_base_anterior",
+        "Anterior end of the anal fin base, where the FIRST anal ray meets the "
+        "body outline. With anal_base_posterior it gives the anal fin base length "
+        "without tracing the fin.",
+        View.LATERAL,
+        "Click where the FIRST ray of the anal fin meets the body. On the body at "
+        "the fin junction, not out on the fin margin.",
+    ),
+    Keypoint(
+        "dorsal_base_anterior",
+        "Anterior end of the first dorsal fin base, where the first dorsal ray "
+        "meets the body outline.",
+        View.LATERAL,
+        "Click where the FIRST ray of the dorsal fin meets the back. On the body "
+        "outline, not on the fin margin.",
+    ),
+    Keypoint(
+        "dorsal_base_posterior",
+        "Posterior end of the first dorsal fin base, where the last dorsal ray "
+        "meets the body outline. With dorsal_base_anterior it gives dorsal fin "
+        "base length (DFbl) without tracing the fin.",
+        View.LATERAL,
+        "Click where the LAST ray of the dorsal fin meets the back. Do NOT use "
+        "the adipose fin, where the species has one.",
+    ),
+    Keypoint(
         "anal_base_posterior",
         "Posterior end of the anal fin base, where the last anal ray meets the "
         "body outline. Optional: it exists so caudal peduncle length can be "
@@ -956,13 +982,17 @@ TRAITS: tuple[Trait, ...] = (
         code="DFbl",
         label="Dorsal Fin Base Length",
         description="Distance from the anterior to the posterior margin of the "
-        "first dorsal fin base (reference sheet #7). Taken as the span of the "
-        "dorsal polygon's vertices that lie against the body outline, so it "
-        "needs no extra keypoint.",
+        "first dorsal fin base (reference sheet #7). Taken from the "
+        "dorsal_base_anterior and dorsal_base_posterior keypoints when they were "
+        "clicked, else as the span of the dorsal polygon's vertices lying against "
+        "the body outline. Both name the same two points, so the trait means the "
+        "same thing in a series that traces the dorsal fin and one that does not.",
         unit=Unit.MM,
         view=View.LATERAL,
         source=TraitSource.EXTRAS,
-        required_polygons=("dorsal", "body_plus_caudal"),
+        # Neither source is declared required: either satisfies the trait, and
+        # _missing_inputs cannot express "one of these two".
+        required_polygons=("body_plus_caudal",),
         number=7,
     ),
     Trait(
