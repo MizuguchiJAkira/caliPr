@@ -44,57 +44,78 @@ def landmarks_for(profile_dir: Path | None) -> list[dict]:
     ]
 
 
+THEMES = {
+    # The canvas ground stays dark in BOTH themes. The surround must not out-shine
+    # the photograph: these specimens are shot against near-black tanks, and a
+    # bright panel beside a dark image forces constant eye adaptation, which costs
+    # precision on exactly the faint margins that are hardest to judge.
+    "dark": ("--bg:#12151a;--panel:#1b2029;--line:#2b3340;--fg:#e6ebf2;--mut:#8a97a8;"
+             "--accent:#4aa3ff;--good:#37c871;--warn:#ffb454;--kp:#ff5d6c;"
+             "--btn:#28303c;--btnhover:#313b49;--hover:#232a35;--sel:#26303d;"
+             "--dot:#3a4553;--hintbg:#161b22;--kbd:#0e1218;--canvas:#0b0e12;"
+             "--dropfg:#e6ebf2;--dropmut:#8a97a8;"),
+    "light": ("--bg:#ffffff;--panel:#f7f7f7;--line:#d9d9d9;--fg:#1a1a1a;--mut:#666;"
+              "--accent:#1a6bb5;--good:#2e7d32;--warn:#b26a00;--kp:#c62828;"
+              "--btn:#ffffff;--btnhover:#eee;--hover:#f0f0f0;--sel:#e4eef7;"
+              "--dot:#c4c4c4;--hintbg:#f0f0f0;--kbd:#eee;--canvas:#3a3a3a;"
+              "--dropfg:#f0f0f0;--dropmut:#c8c8c8;"),
+}
+FONTS = {
+    "dark": "-apple-system,Segoe UI,Roboto,sans-serif",
+    "light": "'Lucida Grande',Helvetica,Arial,sans-serif",
+}
+
 TEMPLATE = r"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>__TITLE__</title>
 <style>
- :root{--bg:#12151a;--panel:#1b2029;--line:#2b3340;--fg:#e6ebf2;--mut:#8a97a8;
-       --accent:#4aa3ff;--good:#37c871;--warn:#ffb454;--kp:#ff5d6c;}
+ :root{__THEME__}
  *{box-sizing:border-box}
  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-   font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;overflow:hidden}
+   font:13px/1.45 __FONT__;overflow:hidden}
  #app{display:grid;grid-template-columns:300px 1fr;height:100vh}
  #side{background:var(--panel);border-right:1px solid var(--line);display:flex;
    flex-direction:column;min-height:0}
  h1{font-size:14px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
  h1 small{color:var(--mut);font-weight:400}
  .sec{padding:10px 14px;border-bottom:1px solid var(--line)}
- button{background:#28303c;color:var(--fg);border:1px solid var(--line);
+ button{background:var(--btn);color:var(--fg);border:1px solid var(--line);
    border-radius:6px;padding:6px 9px;cursor:pointer;font-size:12px}
- button:hover{background:#313b49}
+ button:hover{background:var(--btnhover)}
  button.primary{background:var(--good);border-color:var(--good);color:#052;font-weight:600}
  .row{display:flex;gap:6px}.row button{flex:1}
- #hint{padding:9px 14px;background:#161b22;color:var(--mut);font-size:12px;
+ #hint{padding:9px 14px;background:var(--hintbg);color:var(--mut);font-size:12px;
    border-bottom:1px solid var(--line);min-height:60px;max-height:150px;overflow:auto;flex:none}
  #hint b{color:var(--fg)}
  #tasks{overflow:auto;flex:1;min-height:120px}
  .task{display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;
    border-left:3px solid transparent}
- .task:hover{background:#232a35}
- .task.active{background:#26303d;border-left-color:var(--accent)}
- .task .dot{width:9px;height:9px;border-radius:50%;background:#3a4553;flex:none}
+ .task:hover{background:var(--hover)}
+ .task.active{background:var(--sel);border-left-color:var(--accent)}
+ .task .dot{width:9px;height:9px;border-radius:50%;background:var(--dot);flex:none}
  .task.set .dot{background:var(--good)}
  .task .nm{flex:1}
  .task .n{color:var(--mut);font-size:10px;font-variant-numeric:tabular-nums}
  #specWrap{overflow:auto;max-height:26vh;border-top:1px solid var(--line)}
  .spec{padding:5px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
- .spec:hover{background:#232a35}.spec.active{background:#26303d}
+ .spec:hover{background:var(--hover)}.spec.active{background:var(--sel)}
  .spec .c{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums}
  .spec.done .c{color:var(--good)}
  #main{position:relative;min-width:0}
- canvas{display:block;width:100%;height:100%;cursor:crosshair;background:#0b0e12}
- #hud{position:absolute;top:10px;left:12px;background:#0d1117cc;padding:6px 10px;
+ canvas{display:block;width:100%;height:100%;cursor:crosshair;background:var(--canvas)}
+ #hud{position:absolute;top:10px;left:12px;background:#0d1117cc;color:#c8d2df;padding:6px 10px;
    border-radius:6px;color:var(--mut);font-size:11px;pointer-events:none}
  #toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
-   background:#0d1117ee;border:1px solid var(--line);padding:8px 14px;border-radius:8px;
+   background:#0d1117ee;color:#e6ebf2;border:1px solid #2b3340;padding:8px 14px;border-radius:8px;
    opacity:0;transition:opacity .2s;pointer-events:none}
  #toast.show{opacity:1}
- kbd{background:#0e1218;border:1px solid var(--line);border-radius:3px;padding:0 4px}
+ kbd{background:var(--kbd);border:1px solid var(--line);border-radius:3px;padding:0 4px}
  #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-   flex-direction:column;gap:14px;background:#0b0e12;text-align:center;padding:40px}
+   flex-direction:column;gap:14px;background:var(--canvas);color:var(--dropfg);
+   text-align:center;padding:40px}
  #drop.hide{display:none}
- #drop p{color:var(--mut);max-width:460px;line-height:1.6}
+ #drop p{color:var(--dropmut);max-width:460px;line-height:1.6}
  label.file{background:var(--accent);color:#04121f;font-weight:600;padding:10px 18px;
    border-radius:8px;cursor:pointer}
  #imgctrl{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:8px}
@@ -103,6 +124,10 @@ TEMPLATE = r"""<!doctype html>
 <div id="app">
  <div id="side">
   <h1>caliPr <small>— __TITLE__</small></h1>
+  <div style="padding:6px 14px;font-size:10.5px;color:var(--mut);
+       border-bottom:1px solid var(--line);line-height:1.5">
+    __PROVENANCE__<br>Runs offline · your photographs never leave this computer
+  </div>
   <div class="sec">
    <div class="row"><label class="file" style="flex:1;text-align:center">
      Choose photos<input id="files" type="file" accept="image/*" multiple hidden></label></div>
@@ -421,6 +446,11 @@ def main(argv=None) -> int:
     ap.add_argument("--key", default="default",
                     help="Namespaces browser storage and the export filename, so "
                          "two studies on one machine cannot overwrite each other.")
+    ap.add_argument("--theme", choices=sorted(THEMES), default="dark",
+                    help="Chrome colour. The image canvas stays dark either way.")
+    ap.add_argument("--provenance", default="Cornell University Museum of Vertebrates",
+                    help="Shown under the title, so someone opening an emailed "
+                         "HTML file can see where it came from.")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
 
@@ -428,6 +458,9 @@ def main(argv=None) -> int:
     html = (TEMPLATE
             .replace("__LANDMARKS__", json.dumps(lms, indent=1))
             .replace("__TITLE__", args.title)
+            .replace("__THEME__", THEMES[args.theme])
+            .replace("__FONT__", FONTS[args.theme])
+            .replace("__PROVENANCE__", args.provenance)
             .replace("__KEY__", args.key))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html)
