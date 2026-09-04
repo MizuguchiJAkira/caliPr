@@ -173,6 +173,9 @@ TEMPLATE = r"""<!doctype html>
 <script>
 const LANDMARKS = __LANDMARKS__;
 const STORE = "calipr_standalone___KEY__";
+// Above this many image pixels per screen pixel, a click cannot be placed
+// carefully; 3 keeps a landmark inside a few pixels of where it was aimed.
+const COARSE_PX = 3;
 const $ = s => document.querySelector(s);
 const cv = $("#cv"), ctx = cv.getContext("2d");
 
@@ -220,8 +223,18 @@ function draw(){
     }
   }
   const done = r ? Object.keys(r.kp).length : 0;
-  $("#hud").textContent = (files[idx] ? files[idx].name : "—") +
-    "  ·  " + done + "/" + LANDMARKS.length + "  ·  " + ((vs.scale*100)|0) + "%";
+  // One screen pixel covers 1/scale image pixels, and that is the floor on
+  // placement precision no matter how steady the hand. At fit on a 6000 px photo
+  // it is 5-14 image pixels, so a landmark placed without zooming is imprecise
+  // by construction rather than by carelessness. Say so, rather than let someone
+  // label a whole series from the fitted view and find out afterwards.
+  const perPx = vs.scale>0 ? 1/vs.scale : 0;
+  const coarse = perPx > COARSE_PX;
+  const hud=$("#hud");
+  hud.textContent = (files[idx] ? files[idx].name : "—") +
+    "  ·  " + done + "/" + LANDMARKS.length + "  ·  " + ((vs.scale*100)|0) + "%" +
+    "  ·  ±" + perPx.toFixed(1) + " px" + (coarse ? "  — zoom in to place accurately" : "");
+  hud.style.color = coarse ? "#ffb454" : "";
 }
 
 function buildTasks(){
@@ -281,8 +294,14 @@ function advance(){
   if(!active) toast("All landmarks placed — Next → for the following specimen");
   showHint();
 }
+let warnedCoarse=false;
 function place(x,y){
   const r=rec(); if(!r||!active){ toast("Pick a landmark first"); return; }
+  if(!warnedCoarse && vs.scale>0 && 1/vs.scale > COARSE_PX){
+    warnedCoarse=true;
+    toast("Zoomed out — each click lands within ~"+(1/vs.scale).toFixed(0)+
+          " image px. Scroll to zoom in for accurate placement.");
+  }
   r.kp[active]=[Math.round(x),Math.round(y)];
   save(); advance(); buildTasks(); draw();
 }
