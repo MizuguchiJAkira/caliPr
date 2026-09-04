@@ -34,7 +34,7 @@ import re
 import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import unquote, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
@@ -84,6 +84,22 @@ def _heldout_ids() -> set[str]:
 
 
 HELDOUT = _heldout_ids()
+
+
+def discover_datasets(root: Path) -> dict[str, Path]:
+    """Directories under ``root`` that look like a dataset: they hold a lateral/.
+
+    Switching study in the UI beats restarting the server with different flags,
+    and the folder name is the only label that is already unambiguous to whoever
+    arranged the photographs.
+    """
+    out: dict[str, Path] = {}
+    if not root.is_dir():
+        return out
+    for d in sorted(root.iterdir()):
+        if d.is_dir() and (d / "lateral").is_dir():
+            out[d.name] = d
+    return out
 
 #: How many specimens to mark as the suggested labelling subset.
 SUGGESTED_N = 40
@@ -240,8 +256,20 @@ def build_schema(profile: dict | None = None) -> dict:
 
 
 class Handler(BaseHTTPRequestHandler):
-    images_dir: Path
+    datasets: dict[str, Path] = {}
+    default_dataset: str = ""
+    images_dir: Path          # resolved per request from ?dataset=
     out_dir: Path
+
+    def _use(self, query: str) -> None:
+        """Point this request at the dataset named in the query string."""
+        name = parse_qs(query).get("dataset", [Handler.default_dataset])[0]
+        base = Handler.datasets.get(name)
+        if base is None:
+            base = Handler.datasets.get(Handler.default_dataset)
+        if base is not None:
+            self.images_dir = base
+            self.out_dir = base / "sidecars"
 
     def log_message(self, *args):  # quieter console
         pass
@@ -348,6 +376,27 @@ class Handler(BaseHTTPRequestHandler):
     # -- routes -----------------------------------------------------------
     def do_GET(self):
         route = urlparse(self.path).path
+        self._use(urlparse(self.path).query)
+
+        if route == "/api/datasets":
+            names = sorted(Handler.datasets)
+            return self._send(200, {
+                "datasets": [
+                    {"name": n,
+                     "images": len(list_images(Handler.datasets[n] / "lateral")),
+                     "has_frontal": (Handler.datasets[n] / "frontal").is_dir(),
+                     # A dataset whose profile drops every fin polygon can never
+                     # satisfy the fin-density badge, so the UI should not show it.
+                     "has_fin_polygons": bool(
+                         set(FIN_POLYGONS)
+                         - set((load_profile(Handler.datasets[n]).get("exclude_polygons")
+                                or set()))),
+                     }
+                    for n in names
+                ],
+                "default": Handler.default_dataset,
+            })
+
         if route == "/" or route == "/index.html":
             html = (UI_DIR / "index.html").read_text()
             return self._send(200, html, "text/html; charset=utf-8")
@@ -427,15 +476,38 @@ class Handler(BaseHTTPRequestHandler):
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="label_server")
     ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--images", type=Path, default=_ROOT / "data" / "cornell")
-    ap.add_argument("--out", type=Path, default=_ROOT / "data" / "cornell" / "sidecars")
+    ap.add_argument("--data-root", type=Path, default=_ROOT / "data",
+                    help="Directory whose subfolders are datasets (each holding a "
+                         "lateral/). Offered in the UI's dataset dropdown.")
+    ap.add_argument("--dataset", default="",
+                    help="Which one to open first. Defaults to the first found.")
+    ap.add_argument("--images", type=Path, default=None,
+                    help="Single-dataset mode, bypassing discovery.")
+    ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args(argv)
-    Handler.images_dir = args.images.resolve()
-    Handler.out_dir = args.out.resolve()
+
+    if args.images:                       # explicit single dataset
+        base = args.images.resolve()
+        Handler.datasets = {base.name: base}
+        Handler.default_dataset = base.name
+        if args.out:
+            Handler.datasets[base.name] = base
+    else:
+        Handler.datasets = discover_datasets(args.data_root.resolve())
+        if not Handler.datasets:
+            print(f"No datasets under {args.data_root} (need a lateral/ subfolder)")
+            return 1
+        Handler.default_dataset = (args.dataset if args.dataset in Handler.datasets
+                                   else sorted(Handler.datasets)[0])
+    base = Handler.datasets[Handler.default_dataset]
+    Handler.images_dir = base
+    Handler.out_dir = (args.out.resolve() if args.out else base / "sidecars")
     Handler.out_dir.mkdir(parents=True, exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
-    print(f"Labeling server: http://localhost:{args.port}/  "
-          f"(images={Handler.images_dir}, out={Handler.out_dir})")
+    print(f"Labeling server: http://localhost:{args.port}/")
+    for n in sorted(Handler.datasets):
+        mark = "*" if n == Handler.default_dataset else " "
+        print(f"  {mark} {n:12} {len(list_images(Handler.datasets[n] / 'lateral')):4d} images")
 
     # The specimen list is built by globbing the image directories, and a missing
     # or empty one globs to nothing -- so the UI would open to a blank list with
