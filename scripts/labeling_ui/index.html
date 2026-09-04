@@ -42,8 +42,15 @@
     font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--mut); }
   .pickers select { background:#0e1218; color:var(--fg); border:1px solid var(--line);
     border-radius:5px; padding:5px 6px; font-size:12px; }
-  #legend { padding:8px 14px; border-bottom:1px solid var(--line); font-size:10.5px;
-    color:var(--mut); line-height:1.9; }
+  /* Collapsed by default: a key is looked at once and then never again, so it
+     should not hold five lines of a sidebar that is already tight. */
+  #legendbox { border-bottom:1px solid var(--line); font-size:10.5px; color:var(--mut); }
+  #legendbox summary { cursor:pointer; list-style:none; padding:6px 14px;
+    text-transform:uppercase; letter-spacing:.5px; font-size:10px; }
+  #legendbox summary::-webkit-details-marker { display:none; }
+  #legendbox summary::before { content:'▸ '; }
+  #legendbox[open] summary::before { content:'▾ '; }
+  #legend { padding:0 14px 8px; line-height:1.9; }
   #legend .mk { margin-left:0; margin-right:5px; }
   button { background:#28303c; color:var(--fg); border:1px solid var(--line); border-radius:6px;
     padding:6px 9px; cursor:pointer; font-size:12px; }
@@ -199,7 +206,7 @@
     <div class="sec" style="border-bottom:none">
       <h2>Specimens <span id="progress" style="color:var(--mut)"></span></h2>
     </div>
-    <div id="legend"></div>
+    <details id="legendbox"><summary>badge key</summary><div id="legend"></div></details>
     <div id="specWrap"></div>
   </div>
   <div id="main">
