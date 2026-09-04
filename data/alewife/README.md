@@ -18,6 +18,21 @@ nothing here can contaminate that dataset or its validation.
   has to come from the CUMV lot numbers and their localities. Without that
   mapping the landmarking cannot answer the question.
 
+## Scope: pelvic and anal fins are not labelled
+
+`schema.json` narrows the master schema for this dataset only. The pelvic has
+almost no contrast against the flank and the anal frays too badly to give a
+reliable margin, so neither outline nor either fin's keypoints are collected.
+Three polygons remain (body_plus_caudal, pectoral, dorsal) and 15 of 19 lateral
+keypoints.
+
+Cost: 5 of 33 traits — PlFl, PlFs, AFh, AFs, and **CPl**.
+
+CPl (caudal peduncle length) is the non-obvious one. It runs from the posterior
+end of the anal fin base to `caudal_base`, so dropping the anal takes a peduncle
+measurement with it. Re-adding just `anal_base_center` to the schema — one click
+per fish, on the body rather than on the frayed margin — would recover it.
+
 ## Does the brook trout pose model transfer? No.
 
 Tested 2026-08-06 on 8 specimens from lot CUMV 33050, cropped to the fish and
