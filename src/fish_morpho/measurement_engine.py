@@ -654,9 +654,21 @@ def _base_vertices(fin: list[Point], body: list[Point]) -> list[Point]:
 
 
 def _compute_DFbl(ann: Annotation, cache: _RefCache) -> float:
-    # Dorsal fin base length: widest separation among the base vertices.
-    base = _base_vertices(ann.polygons["dorsal"], ann.polygons["body_plus_caudal"])
-    return max(_distance(a, b) for i, a in enumerate(base) for b in base[i + 1:]) \
+    """Dorsal fin base length, from clicked endpoints or derived from the polygon.
+
+    Clicked points win: they are what the annotator actually judged, and a series
+    that does not trace the dorsal fin can still supply them in two clicks. The
+    polygon fallback keeps every existing specimen measuring the same quantity.
+    """
+    a = ann.keypoints.get("dorsal_base_anterior")
+    b = ann.keypoints.get("dorsal_base_posterior")
+    if a is not None and b is not None:
+        return _distance(a, b)
+    dorsal = ann.polygons.get("dorsal")
+    if not dorsal:
+        return math.nan
+    base = _base_vertices(dorsal, ann.polygons["body_plus_caudal"])
+    return max(_distance(p, q) for i, p in enumerate(base) for q in base[i + 1:]) \
         if len(base) >= 2 else math.nan
 
 
