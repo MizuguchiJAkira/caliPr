@@ -19,6 +19,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.worksheet.worksheet import Worksheet
 
+from .landmark_config import Unit
 from .measurement_engine import (
     MeasurementSet,
     measurement_column_order,
@@ -56,6 +57,10 @@ def export_to_xlsx(
 
     * ``Measurements`` — metadata columns + one column per measurement,
       with numeric values in mm / mm^2.
+    * ``Ratios`` — every length over standard length and every area over SL
+      squared, so the values are dimensionless and comparable between fish of
+      different sizes. The only sheet where a scale-free specimen and a
+      calibrated one can honestly share a column.
     * ``QC`` — calibration method / confidence / notes per view, plus a
       ``missing_landmarks`` column summarizing any gaps.
 
@@ -69,6 +74,9 @@ def export_to_xlsx(
     assert meas_sheet is not None
     meas_sheet.title = "Measurements"
     _write_measurements_sheet(meas_sheet, records, list(metadata_columns))
+
+    ratio_sheet = wb.create_sheet("Ratios")
+    _write_ratios_sheet(ratio_sheet, records, list(metadata_columns))
 
     qc_sheet = wb.create_sheet("QC")
     _write_qc_sheet(qc_sheet, records)
@@ -85,7 +93,11 @@ def _write_measurements_sheet(
     measurement_keys = measurement_column_order()
     labels = measurement_labels()
 
-    header = [*metadata_columns, *(labels[k] for k in measurement_keys)]
+    # A workbook can hold both scaled and scale-free specimens -- a series shot
+    # without a usable ruler measures in PIXELS, and putting those under an "(mm)"
+    # header beside real millimetres is the kind of mistake nothing downstream can
+    # catch. The units of each row travel with the row.
+    header = [*metadata_columns, "units", *(labels[k] for k in measurement_keys)]
     sheet.append(header)
 
     header_font = Font(bold=True)
@@ -105,6 +117,11 @@ def _write_measurements_sheet(
                 row.append(rec.measurements.fish_id)
             else:
                 row.append(rec.measurements.metadata.get(col, ""))
+        # Three states, not two. A specimen with no lateral calibration at all is
+        # not "in pixels" -- it has no lateral measurements to have units for, and
+        # saying px would invent a claim about empty cells.
+        lat = rec.calibrations.get("lateral")
+        row.append("" if lat is None else ("px" if lat.method == "none" else "mm"))
         for key in measurement_keys:
             v = rec.measurements.values.get(key)
             if v is None or math.isnan(v.value):
@@ -119,6 +136,66 @@ def _write_measurements_sheet(
         sheet.column_dimensions[letter].width = max(
             14, min(40, len(str(header[col_idx - 1])) + 2)
         )
+
+
+def _write_ratios_sheet(
+    sheet: Worksheet,
+    records: Sequence[ExportRecord],
+    metadata_columns: list[str],
+) -> None:
+    """Size-corrected traits: lengths / SL, areas / SL^2, angles unchanged.
+
+    Comparing raw lengths between populations mostly compares how big the fish
+    happened to be, so a shape comparison wants ratios; forming them here means
+    everyone forms them the same way.
+
+    Ratios also need no calibration. Every landmark on a planar specimen shares
+    one magnification, so trait/SL is exact whatever that magnification is --
+    which makes this the only sheet where a scale-free specimen and a calibrated
+    one can honestly sit in the same column.
+    """
+    keys = measurement_column_order()
+    labels = measurement_labels()
+
+    header = [*metadata_columns, *(f"{labels[k]} /SL" for k in keys)]
+    sheet.append(header)
+    header_font = Font(bold=True)
+    header_fill = PatternFill("solid", fgColor="E6E6E6")
+    for col_idx in range(1, len(header) + 1):
+        cell = sheet.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    for rec in records:
+        sl_val = rec.measurements.values.get("SL")
+        sl = sl_val.value if sl_val is not None else float("nan")
+        row: list[float | str] = []
+        for col in metadata_columns:
+            if col == "image_filename":
+                row.append(rec.image_filename)
+            elif col == "fish_id":
+                row.append(rec.measurements.fish_id)
+            else:
+                row.append(rec.measurements.metadata.get(col, ""))
+        for key in keys:
+            v = rec.measurements.values.get(key)
+            if v is None or math.isnan(v.value):
+                row.append("")
+            elif v.unit == Unit.DEG:            # an angle is already scale-free
+                row.append(round(v.value, 3))
+            elif math.isnan(sl) or sl <= 0:
+                row.append("")                  # no SL, no ratio
+            elif v.unit == Unit.MM2:
+                row.append(round(v.value / (sl ** 2), 6))
+            else:
+                row.append(round(v.value / sl, 6))
+        sheet.append(row)
+
+    for col_idx in range(1, len(header) + 1):
+        letter = sheet.cell(row=1, column=col_idx).column_letter
+        sheet.column_dimensions[letter].width = max(
+            14, min(40, len(str(header[col_idx - 1])) + 2))
 
 
 def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
