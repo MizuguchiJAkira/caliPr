@@ -122,6 +122,8 @@ TEMPLATE = r"""<!doctype html>
    <div class="row" style="margin-bottom:6px">
      <button id="expJson" class="primary">Export labels</button></div>
    <div class="row"><button id="expTps">Export .tps for R</button></div>
+   <div class="row" style="margin-top:6px"><button id="reset"
+     title="Delete all saved landmarks in this browser">Reset all labels</button></div>
    <div id="prog" style="margin-top:8px;color:var(--mut);font-size:11px"></div>
   </div>
   <div id="specWrap"></div>
@@ -315,10 +317,24 @@ $("#next").onclick=()=>select(idx+1);
 $("#prev").onclick=()=>select(idx-1);
 
 function loadFiles(list){
-  files=[...list].filter(f=>/^image\//.test(f.type))
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .map(f=>({name:f.name, file:f, url:URL.createObjectURL(f)}));
-  if(!files.length){ toast("No images in that selection"); return; }
+  const imgs=[...list].filter(f=>/^image\//.test(f.type))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  if(!imgs.length){ toast("No images in that selection"); return; }
+  // Landmarks are stored under the FILENAME, so two files with the same name --
+  // easy if photos are gathered from several folders -- would share one record
+  // and silently overwrite each other. Refuse rather than lose work.
+  const seen={}, dups=[];
+  for(const f of imgs){ if(seen[f.name]) dups.push(f.name); seen[f.name]=1; }
+  if(dups.length){
+    const uniq=[...new Set(dups)];
+    alert("Two or more of your files have the same name:\n\n  "+
+          uniq.slice(0,8).join("\n  ")+
+          (uniq.length>8?"\n  …and "+(uniq.length-8)+" more":"")+
+          "\n\nLandmarks are saved per filename, so these would overwrite each "+
+          "other. Rename them so every file is unique, then choose them again.");
+    return;
+  }
+  files=imgs.map(f=>({name:f.name, file:f, url:URL.createObjectURL(f)}));
   $("#drop").classList.add("hide");
   select(0);
 }
@@ -341,8 +357,13 @@ $("#expJson").onclick=()=>{
     if(!d.kp||!Object.keys(d.kp).length) continue;
     out.specimens[fn]={width:d.w, height:d.h, keypoints:d.kp}; n++; }
   if(!n){ toast("Nothing labeled yet"); return; }
+  const part=Object.values(out.specimens)
+    .filter(s2=>Object.keys(s2.keypoints).length<LANDMARKS.length).length;
+  if(part && !confirm(`${n} specimen(s) to export, of which ${part} are only `+
+      `partly labelled.\n\nExport anyway? Partly labelled specimens are still `+
+      `useful — missing landmarks are recorded as missing, not guessed.`)) return;
   download("calipr_labels___KEY__.json", JSON.stringify(out,null,1));
-  toast(`Exported ${n} specimens — send this file back`);
+  toast(`Exported ${n} specimens${part?` (${part} partial)`:""} — send this file back`);
 };
 $("#expTps").onclick=()=>{
   // Only landmarks that at least one specimen has: an all-NA column makes
@@ -367,7 +388,22 @@ $("#expTps").onclick=()=>{
   download("landmarks.tps", lines.join("\n"));
   download("landmark_names.csv",
     "index,name\n"+present.map((n2,i)=>`${i+1},${n2}`).join("\n")+"\n");
-  toast(`Exported ${n} specimens to TPS (+ landmark names)`);
+  const miss=(lines.join("\n").match(/-1 -1/g)||[]).length;
+  toast(`Exported ${n} specimens to TPS`+
+        (miss?` — ${miss} missing landmark(s) written as -1; read with negNA=TRUE`:""));
+};
+
+// Records are kept for every filename ever labelled in this browser, so a second
+// batch does not lose the first. The cost is that an export can include
+// specimens not in the current selection, which is why both exports state how
+// many they cover — and why there has to be a way to start clean.
+$("#reset").onclick=()=>{
+  const n=Object.keys(data).length;
+  if(!n){ toast("Nothing saved"); return; }
+  if(!confirm(`Delete saved landmarks for ${n} specimen(s) in this browser?\n\n`+
+              `This cannot be undone. Export first if you have not already.`)) return;
+  data={}; save();
+  buildTasks(); draw(); toast("Cleared");
 };
 
 window.addEventListener("resize",resize);
