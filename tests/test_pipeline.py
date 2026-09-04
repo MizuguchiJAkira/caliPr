@@ -122,7 +122,10 @@ def test_pipeline_manual_mode_end_to_end(tmp_path: Path):
     assert out.exists()
 
     wb = openpyxl.load_workbook(out)
-    assert set(wb.sheetnames) == {"Measurements", "Ratios", "QC"}
+    # About first, because it is what opens: what the file is, its units, and
+    # whether any check fired. Validation only appears when the caller ran one.
+    assert {"About", "Measurements", "Ratios", "Shape", "QC"} <= set(wb.sheetnames)
+    assert wb.sheetnames[0] == "About"
 
     rows = list(wb["Measurements"].iter_rows(values_only=True))
     header = rows[0]

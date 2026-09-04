@@ -112,7 +112,10 @@ def test_export_writes_its_three_sheets(tmp_path: Path):
     assert out.exists()
 
     wb = openpyxl.load_workbook(out)
-    assert set(wb.sheetnames) == {"Measurements", "Ratios", "QC"}
+    # About first, because it is what opens: what the file is, its units, and
+    # whether any check fired. Validation only appears when the caller ran one.
+    assert {"About", "Measurements", "Ratios", "Shape", "QC"} <= set(wb.sheetnames)
+    assert wb.sheetnames[0] == "About"
 
     meas = wb["Measurements"]
     rows = list(meas.iter_rows(values_only=True))
