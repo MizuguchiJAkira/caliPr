@@ -311,7 +311,7 @@ def detect_ruler_scale(
 def detect_tick_scale(
     image: "NDArray[np.uint8]",
     *,
-    y_frac: tuple[float, float] = (0.02, 0.48),
+    y_frac: tuple[float, float] = (0.02, 0.98),
     x_frac: tuple[float, float] = (0.05, 0.78),
     step: int = 24,
     band_h: int = 30,
@@ -322,9 +322,16 @@ def detect_tick_scale(
 ) -> CalibrationResult:
     """Recover px/mm from the millimetre ticks of a ruler in the frame.
 
-    Written for the Cornell lab rig, where a C-Thru ruler lies along the top of
-    every lateral crop. Scans horizontal bands, autocorrelates each band's
+    Scans horizontal bands across the frame, autocorrelates each band's
     column-darkness profile, and collects every periodic peak.
+
+    The scan covers the FULL height. It used to stop at 48%, which suited the
+    Cornell rig -- a C-Thru ruler along the top of every lateral crop -- and meant
+    it never looked at a rig that puts its ruler anywhere else. On the alewife tank
+    series, where the ruler runs along the bottom, that took detection from 10 of
+    30 photographs to 30 of 30. Widening it costs the Cornell rig nothing: median,
+    mean and worst-case error are unchanged to two decimal places, because the
+    millimetre ticks are the finest periodicity in the frame wherever they sit.
 
     Selecting the right peak is the whole problem: the ruler carries a
     **millimetre scale and an imperial scale**, and 1/16 in = 1.5875 mm, so the
@@ -334,9 +341,14 @@ def detect_tick_scale(
     periodicity present, so we take the smallest period that several bands
     agree on — ``min_support`` guards against a one-off noise peak below it.
 
-    Validated against 20 hand-clicked calibrations spanning two camera
-    distances (20.5 and 25.2 px/mm): mean absolute error 1.0%, max 2.5%,
-    20/20 within 3%.
+    Validated against every hand-clicked calibration available. Cornell rig, 46
+    specimens across two camera distances (20.5 and 25.2 px/mm): median error
+    1.04%, 45 of 46 within 3%, one hard failure at 30% -- and its own confidence
+    is a constant 0.90, so it cannot flag that itself. The labeler's batch-median
+    check is what catches it, at 42% off the median. Alewife tank rig, 3
+    hand-clicked specimens: 1.7%, 2.3%, 4.0%.
+
+    So: good enough to place the scale, not good enough to trust unchecked.
 
     Raises ``RuntimeError`` if no periodic tick signal is found.
     """

@@ -416,6 +416,7 @@ async function selectSpec(s){
   renderClipFlags();
   await setView('lateral');
   loadAutoCal();
+  await loadCalStats();      // the comparison median is per lot, so it moves with the specimen
   updateCalRead();
   warnIfNoScale();
   loadSpecs();
@@ -914,7 +915,11 @@ function applyAutoCal(){
 // Live px/mm readout — catches a mistyped known_mm (the one calibration error
 // nothing downstream can detect, since the wrong scale is self-consistent).
 let calMedian=null;
-async function loadCalStats(){ try{ const s=await api('/api/calibstats'+dsq());
+const lotOf = id => { const m=/CUMV[A-Za-z]*_(\d+)/i.exec(id) || /_([A-Za-z]{2,4})_\d+$/.exec(id);
+  return m ? m[1] : ''; };
+async function loadCalStats(){ try{
+  const lot = cur ? lotOf(cur.id) : '';
+  const s=await api('/api/calibstats'+dsq()+(lot?'&lot='+encodeURIComponent(lot):''));
   calMedian=s.median_px_per_mm; }catch(e){} }
 // Announce a missing scale when the specimen is opened, not when the workbook is
 // exported weeks later. Named, so it is obvious which fish it refers to when
