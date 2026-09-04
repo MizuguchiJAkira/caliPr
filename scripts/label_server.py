@@ -130,14 +130,46 @@ def suggested_subset(ids: list[str], n: int = SUGGESTED_N) -> set[str]:
 _ID_RE = re.compile(r"^(.*)_[LF]$")
 
 
-def build_schema() -> dict:
+def load_profile(images_dir: Path) -> dict:
+    """Per-dataset narrowing of the master schema, from ``<images_dir>/schema.json``.
+
+    A second study on a different taxon rarely wants every structure. The alewife
+    series drops the pelvic and anal fins -- the pelvic has almost no contrast
+    against the flank, and the anal frays badly -- but the brook trout study still
+    needs them. Editing landmark_config would break the study that is already
+    validated against it, so a dataset narrows the schema instead of redefining it.
+
+    The profile can only REMOVE. Anything a dataset adds would be absent from the
+    measurement engine and could not be computed, so a typo here weakens the task
+    list rather than silently inventing a landmark.
+    """
+    path = images_dir / "schema.json"
+    if not path.is_file():
+        return {}
+    try:
+        prof = json.loads(path.read_text())
+    except Exception as exc:                       # a broken profile must be loud
+        print(f"  WARNING: could not read {path}: {exc}")
+        return {}
+    return {
+        "exclude_polygons": set(prof.get("exclude_polygons") or []),
+        "exclude_keypoints": set(prof.get("exclude_keypoints") or []),
+        "note": prof.get("note", ""),
+    }
+
+
+def build_schema(profile: dict | None = None) -> dict:
     """Emit the per-view labeling contract straight from landmark_config."""
+
+    profile = profile or {}
+    drop_poly = profile.get("exclude_polygons") or set()
+    drop_kp = profile.get("exclude_keypoints") or set()
 
     def kp(items, view):
         return [
             {"name": k.name, "description": k.description, "hint": k.labeling_hint}
             for k in items
-            if k.view == view
+            if k.view == view and k.name not in drop_kp
         ]
 
     def poly(view):
@@ -154,7 +186,7 @@ def build_schema() -> dict:
                 ),
             }
             for p in POLYGONS
-            if p.view == view
+            if p.view == view and p.name not in drop_poly
         ]
 
     # Fin-retrace grouping: one fin's base keypoint, tip keypoint, and outline
@@ -165,6 +197,8 @@ def build_schema() -> dict:
     def fin_groups():
         groups = []
         for name in FIN_POLYGONS:
+            if name in drop_poly:
+                continue
             base, tip = FIN_KEYPOINTS[name]
             groups.append({
                 "fin": name,
@@ -181,6 +215,7 @@ def build_schema() -> dict:
         return groups
 
     return {
+        "profile_note": profile.get("note", ""),
         "fin_groups": fin_groups(),
         "lateral": {
             "polygons": poly(View.LATERAL),
@@ -317,7 +352,7 @@ class Handler(BaseHTTPRequestHandler):
             html = (UI_DIR / "index.html").read_text()
             return self._send(200, html, "text/html; charset=utf-8")
         if route == "/api/schema":
-            return self._send(200, build_schema())
+            return self._send(200, build_schema(load_profile(self.images_dir)))
         if route == "/api/specimens":
             return self._send(200, self._specimens())
         if route == "/api/calibstats":
