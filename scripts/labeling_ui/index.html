@@ -77,10 +77,26 @@
   #autotxt { font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
   #calread { margin-top:6px; font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
   #calread.warn { color:#04121f; background:var(--warn); border-radius:4px; padding:3px 6px; font-weight:600; }
-  #imgctrl { display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11px; color:var(--mut); }
-  #imgctrl label { display:flex; align-items:center; gap:4px; flex:1; }
-  #imgctrl input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
-  #imgctrl button { padding:3px 7px; font-size:11px; }
+  /* Stacked, not side by side: two range inputs in a 290px sidebar overflowed by
+     136px and ran the brightness slider off the edge of the panel. */
+  #imgpanel { margin-top:8px; font-size:11px; color:var(--mut); }
+  #imgpanel summary { cursor:pointer; list-style:none; padding:3px 0;
+    text-transform:uppercase; letter-spacing:.5px; font-size:10px; }
+  #imgpanel summary::-webkit-details-marker { display:none; }
+  #imgpanel summary::before { content:'▸ '; }
+  #imgpanel[open] summary::before { content:'▾ '; }
+  #imgstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  #imgctrl { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
+  #imgctrl label { display:flex; flex-direction:column; gap:2px; width:100%; }
+  #imgctrl label b { color:var(--fg); font-weight:600; font-variant-numeric:tabular-nums; }
+  #imgctrl input[type=range] { width:100%; accent-color:var(--accent); }
+  .imgbtns { display:flex; gap:5px; margin-top:3px; }
+  .imgbtns button { flex:1; padding:3px 6px; font-size:10.5px; }
+  .imgbtns button.on { background:var(--accent); border-color:var(--accent);
+    color:#04121f; font-weight:600; }
+  /* Last-resort guard: if the sidebar ever outgrows the window, scroll it rather
+     than silently clipping a control off the bottom. */
+  #side { overflow-y:auto; }
   #rtsec { padding:8px 14px; }
   #rtstat { margin-top:6px; font-size:11px; color:var(--mut); line-height:1.5; }
   #rtstat b { color:var(--fg); }
@@ -139,11 +155,24 @@
       </div>
       <div id="calread">—</div>
       <div id="autocal"><button id="useauto">use ruler auto-scale</button><span id="autotxt"></span></div>
-      <div id="imgctrl">
-        <label>contrast<input id="ctrst" type="range" min="1" max="3.5" step="0.05" value="1"></label>
-        <label>bright<input id="brt" type="range" min="0.6" max="1.7" step="0.05" value="1"></label>
-        <button id="enhReset" title="reset image adjustments">reset</button>
-      </div>
+      <details id="imgpanel">
+        <summary>image adjustments <span id="imgstate"></span></summary>
+        <div id="imgctrl">
+          <label>contrast <b id="vCtrst">1.00</b>
+            <input id="ctrst" type="range" min="1" max="3.5" step="0.05" value="1"></label>
+          <label>brightness <b id="vBrt">1.00</b>
+            <input id="brt" type="range" min="0.4" max="2" step="0.05" value="1"></label>
+          <label>saturation <b id="vSat">1.00</b>
+            <input id="sat" type="range" min="0" max="2.5" step="0.05" value="1"></label>
+          <label>gamma <b id="vGam">1.00</b>
+            <input id="gam" type="range" min="0.4" max="2.2" step="0.05" value="1"></label>
+          <div class="imgbtns">
+            <button id="tGray" title="Drop colour — sometimes an edge is clearer without it">grayscale</button>
+            <button id="tInv" title="Invert — can lift a faint margin out of a dark ground">invert</button>
+            <button id="enhReset">reset</button>
+          </div>
+        </div>
+      </details>
     </div>
     <div class="sec" id="rtsec">
       <button id="rtoggle" style="width:100%">✥ Fin retrace mode</button>
@@ -210,6 +239,10 @@ function finState(g){
 }
 const finsLeft = () => finGroups().filter(g=>!finState(g).done);
 let img=new Image(), imgW=0, imgH=0;
+// Switching dataset while a 4000px JPEG is still decoding used to let the old
+// image finish and repaint, and to fire a request the new dataset 404s on.
+// Every load carries a token; a load whose token is stale is dropped.
+let imgToken=0;
 let vs={scale:1, ox:0, oy:0};       // view transform (image px -> screen)
 // model[view] = {keypoints:{name:[x,y]}, polygons:{name:[[x,y]..]}, ruler:{a:[x,y],b:[x,y]}, known_mm}
 let model=null;
@@ -411,10 +444,14 @@ function ingest(sc){
 }
 function loadImage(){
   return new Promise(res=>{
+    if(!cur){ imgW=imgH=0; buildTasks(); draw(); return res(); }
     const file = view==='lateral'?cur.lateral:cur.frontal;
     if(!file){ img=new Image(); imgW=imgH=0; buildTasks(); draw(); return res(); }
+    const token=++imgToken;
     img=new Image();
-    img.onload=()=>{imgW=img.naturalWidth;imgH=img.naturalHeight;resize();fit();buildTasks();draw();res();};
+    img.onerror=()=>{ if(token===imgToken){ imgW=imgH=0; draw(); } res(); };
+    img.onload=()=>{ if(token!==imgToken) return res();   // superseded
+      imgW=img.naturalWidth;imgH=img.naturalHeight;resize();fit();buildTasks();draw();res();};
     img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq();
   });
 }
@@ -424,6 +461,7 @@ function loadImage(){
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
 function setView(v){ view=v; $('#viewPick').value=v;
+  if(!cur){ activeTask=null; buildTasks(); showHint(); draw(); return Promise.resolve(); }
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
   activeTask=null; return loadImage(); }
@@ -431,7 +469,9 @@ function setView(v){ view=v; $('#viewPick').value=v;
 function buildTasks(){
   const box=$('#tasks'); box.innerHTML='';
   const sc=SCHEMA[view]; if(!sc){return;}
-  const m=model[view];
+  // Between datasets there is no specimen in hand. An empty model keeps the task
+  // list rendering (unset) instead of throwing on model[view].
+  const m=(model&&model[view])||{keypoints:{},polygons:{},ruler:{}};
 
   const mkTask=(kind,it,extra)=>{
     const n = kind==='polygon' ? ((m.polygons[it.name]||[]).length) : 0;
@@ -875,10 +915,36 @@ function updateCalRead(){
     el.textContent=`⚠ ${ppm.toFixed(1)} px/mm — others ≈ ${calMedian.toFixed(1)}. Check "known span".`; }
   else { el.className=''; el.textContent=msg + (calMedian?`  (batch ≈ ${calMedian.toFixed(1)})`:''); }
 }
-function updateImgFilter(){ const c=$('#ctrst').value, b=$('#brt').value;
-  imgFilter=(c==='1'&&b==='1')?'none':`contrast(${c}) brightness(${b})`; draw(); }
-$('#ctrst').oninput=updateImgFilter; $('#brt').oninput=updateImgFilter;
-$('#enhReset').onclick=()=>{$('#ctrst').value=1;$('#brt').value=1;updateImgFilter();};
+// Display only. None of this touches a stored coordinate — it changes what the
+// canvas paints, never what a click records.
+let gray=false, inv=false;
+function updateImgFilter(){
+  const c=+$('#ctrst').value, b=+$('#brt').value,
+        sa=+$('#sat').value, g=+$('#gam').value;
+  $('#vCtrst').textContent=c.toFixed(2); $('#vBrt').textContent=b.toFixed(2);
+  $('#vSat').textContent=sa.toFixed(2);  $('#vGam').textContent=g.toFixed(2);
+  const parts=[];
+  if(c!==1) parts.push(`contrast(${c})`);
+  if(b!==1) parts.push(`brightness(${b})`);
+  if(sa!==1) parts.push(`saturate(${sa})`);
+  // Canvas has no gamma filter; brightness on a mid-grey pivot is the closest
+  // thing that still lifts shadow detail without blowing the highlights.
+  if(g!==1) parts.push(`brightness(${(1/g).toFixed(3)}) contrast(${g.toFixed(3)})`);
+  if(gray) parts.push('grayscale(1)');
+  if(inv) parts.push('invert(1)');
+  imgFilter = parts.length ? parts.join(' ') : 'none';
+  $('#tGray').classList.toggle('on',gray);
+  $('#tInv').classList.toggle('on',inv);
+  const n=parts.length;
+  $('#imgstate').textContent = n ? ` — ${n} active` : '';
+  draw();
+}
+['#ctrst','#brt','#sat','#gam'].forEach(id=>$(id).oninput=updateImgFilter);
+$('#tGray').onclick=()=>{gray=!gray;updateImgFilter();};
+$('#tInv').onclick=()=>{inv=!inv;updateImgFilter();};
+$('#enhReset').onclick=()=>{
+  $('#ctrst').value=1;$('#brt').value=1;$('#sat').value=1;$('#gam').value=1;
+  gray=false;inv=false;updateImgFilter();};
 $('#datanote').oninput=()=>{ if(model){ syncCompromise(); persistDraft(); } };
 $('#viewPick').onchange=e=>setView(e.target.value);
 $('#dsPick').onchange=async e=>{
@@ -886,7 +952,8 @@ $('#dsPick').onchange=async e=>{
   localStorage.setItem('calipr_dataset', dataset);
   // A different study means a different schema, specimen list and reference, so
   // clear the in-hand specimen rather than carry one across.
-  cur=null; model=null; activeTask=null; imgW=imgH=0;
+  cur=null; model=blankModel(); activeTask=null; imgW=imgH=0;
+  imgToken++;                    // abandon any image still loading from the old set
   SCHEMA=await api('/api/schema'+dsq());
   await loadSpecs(); loadCalStats();
   buildTasks(); showHint(); draw();
