@@ -349,15 +349,22 @@ class Handler(BaseHTTPRequestHandler):
             })
         return out
 
-    def _calib_stats(self):
-        """Median px/mm across saved sidecars.
+    def _calib_stats(self, lot: str = ""):
+        """Median px/mm across saved sidecars, per collection lot where possible.
 
         A mistyped ``known_mm`` (e.g. 10 for a 50 mm span) silently scales every
-        trait for that specimen, and nothing downstream can tell — the geometry
-        is self-consistent, just wrong. Comparing against the batch median is
-        the cheapest way to catch it while the annotator is still on the fish.
+        trait for that specimen, and nothing downstream can tell — the geometry is
+        self-consistent, just wrong. Comparing against a median is the cheapest way
+        to catch it while the annotator is still on the fish.
+
+        WHICH median matters. The Cornell rig holds one camera distance, so a
+        whole-batch median works there. The alewife tank series does not: distance
+        varies BETWEEN collection lots, from about 25 px/mm to 44, so a batch
+        median flags 82 of 181 specimens as outliers when nothing is wrong with
+        them. Comparing within the lot is what makes the check mean something —
+        that is where a genuine mis-scale actually stands out.
         """
-        vals = []
+        vals, lot_vals = [], []
         for p in self.out_dir.glob("*.json"):
             try:
                 cal = (json.loads(p.read_text()).get("lateral") or {}).get("calibration")
@@ -366,9 +373,16 @@ class Handler(BaseHTTPRequestHandler):
                 (ax, ay), (bx, by) = cal["point_a"], cal["point_b"]
                 known = float(cal["known_mm"])
                 if known > 0:
-                    vals.append(((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5 / known)
+                    v = ((bx - ax) ** 2 + (by - ay) ** 2) ** 0.5 / known
+                    vals.append(v)
+                    if lot and _lot_of(p.stem) == lot:
+                        lot_vals.append(v)
             except Exception:
                 continue
+        # Prefer the lot, but only once it has enough specimens to have a median
+        # worth trusting; otherwise fall back to the batch.
+        if len(lot_vals) >= 3:
+            vals = lot_vals
         vals.sort()
         median = vals[len(vals) // 2] if vals else None
         return {"median_px_per_mm": median, "n": len(vals)}
@@ -405,7 +419,9 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/api/specimens":
             return self._send(200, self._specimens())
         if route == "/api/calibstats":
-            return self._send(200, self._calib_stats())
+            return self._send(
+                200, self._calib_stats(parse_qs(urlparse(self.path).query)
+                                       .get("lot", [""])[0]))
         if route.startswith("/api/autocal/"):
             name = unquote(route[len("/api/autocal/"):])
             if "/" in name or ".." in name:
