@@ -44,6 +44,13 @@
     border-radius:5px; padding:5px 6px; font-size:12px; }
   /* Collapsed by default: a key is looked at once and then never again, so it
      should not hold five lines of a sidebar that is already tight. */
+  /* A wrapping inline run broke mid-counter and left one orphan on its own line.
+     A fixed two-column grid keeps the pairs aligned at any count. */
+  #progress { display:grid; grid-template-columns:1fr 1fr; gap:4px 10px; }
+  #progress .ct { display:flex; align-items:center; gap:6px; font-size:11px;
+    color:var(--mut); font-variant-numeric:tabular-nums; }
+  #progress .ct .mk { margin:0; flex:none; }
+  #progress .ct b { color:var(--fg); font-weight:600; }
   #legendbox { border-bottom:1px solid var(--line); font-size:10.5px; color:var(--mut); }
   #legendbox summary { cursor:pointer; list-style:none; padding:6px 14px;
     text-transform:uppercase; letter-spacing:.5px; font-size:10px; }
@@ -204,7 +211,8 @@
       </div>
     </div>
     <div class="sec" style="border-bottom:none">
-      <h2>Specimens <span id="progress" style="color:var(--mut)"></span></h2>
+      <h2>Specimens</h2>
+      <div id="progress"></div>
     </div>
     <details id="legendbox"><summary>badge key</summary><div id="legend"></div></details>
     <div id="specWrap"></div>
@@ -356,13 +364,19 @@ async function loadSpecs(){
   const dl=SPECS.filter(s=>s.lateral_done).length;
   const df=SPECS.filter(s=>s.frontal_done).length;
   const dv=SPECS.filter(s=>s.fins_done).length;
-  $('#progress').innerHTML=`<span class="mk on">L</span>${dl}/${SPECS.length} `+
-    `<span class="mk f on">F</span>${df}/${SPECS.length}`+
-    (dsInfo().has_fin_polygons ? ` <span class="mk v on">V</span>${dv}/${dl}` : '');
   const ns=SPECS.filter(x=>x.suggested&&!x.lateral_done).length;
   const nsTot=SPECS.filter(x=>x.suggested).length;
-  if(nsTot) $('#progress').innerHTML +=
-    ` <span class="mk s on">S</span>${nsTot-ns}/${nsTot}`;
+  const nh=SPECS.filter(x=>x.heldout).length;
+  const nhd=SPECS.filter(x=>x.heldout&&x.lateral_done).length;
+  const ct=(cls,l,a,b)=>`<span class="ct"><span class="mk ${cls}">${l}</span>`+
+                        `<b>${a}</b>/${b}</span>`;
+  $('#progress').innerHTML=[
+    ct('on','L',dl,SPECS.length),
+    ct('f on','F',df,SPECS.length),
+    dsInfo().has_fin_polygons ? ct('v on','V',dv,dl) : '',
+    nsTot ? ct('s on','S',nsTot-ns,nsTot) : '',
+    nh ? ct('h on','H',nhd,nh) : '',
+  ].filter(Boolean).join('');
   renderLegend();
   const w=$('#specWrap'); w.innerHTML='';
   // In retrace mode the list IS the worklist: only fish that are landmarked but
@@ -968,6 +982,17 @@ $('#dsPick').onchange=async e=>{
   toast('Switched to '+dataset);
 };
 $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownmm').value);persistDraft();updateCalRead();}};
+// Browsers restore <details> state across a reload on their own, which looks
+// like the panel reopening itself. Make it deliberate instead: remember the
+// choice per panel so it is predictable and survives a real cold start.
+['legendbox','imgpanel'].forEach(id=>{
+  const el=document.getElementById(id); if(!el) return;
+  const key='calipr_open_'+id;
+  const saved=localStorage.getItem(key);
+  if(saved!==null) el.open = saved==='1';
+  el.addEventListener('toggle',()=>localStorage.setItem(key, el.open?'1':'0'));
+});
+
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
 function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
   const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height; }
