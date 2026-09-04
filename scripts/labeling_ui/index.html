@@ -12,10 +12,18 @@
     font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
   /* Wider by default, and draggable: the sidebar carries the landmark list, the
      image controls and the key, and 290px cramped all three. */
-  #app { display:grid; grid-template-columns:var(--sidew,340px) 6px 1fr;
+  /* Three columns. The landmark list and the specimen list were both flex:1 in
+     one sidebar and starved each other -- the specimen list ended up showing
+     three rows. Separate columns let each have its own full height. */
+  #app { display:grid;
+    grid-template-columns:var(--sidew,320px) 6px var(--taskw,240px) 6px 1fr;
     grid-template-rows:100%; height:100vh; max-height:100vh; overflow:hidden; }
-  #grip { background:var(--line); cursor:col-resize; }
-  #grip:hover, #grip.drag { background:var(--accent); }
+  #taskcol { background:var(--panel); border-right:1px solid var(--line);
+    display:flex; flex-direction:column; min-height:0; }
+  .colhdr { font-size:10px; text-transform:uppercase; letter-spacing:.6px;
+    color:var(--mut); padding:12px 14px 8px; border-bottom:1px solid var(--line); }
+  #grip, #grip2 { background:var(--line); cursor:col-resize; }
+  #grip:hover, #grip.drag, #grip2:hover, #grip2.drag { background:var(--accent); }
   body.resizing { cursor:col-resize; user-select:none; }
   #side { background:var(--panel); border-right:1px solid var(--line); display:flex;
     flex-direction:column; min-height:0; }
@@ -25,7 +33,7 @@
   .sec { padding:10px 14px; border-bottom:1px solid var(--line); }
   .sec h2 { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--mut);
     margin:0 0 8px; }
-  #specWrap { overflow:auto; flex:1; min-height:80px; }
+  #specWrap { overflow:auto; flex:1; min-height:120px; }
   .spec { padding:5px 14px; cursor:pointer; display:flex; justify-content:space-between;
     gap:6px; border-left:3px solid transparent; }
   .spec:hover { background:#232a35; }
@@ -68,9 +76,12 @@
   button.on { background:var(--accent); border-color:var(--accent); color:#04121f; font-weight:600; }
   button.primary { background:var(--good); border-color:var(--good); color:#052; font-weight:600; }
   button:disabled { opacity:.45; cursor:default; }
-  #tasks { overflow:auto; flex:1; min-height:100px; }
-  .task { display:flex; align-items:center; gap:7px; padding:5px 14px; cursor:pointer;
-    border-left:3px solid transparent; }
+  /* Grouped and collapsible, the landmark list is a few rows tall, so it sizes to
+     its content instead of claiming half a column. Capped so a fully expanded set
+     still cannot squeeze the specimen list out. */
+  #tasks { overflow:auto; flex:1; min-height:0; }
+  .task { display:flex; align-items:center; gap:7px; padding:2px 14px; cursor:pointer;
+    border-left:3px solid transparent; font-size:12px; line-height:1.5; }
   .task:hover { background:#232a35; }
   .task.active { background:#26303d; border-left-color:var(--accent); }
   .task .dot { width:9px; height:9px; border-radius:50%; background:#3a4553; flex:none; }
@@ -122,9 +133,25 @@
   #rtstat .fin.thin { color:var(--warn); }
   body.retrace #rtoggle { background:var(--accent); border-color:var(--accent);
                           color:#04121f; font-weight:600; }
-  .grouphdr { padding:6px 14px 2px; font-size:10px; text-transform:uppercase;
-              letter-spacing:.6px; color:var(--mut); }
-  #dcsec { padding:8px 14px; }
+  /* Regions collapse, and a finished one collapses itself. 28 landmarks in one
+     flat column is a tall list for a task that advances automatically — you look
+     at the region you are working, not all of them. */
+  .grouphdr { padding:6px 14px 2px; font-size:9.5px; text-transform:uppercase;
+              letter-spacing:.6px; color:var(--mut);
+              display:flex; align-items:center; gap:6px; }
+  .grouphdr .gn { flex:1; }
+  .grouphdr .gc { font-variant-numeric:tabular-nums; }
+  .grouphdr.done .gc { color:var(--good); }
+  /* Collapsible like the others: a compromise note is occasional, and 92px of
+     permanent chrome was coming out of the specimen list. The summary shows a
+     marker when the open specimen actually has one, so it is not hidden. */
+  #dcsec { padding:8px 14px; border-bottom:1px solid var(--line); }
+  #dcsec summary { cursor:pointer; list-style:none; padding:2px 0;
+    text-transform:uppercase; letter-spacing:.5px; font-size:10px; color:var(--mut); }
+  #dcsec summary::-webkit-details-marker { display:none; }
+  #dcsec summary::before { content:'▸ '; }
+  #dcsec[open] summary::before { content:'▾ '; }
+  #dcstate { color:var(--warn); text-transform:none; letter-spacing:0; }
   #clipflags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
   #clipflags button { padding:3px 7px; font-size:11px; }
   #clipflags button.on { background:var(--warn); border-color:var(--warn); color:#2a1a00; font-weight:600; }
@@ -201,13 +228,12 @@
       <button id="rtoggle" style="width:100%">✥ Fin retrace mode</button>
       <div id="rtstat"></div>
     </div>
-    <div id="hint">Select a specimen to begin.</div>
-    <div id="tasks"></div>
-    <div class="sec" id="dcsec">
-      <h2>data note / compromise</h2>
+    <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
+    <div id="specWrap"></div>
+    <details id="dcsec"><summary>data note / compromise <span id="dcstate"></span></summary>
       <div id="clipflags"></div>
       <input id="datanote" type="text" placeholder="note any photo compromise…" />
-    </div>
+    </details>
     <div class="sec">
       <div class="row" style="margin-bottom:6px">
         <button id="undo" title="Undo the SELECTED landmark's point (Z or ⌘/Ctrl+Z)">↶ Undo</button>
@@ -219,10 +245,14 @@
         <button id="save" class="primary">Save sidecar</button>
       </div>
     </div>
-    <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
-    <div id="specWrap"></div>
   </div>
-  <div id="grip" title="Drag to resize the sidebar"></div>
+  <div id="grip" title="Drag to resize"></div>
+  <div id="taskcol">
+    <div class="colhdr">Landmarks <span id="taskcount"></span></div>
+    <div id="hint">Select a specimen to begin.</div>
+    <div id="tasks"></div>
+  </div>
+  <div id="grip2" title="Drag to resize"></div>
   <div id="main">
     <canvas id="cv"></canvas>
     <div id="hud"></div>
@@ -285,6 +315,11 @@ const CLIP_FLAGS=[
   {id:'fin_damaged',    label:'fin damaged',    traits:[],
    note:'fin damaged/folded on specimen'},
 ];
+function updateDcState(){
+  const el=$('#dcstate'); if(!el||!model) return;
+  const n=(model.flags||[]).length, note=(model.data_note||'').trim();
+  el.textContent = (n||note) ? ` — ${n?n+' flag'+(n>1?'s':''):''}${n&&note?', ':''}${note?'note':''}` : '';
+}
 function renderClipFlags(){
   const box=$('#clipflags'); box.innerHTML='';
   CLIP_FLAGS.forEach(fl=>{
@@ -295,7 +330,7 @@ function renderClipFlags(){
     b.onclick=()=>{ model.flags=model.flags||[];
       const i=model.flags.indexOf(fl.id);
       if(i>=0) model.flags.splice(i,1); else model.flags.push(fl.id);
-      syncCompromise(); renderClipFlags(); persistDraft(); };
+      syncCompromise(); renderClipFlags(); updateDcState(); persistDraft(); };
     box.appendChild(b);
   });
 }
@@ -419,7 +454,7 @@ async function selectSpec(s){
       .split(';').map(s=>s.trim())
       .filter(s=>s && !CLIP_FLAGS.some(fl=>fl.note===s))
       .join('; ');
-  renderClipFlags();
+  renderClipFlags(); updateDcState();
   await setView('lateral');
   loadAutoCal();
   await loadCalStats();      // the comparison median is per lot, so it moves with the specimen
@@ -523,8 +558,42 @@ function buildTasks(){
     return;
   }
 
-  [['ruler',sc.ruler],['keypoint',sc.keypoints],['polygon',sc.polygons]]
-    .forEach(([kind,items])=>(items||[]).forEach(it=>mkTask(kind,it)));
+  // Region grouping, always expanded. Headers are separators for scanning, not
+  // controls: landmarking is a click-through task and the flow auto-advances, so
+  // anything that has to be opened before it can be used is pure friction.
+  const REGIONS=[
+    ['ruler',    n=>/^ruler_/.test(n)],
+    ['head',     n=>/^(eye_|premaxilla|maxilla|lower_jaw|operculum|snout)/.test(n)],
+    ['pectoral', n=>/^pectoral/.test(n)],
+    ['peduncle', n=>/^(peduncle|caudal)/.test(n)],
+    ['dorsal',   n=>/^dorsal/.test(n)],
+    ['pelvic',   n=>/^pelvic/.test(n)],
+    ['anal',     n=>/^anal/.test(n)],
+    ['body',     ()=>true],
+  ];
+  const all=[...(sc.ruler||[]).map(i=>['ruler',i]),
+             ...(sc.keypoints||[]).map(i=>['keypoint',i]),
+             ...(sc.polygons||[]).map(i=>['polygon',i])];
+  const isSet=([kind,it])=>kind==='polygon'
+      ? ((m.polygons[it.name]||[]).length >= Math.max(3, it.target||0))
+      : kind==='ruler' ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
+      : !!m.keypoints[it.name];
+  const used=new Set();
+  for(const [label,test] of REGIONS){
+    const mine=all.filter(([k,it])=>!used.has(it.name) && test(it.name));
+    if(!mine.length) continue;
+    mine.forEach(([,it])=>used.add(it.name));
+    const done=mine.filter(isSet).length;
+    const h=document.createElement('div');
+    h.className='grouphdr'+(done===mine.length?' done':'');
+    h.innerHTML=`<span class="gn">${label}</span><span class="gc">${done}/${mine.length}</span>`;
+    box.appendChild(h);
+    mine.forEach(([kind,it])=>mkTask(kind,it));
+  }
+
+  const tc=$('#taskcount');
+  if(tc){ const all=[...box.querySelectorAll('.task')];
+    tc.textContent = all.length ? `${all.filter(e=>e.classList.contains('set')).length}/${all.length}` : ''; }
   renderRetraceStatus();
 }
 // Which fin a task belongs to (null if it is not a fin annotation).
@@ -987,7 +1056,7 @@ $('#tInv').onclick=()=>{inv=!inv;updateImgFilter();};
 $('#enhReset').onclick=()=>{
   $('#ctrst').value=1;$('#brt').value=1;$('#sat').value=1;$('#gam').value=1;
   gray=false;inv=false;updateImgFilter();};
-$('#datanote').oninput=()=>{ if(model){ syncCompromise(); persistDraft(); } };
+$('#datanote').oninput=()=>{ if(model){ syncCompromise(); updateDcState(); persistDraft(); } };
 $('#viewPick').onchange=e=>setView(e.target.value);
 $('#dsPick').onchange=async e=>{
   dataset=e.target.value;
@@ -1006,7 +1075,7 @@ $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownm
 // Browsers restore <details> state across a reload on their own, which looks
 // like the panel reopening itself. Make it deliberate instead: remember the
 // choice per panel so it is predictable and survives a real cold start.
-['legendbox','imgpanel'].forEach(id=>{
+['legendbox','imgpanel','dcsec'].forEach(id=>{
   const el=document.getElementById(id); if(!el) return;
   const key='calipr_open_'+id;
   const saved=localStorage.getItem(key);
@@ -1014,29 +1083,40 @@ $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownm
   el.addEventListener('toggle',()=>localStorage.setItem(key, el.open?'1':'0'));
 });
 
-// Sidebar width: remembered, clamped, and applied before first paint so the
+// Column widths: remembered, clamped, and applied before first paint so the
 // canvas is measured against the real layout rather than resized after it.
-const SIDE_MIN=260, SIDE_MAX=620;
-function setSideWidth(px){
-  const w=Math.round(Math.max(SIDE_MIN, Math.min(SIDE_MAX, px)));
-  document.documentElement.style.setProperty('--sidew', w+'px');
-  localStorage.setItem('calipr_sidew', String(w));
+const COLS = {
+  '--sidew': {grip:'#grip',  key:'calipr_sidew', def:320, min:250, max:620},
+  '--taskw': {grip:'#grip2', key:'calipr_taskw', def:240, min:170, max:460},
+};
+function setCol(varName, px){
+  const c=COLS[varName];
+  const w=Math.round(Math.max(c.min, Math.min(c.max, px)));
+  document.documentElement.style.setProperty(varName, w+'px');
+  localStorage.setItem(c.key, String(w));
   resize(); draw(); drawRef();
 }
-(function(){ const saved=parseInt(localStorage.getItem('calipr_sidew')||'',10);
-  if(saved) document.documentElement.style.setProperty('--sidew',
-    Math.max(SIDE_MIN,Math.min(SIDE_MAX,saved))+'px'); })();
-(function(){
-  const grip=$('#grip'); let dragging=false;
+Object.entries(COLS).forEach(([v,c])=>{
+  const saved=parseInt(localStorage.getItem(c.key)||'',10);
+  document.documentElement.style.setProperty(v,
+    Math.max(c.min, Math.min(c.max, saved||c.def))+'px');
+});
+Object.entries(COLS).forEach(([v,c])=>{
+  const grip=$(c.grip); if(!grip) return;
+  let dragging=false;
   grip.addEventListener('mousedown',e=>{ dragging=true; e.preventDefault();
     grip.classList.add('drag'); document.body.classList.add('resizing'); });
-  window.addEventListener('mousemove',e=>{ if(dragging) setSideWidth(e.clientX); });
+  window.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    // measured from the column's own left edge, so the second grip does not
+    // jump when the first one has been moved
+    const left=$(v==='--sidew'?'#side':'#taskcol').getBoundingClientRect().left;
+    setCol(v, e.clientX-left);
+  });
   window.addEventListener('mouseup',()=>{ if(!dragging) return; dragging=false;
     grip.classList.remove('drag'); document.body.classList.remove('resizing'); });
-  // double-click restores the default, so a sidebar dragged to a useless width
-  // is always one gesture from sane
-  grip.addEventListener('dblclick',()=>setSideWidth(340));
-})();
+  grip.addEventListener('dblclick',()=>setCol(v, c.def));
+});
 
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
 function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
