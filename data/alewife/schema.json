@@ -1,0 +1,5 @@
+{
+  "note": "Alewife: pelvic and anal fins are not labelled. The pelvic has almost no contrast against the flank, and the anal frays too badly for a reliable margin. Costs 5 of 33 traits (PlFl, PlFs, AFh, AFs, CPl); 28 remain.",
+  "exclude_polygons": ["pelvic", "anal"],
+  "exclude_keypoints": ["pelvic_base_center", "pelvic_tip", "anal_base_center", "anal_tip"]
+}
