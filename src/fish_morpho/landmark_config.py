@@ -249,7 +249,6 @@ FIN_POLYGON_TARGET_VERTICES = 16
 # ---------------------------------------------------------------------------
 
 KEYPOINTS: tuple[Keypoint, ...] = (
-    # ---- Eye (represented as 4 cardinal orbit points) ----
     Keypoint(
         "eye_anterior",
         "Anterior edge of the orbit on its horizontal centerline.",
@@ -276,7 +275,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "center.",
     ),
 
-    # ---- Mouth ----
     Keypoint(
         "premaxilla_tip",
         "Anterior-most tip of the upper jaw (premaxilla).",
@@ -301,7 +299,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "premaxilla_tip if the mouth is fully closed.",
     ),
 
-    # ---- Operculum (anchors reference line I) ----
     Keypoint(
         "operculum_posterior",
         "Posterior-most point of the bony operculum (gill cover). Anchors "
@@ -311,7 +308,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "branchiostegal membrane below it.",
     ),
 
-    # ---- Pectoral fin anchors ----
     Keypoint(
         "pectoral_insertion_upper",
         "Upper (dorsal) insertion of the pectoral fin base on the body. "
@@ -329,7 +325,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "natural position.",
     ),
 
-    # ---- Caudal peduncle anchors (line A) and caudal base (line H) ----
     Keypoint(
         "peduncle_narrowest_dorsal",
         "Dorsal body outline at the narrowest point of the caudal peduncle. "
@@ -356,7 +351,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "midline of the fish.",
     ),
 
-    # ---- Extras: fin-height anchors (pending reference sheets) ----
     Keypoint(
         "dorsal_base_center",
         "Midpoint of the first dorsal fin base at the body outline. Used "
@@ -376,6 +370,23 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "3-11 mm), so a corner of the base sits farther from the centre than "
         "the apex does. The anal and pelvic apexes ARE their farthest points; "
         "the dorsal is the exception.",
+    ),
+    Keypoint(
+        "dorsal_base_anterior",
+        "Anterior end of the first dorsal fin base, where the first dorsal ray "
+        "meets the body outline.",
+        View.LATERAL,
+        "Click where the FIRST ray of the dorsal fin meets the back. On the body "
+        "outline, not on the fin margin.",
+    ),
+    Keypoint(
+        "dorsal_base_posterior",
+        "Posterior end of the first dorsal fin base, where the last dorsal ray "
+        "meets the body outline. With dorsal_base_anterior it gives dorsal fin "
+        "base length (DFbl) without tracing the fin.",
+        View.LATERAL,
+        "Click where the LAST ray of the dorsal fin meets the back. Do NOT use "
+        "the adipose fin, where the species has one.",
     ),
     Keypoint(
         "pelvic_base_center",
@@ -398,6 +409,13 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "ventral body. Exact definition pending Cornell reference sheet.",
     ),
     Keypoint(
+        "anal_tip",
+        "Distal tip of the anal fin.",
+        View.LATERAL,
+        "Click the outermost point of the anal fin margin.",
+    ),
+
+    Keypoint(
         "anal_base_anterior",
         "Anterior end of the anal fin base, where the FIRST anal ray meets the "
         "body outline. With anal_base_posterior it gives the anal fin base length "
@@ -405,23 +423,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         View.LATERAL,
         "Click where the FIRST ray of the anal fin meets the body. On the body at "
         "the fin junction, not out on the fin margin.",
-    ),
-    Keypoint(
-        "dorsal_base_anterior",
-        "Anterior end of the first dorsal fin base, where the first dorsal ray "
-        "meets the body outline.",
-        View.LATERAL,
-        "Click where the FIRST ray of the dorsal fin meets the back. On the body "
-        "outline, not on the fin margin.",
-    ),
-    Keypoint(
-        "dorsal_base_posterior",
-        "Posterior end of the first dorsal fin base, where the last dorsal ray "
-        "meets the body outline. With dorsal_base_anterior it gives dorsal fin "
-        "base length (DFbl) without tracing the fin.",
-        View.LATERAL,
-        "Click where the LAST ray of the dorsal fin meets the back. Do NOT use "
-        "the adipose fin, where the species has one.",
     ),
     Keypoint(
         "anal_base_posterior",
@@ -435,14 +436,6 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         "the body at the fin junction, not out on the fin margin, so a frayed or "
         "low-contrast fin does not affect it.",
     ),
-    Keypoint(
-        "anal_tip",
-        "Distal tip of the anal fin.",
-        View.LATERAL,
-        "Click the outermost point of the anal fin margin.",
-    ),
-
-    # ---- Frontal (mirror) view ----
     Keypoint(
         "mouth_left",
         "Left corner of the open mouth in frontal view.",

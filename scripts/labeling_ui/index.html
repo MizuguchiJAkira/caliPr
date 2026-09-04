@@ -861,29 +861,65 @@ async function loadRef(){
   refAnnot.onload=()=>drawRef(); refAnnot.src='/ui/reference_annot.jpg';
   refBase.src='/ui/reference_base.jpg';
 }
-function refPointFor(task){
+// The region of the reference to show, in reference-image pixels. Framing the
+// STRUCTURE rather than applying a fixed magnification is what makes this
+// resolution-independent: a fixed zoom crops the same number of source pixels
+// whatever the reference's size, so improving the reference's resolution made the
+// crop a smaller fraction of the fish instead of a sharper picture of it.
+function refRegionFor(task){
   if(!task||!refData) return null;
-  if(task.kind==='keypoint') return refData.keypoints[task.name]||null;
-  if(task.kind==='polygon'){ const v=refData.polygons[task.name]; if(!v||!v.length) return null;
-    let cx=0,cy=0; v.forEach(p=>{cx+=p[0];cy+=p[1];}); return [cx/v.length,cy/v.length]; }
+  const span = refData.w || 3600;
+  if(task.kind==='keypoint'){
+    const p=refData.keypoints[task.name]; if(!p) return null;
+    const r=0.055*span;                      // ~5% of the fish either side
+    return {cx:p[0], cy:p[1], w:2*r, h:2*r};
+  }
+  if(task.kind==='polygon'){
+    const v=refData.polygons[task.name]; if(!v||!v.length) return null;
+    const xs=v.map(p=>p[0]), ys=v.map(p=>p[1]);
+    const x0=Math.min(...xs), x1=Math.max(...xs);
+    const y0=Math.min(...ys), y1=Math.max(...ys);
+    const pad=0.30*Math.max(x1-x0, y1-y0);   // show the fin in its context
+    return {cx:(x0+x1)/2, cy:(y0+y1)/2, w:(x1-x0)+2*pad, h:(y1-y0)+2*pad};
+  }
   return null; // ruler → overview
 }
 function drawRef(){
   if(!refData||!refAnnot.complete){return;}
   const W=rcv.width=rcv.clientWidth, H=rcv.height=rcv.clientHeight;
   rctx.setTransform(1,0,0,1,0,0); rctx.fillStyle='#0b0e12'; rctx.fillRect(0,0,W,H);
-  const pt = refMode==='zoom' ? refPointFor(activeTask) : null;
+  const reg = refMode==='zoom' ? refRegionFor(activeTask) : null;
   const lbl=$('#reflabel');
-  if(pt){ // zoomed focus on landmark
-    const zoom=3.2, bw=refData.w, bh=refData.h;
-    const sx=pt[0]-W/(2*zoom), sy=pt[1]-H/(2*zoom);
-    rctx.imageSmoothingEnabled=false;
-    rctx.drawImage(refBase, sx,sy, W/zoom,H/zoom, 0,0, W,H);
+  if(reg){ // zoomed focus on the landmark or fin
+    // Fit the region to the panel, preserving aspect, and never magnify past 1:1 —
+    // beyond that there is no more detail in the file, only bigger pixels.
+    const fitScale=Math.min(W/reg.w, H/reg.h);
+    const zoom=Math.min(fitScale, 1);
+    const sw=W/zoom, sh=H/zoom;
+    const sx=reg.cx-sw/2, sy=reg.cy-sh/2;
+    // Smooth when upscaling; nearest-neighbour only helps at or below 1:1.
+    rctx.imageSmoothingEnabled = zoom < 1 ? true : false;
+    rctx.imageSmoothingQuality = 'high';
+    rctx.drawImage(refBase, sx,sy, sw,sh, 0,0, W,H);
+    const pt=[reg.cx, reg.cy];
     const cx=(pt[0]-sx)*zoom, cy=(pt[1]-sy)*zoom;
-    rctx.beginPath();rctx.arc(cx,cy,7,0,7);rctx.strokeStyle='#ff5d6c';rctx.lineWidth=2;rctx.stroke();
-    rctx.beginPath();rctx.moveTo(cx-14,cy);rctx.lineTo(cx+14,cy);rctx.moveTo(cx,cy-14);rctx.lineTo(cx,cy+14);
-    rctx.strokeStyle='#ff5d6c88';rctx.stroke();
-    lbl.innerHTML=`<b>${activeTask.name}</b> — where it goes on the example`;
+    if(activeTask.kind==='polygon'){
+      // A crosshair on a fin's centroid says nothing useful. Draw the traced
+      // outline: that is the convention the annotator is being asked to copy.
+      const v=refData.polygons[activeTask.name];
+      rctx.beginPath();
+      v.forEach((p,i)=>{ const x=(p[0]-sx)*zoom, y=(p[1]-sy)*zoom;
+        i?rctx.lineTo(x,y):rctx.moveTo(x,y); });
+      rctx.closePath();
+      rctx.strokeStyle='#4aa3ff'; rctx.lineWidth=2; rctx.stroke();
+      rctx.fillStyle='#4aa3ff22'; rctx.fill();
+      lbl.innerHTML=`<b>${activeTask.name}</b> — ${v.length} vertices on the example`;
+    } else {
+      rctx.beginPath();rctx.arc(cx,cy,7,0,7);rctx.strokeStyle='#ff5d6c';rctx.lineWidth=2;rctx.stroke();
+      rctx.beginPath();rctx.moveTo(cx-14,cy);rctx.lineTo(cx+14,cy);rctx.moveTo(cx,cy-14);rctx.lineTo(cx,cy+14);
+      rctx.strokeStyle='#ff5d6c88';rctx.stroke();
+      lbl.innerHTML=`<b>${activeTask.name}</b> — where it goes on the example`;
+    }
   } else { // overview
     const s=Math.min(W/refAnnot.naturalWidth,H/refAnnot.naturalHeight);
     const dw=refAnnot.naturalWidth*s, dh=refAnnot.naturalHeight*s;
