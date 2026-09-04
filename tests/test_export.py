@@ -102,7 +102,7 @@ def _record(fish_id: str, locality: str) -> ExportRecord:
 # ---------------------------------------------------------------------------
 
 
-def test_export_writes_two_sheets(tmp_path: Path):
+def test_export_writes_its_three_sheets(tmp_path: Path):
     records = [
         _record("BKT-001", "Hogan's Brook"),
         _record("BKT-002", "Six Mile Creek"),
@@ -112,17 +112,24 @@ def test_export_writes_two_sheets(tmp_path: Path):
     assert out.exists()
 
     wb = openpyxl.load_workbook(out)
-    assert set(wb.sheetnames) == {"Measurements", "QC"}
+    assert set(wb.sheetnames) == {"Measurements", "Ratios", "QC"}
 
     meas = wb["Measurements"]
     rows = list(meas.iter_rows(values_only=True))
     header = rows[0]
 
-    # Metadata columns at the front.
+    # Metadata columns at the front, then the per-row units flag.
     assert header[:4] == ("fish_id", "locality", "collection_date", "image_filename")
-    # One column per trait after metadata.
+    assert header[4] == "units"
+    # One column per trait after those.
     from fish_morpho.landmark_config import TRAITS
-    assert len(header) == 4 + len(TRAITS)
+    assert len(header) == 5 + len(TRAITS)
+
+    # Every row states its own units. A workbook can hold both a specimen shot
+    # with a ruler and one shot without, and pixels sitting silently under an
+    # "(mm)" header is a mistake nothing downstream could detect.
+    u = header.index("units")
+    assert all(r[u] in ("mm", "px") for r in rows[1:])
 
     # Row ordering preserved.
     assert len(rows) == 3  # header + 2 fish
