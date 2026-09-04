@@ -387,6 +387,84 @@ class Handler(BaseHTTPRequestHandler):
         median = vals[len(vals) // 2] if vals else None
         return {"median_px_per_mm": median, "n": len(vals)}
 
+    def _export(self, kind: str):
+        """Build an export on demand and hand it back as a download.
+
+        Run in-process rather than shelled out so a failure surfaces as a message
+        the annotator can read, instead of a non-zero exit code in a terminal they
+        are not looking at.
+        """
+        import io
+        import zipfile
+        import subprocess
+
+        ds = self.images_dir.name
+        root = _ROOT / "results" / ds
+        try:
+            if kind == "measurements":
+                r = subprocess.run(
+                    [sys.executable, str(_ROOT / "scripts/export_measurements.py"),
+                     "--dataset", ds],
+                    capture_output=True, text=True, timeout=600, cwd=_ROOT)
+                out = root / "measurements.xlsx"
+                if r.returncode != 0 or not out.is_file():
+                    return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
+                return self._send_file(out, f"{ds}_measurements.xlsx")
+
+            if kind == "tps":
+                r = subprocess.run(
+                    [sys.executable, str(_ROOT / "scripts/export_tps.py"),
+                     "--sidecars", str(self.out_dir),
+                     "--images", str(self.images_dir / "lateral"),
+                     "--schema-dir", str(self.images_dir),
+                     "--out", str(root / "tps")],
+                    capture_output=True, text=True, timeout=600, cwd=_ROOT)
+                if r.returncode != 0:
+                    return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                    for f in sorted((root / "tps").iterdir()):
+                        if f.is_file():
+                            z.write(f, f.name)
+                return self._send_bytes(buf.getvalue(), f"{ds}_tps.zip",
+                                        "application/zip")
+
+            if kind == "overlays":
+                r = subprocess.run(
+                    [sys.executable, str(_ROOT / "scripts/render_overlays.py"),
+                     "--dataset", ds],
+                    capture_output=True, text=True, timeout=1800, cwd=_ROOT)
+                if r.returncode != 0:
+                    return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
+                folder = root / "overlays"
+                imgs = sorted(folder.glob("*.jpg")) if folder.is_dir() else []
+                if not imgs:
+                    return self._send(500, {"error": "nothing annotated yet"})
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                    for f in imgs:
+                        z.write(f, f.name)
+                return self._send_bytes(buf.getvalue(), f"{ds}_overlays.zip",
+                                        "application/zip")
+        except subprocess.TimeoutExpired:
+            return self._send(500, {"error": "export timed out"})
+        except Exception as exc:
+            return self._send(500, {"error": str(exc)})
+        return self._send(404, {"error": f"unknown export {kind!r}"})
+
+    def _send_file(self, path: Path, filename: str):
+        self._send_bytes(path.read_bytes(), filename,
+                         "application/vnd.openxmlformats-officedocument."
+                         "spreadsheetml.sheet")
+
+    def _send_bytes(self, data: bytes, filename: str, ctype: str):
+        self.send_response(200)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     # -- routes -----------------------------------------------------------
     def do_GET(self):
         route = urlparse(self.path).path
@@ -443,6 +521,9 @@ class Handler(BaseHTTPRequestHandler):
                 })
             except Exception as exc:
                 return self._send(200, {"error": str(exc)})
+        if route.startswith("/api/export/"):
+            return self._export(route[len("/api/export/"):])
+
         if route.startswith("/api/sidecar/"):
             fid = unquote(route[len("/api/sidecar/"):])
             p = self.out_dir / f"{fid}.json"
