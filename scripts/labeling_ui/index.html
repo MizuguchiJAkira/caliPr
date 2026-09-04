@@ -10,8 +10,13 @@
   * { box-sizing:border-box; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
     font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
-  #app { display:grid; grid-template-columns:290px 1fr; grid-template-rows:100%;
-    height:100vh; max-height:100vh; overflow:hidden; }
+  /* Wider by default, and draggable: the sidebar carries the landmark list, the
+     image controls and the key, and 290px cramped all three. */
+  #app { display:grid; grid-template-columns:var(--sidew,340px) 6px 1fr;
+    grid-template-rows:100%; height:100vh; max-height:100vh; overflow:hidden; }
+  #grip { background:var(--line); cursor:col-resize; }
+  #grip:hover, #grip.drag { background:var(--accent); }
+  body.resizing { cursor:col-resize; user-select:none; }
   #side { background:var(--panel); border-right:1px solid var(--line); display:flex;
     flex-direction:column; min-height:0; }
   #side h1 { font-size:14px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line);
@@ -217,6 +222,7 @@
     <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
     <div id="specWrap"></div>
   </div>
+  <div id="grip" title="Drag to resize the sidebar"></div>
   <div id="main">
     <canvas id="cv"></canvas>
     <div id="hud"></div>
@@ -1007,6 +1013,30 @@ $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownm
   if(saved!==null) el.open = saved==='1';
   el.addEventListener('toggle',()=>localStorage.setItem(key, el.open?'1':'0'));
 });
+
+// Sidebar width: remembered, clamped, and applied before first paint so the
+// canvas is measured against the real layout rather than resized after it.
+const SIDE_MIN=260, SIDE_MAX=620;
+function setSideWidth(px){
+  const w=Math.round(Math.max(SIDE_MIN, Math.min(SIDE_MAX, px)));
+  document.documentElement.style.setProperty('--sidew', w+'px');
+  localStorage.setItem('calipr_sidew', String(w));
+  resize(); draw(); drawRef();
+}
+(function(){ const saved=parseInt(localStorage.getItem('calipr_sidew')||'',10);
+  if(saved) document.documentElement.style.setProperty('--sidew',
+    Math.max(SIDE_MIN,Math.min(SIDE_MAX,saved))+'px'); })();
+(function(){
+  const grip=$('#grip'); let dragging=false;
+  grip.addEventListener('mousedown',e=>{ dragging=true; e.preventDefault();
+    grip.classList.add('drag'); document.body.classList.add('resizing'); });
+  window.addEventListener('mousemove',e=>{ if(dragging) setSideWidth(e.clientX); });
+  window.addEventListener('mouseup',()=>{ if(!dragging) return; dragging=false;
+    grip.classList.remove('drag'); document.body.classList.remove('resizing'); });
+  // double-click restores the default, so a sidebar dragged to a useless width
+  // is always one gesture from sane
+  grip.addEventListener('dblclick',()=>setSideWidth(340));
+})();
 
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
 function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
