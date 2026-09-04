@@ -138,6 +138,12 @@
   kbd { background:#0e1218; border:1px solid var(--line); border-radius:3px; padding:0 4px; }
   #refpanel { position:absolute; left:12px; bottom:12px; width:min(430px,calc(100% - 24px)); background:#0d1117f2;
     border:1px solid var(--line); border-radius:10px; overflow:hidden; box-shadow:0 6px 24px #0008; }
+  /* Minimised, not closed. The old × removed the panel with no way back except an
+     undocumented keypress, so the reference was effectively destroyable. The
+     header always remains and is itself the restore control. */
+  #refpanel.min #refcv, #refpanel.min #reflabel { display:none; }
+  #refpanel.min { width:auto; }
+  #refpanel.min #refhead { cursor:pointer; }
   #refpanel.hidden { display:none; }
   #refhead { display:flex; justify-content:space-between; align-items:center; padding:6px 10px;
     background:#161b22; border-bottom:1px solid var(--line); font-size:11px; color:var(--mut); }
@@ -218,7 +224,7 @@
     <div id="refpanel">
       <div id="refhead"><span id="reftitle">Reference — example fish</span>
         <span><button id="refmode" title="Toggle overview / zoom">zoom</button>
-        <button id="refclose" title="Hide (R)">×</button></span></div>
+        <button id="refmin" title="Minimise / restore (R)">–</button></span></div>
       <canvas id="refcv"></canvas>
       <div id="reflabel"></div>
     </div>
@@ -1060,11 +1066,24 @@ function drawRef(){
       : `Annotated example (${who}). Select a landmark + Zoom to focus.`;
   }
 }
-$('#refmode').onclick=()=>{refMode=refMode==='overview'?'zoom':'overview';
+$('#refmode').onclick=e=>{e.stopPropagation();
+  refMode=refMode==='overview'?'zoom':'overview';
   $('#refmode').textContent=refMode; drawRef();};
-$('#refclose').onclick=()=>$('#refpanel').classList.add('hidden');
+function setRefMin(v){
+  $('#refpanel').classList.toggle('min', v);
+  $('#refmin').textContent = v ? '+' : '–';
+  $('#refmin').title = (v?'Restore':'Minimise')+' reference (R)';
+  $('#reftitle').textContent = v ? 'Reference' : 'Reference — example fish';
+  localStorage.setItem('calipr_ref_min', v?'1':'0');
+  if(!v) drawRef();
+}
+const toggleRefMin=()=>setRefMin(!$('#refpanel').classList.contains('min'));
+$('#refmin').onclick=e=>{e.stopPropagation(); toggleRefMin();};
+// the whole header restores it, so a minimised panel is never a puzzle
+$('#refhead').onclick=()=>{ if($('#refpanel').classList.contains('min')) setRefMin(false); };
 window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return;
-  if(e.key==='r'||e.key==='R') $('#refpanel').classList.toggle('hidden'); });
+  if(e.key==='r'||e.key==='R') toggleRefMin(); });
+setRefMin(localStorage.getItem('calipr_ref_min')==='1');
 
 $('#save').onclick=async()=>{
   if(!cur){toast('No specimen');return;}
