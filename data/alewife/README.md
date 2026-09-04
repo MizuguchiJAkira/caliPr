@@ -1,24 +1,48 @@
 # Alewife (Alosa pseudoharengus) — BIOEE 4761
 
-Scratch dataset for testing the pipeline on a body plan it was not built for.
-Not part of the CUMV brook trout study; kept separate so nothing here can
-contaminate that dataset or its validation.
+Landlocked (Great Lakes) vs migratory populations, compared on **proportion**, so
+no absolute scale is needed. Kept separate from the CUMV brook trout study so
+nothing here can contaminate that dataset or its validation.
 
-Drop lateral photographs into `lateral/`. No preprocessing needed if each photo
-is already one fish plus a scale reference — `preprocess_jonah.py` is specific to
-the CUMV rig (mirror split, ruler band, label card) and should be skipped here.
+## Decisions made
 
-Run the labeler against it:
+- **Body outline follows the ventral keel of scutes**, not the body wall.
+- All specimens are alewife. `Shad` in ~30 filenames is a labelling quirk, not
+  *Alosa sapidissima*; do not treat it as a species split.
+- No calibration. Photographs are of a specimen suspended mid-tank with the ruler
+  taped to the near glass, so the scale sits in a different focal plane — parallax
+  and refraction make any absolute measurement off it wrong by an unknown factor.
+  The labeler writes `calibration: {"mode": "none"}` and values come out in
+  PIXELS. Ratios (trait / SL) are exact regardless, which is all this study needs.
+- **Population assignment is not in the filenames** (only one says `NonMig`). It
+  has to come from the CUMV lot numbers and their localities. Without that
+  mapping the landmarking cannot answer the question.
+
+## Does the brook trout pose model transfer? No.
+
+Tested 2026-08-06 on 8 specimens from lot CUMV 33050, cropped to the fish and
+rescaled to the size the model trained at. Result: **overall median likelihood
+0.18, with 98% of the 152 predictions below 0.5.** Visually the landmarks pile up
+around the head instead of distributing to distinct points, with strays off the
+animal entirely. See `results/alewife/dlc_on_alewife.jpg`.
+
+There is weak signal — the clusters land near the head and near the caudal, so the
+model has learned something about fish generally — but nothing usable.
+
+**The useful finding is that confidence collapsed.** Within brook trout, the
+confidence gate is nearly worthless: it catches 2 of 24 errors over 2 mm. Here it
+flagged the failure wholesale. So likelihood detects *domain shift* well and
+*within-domain error* badly, which are different jobs, and only the first can be
+trusted as an automatic guard.
+
+To get automatic landmarking on alewife the model needs alewife training data.
+For scale: brook trout went 3.88 mm held-out error at 28 labeled images to
+0.92 mm at 37.
+
+## Running it
 
     .venv/bin/python scripts/label_server.py \
         --images data/alewife --out data/alewife/sidecars
 
-Known caveats for a non-salmonid:
-
-- The DLC keypoint model is trained on brook trout and will not transfer. Use
-  manual labeling only.
-- `anatomy_constraints` allowances are fitted to brook trout and do not apply.
-- The dorsal polygon's hint says to exclude the adipose fin, which alewife do not
-  have. Harmless, but ignore it.
-- Alewife carry a ventral keel of scutes; decide once whether the body outline
-  follows the keel or the body wall, and be consistent.
+Manual labeling only. The reference panel still shows a brook trout; rebuild it
+from a labeled alewife with `scripts/make_reference.py --specimen <stem>`.
