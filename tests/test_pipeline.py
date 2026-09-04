@@ -122,7 +122,7 @@ def test_pipeline_manual_mode_end_to_end(tmp_path: Path):
     assert out.exists()
 
     wb = openpyxl.load_workbook(out)
-    assert set(wb.sheetnames) == {"Measurements", "QC"}
+    assert set(wb.sheetnames) == {"Measurements", "Ratios", "QC"}
 
     rows = list(wb["Measurements"].iter_rows(values_only=True))
     header = rows[0]
@@ -161,6 +161,7 @@ def test_discover_specimens_errors_on_orphan_sidecar(tmp_path: Path):
 
 
 def test_discover_specimens_skips_image_without_sidecar(tmp_path: Path, caplog):
+
     images = tmp_path / "images"
     labels = tmp_path / "labels"
     images.mkdir()
@@ -169,11 +170,16 @@ def test_discover_specimens_skips_image_without_sidecar(tmp_path: Path, caplog):
     (images / "paired.jpg").write_bytes(b"\x00")
     (labels / "paired.json").write_text(json.dumps(_sidecar_payload("paired")))
 
-    with caplog.at_level("WARNING", logger="fish_morpho.pipeline"):
+    # INFO, not WARNING: unlabelled images are the normal state while labelling
+    # is still in progress, so this is information rather than a problem.
+    with caplog.at_level("INFO", logger="fish_morpho.pipeline"):
         specs = discover_specimens(images, labels)
 
     assert [s.fish_id for s in specs] == ["paired"]
-    assert any("no_sidecar" in rec.message for rec in caplog.records)
+    # Reported as a count, not per file: a dataset of 181 photographs with 5
+    # labelled produced 176 warning lines that buried everything else. The
+    # unlabelled image must still be excluded and still be mentioned.
+    assert any("no sidecar" in rec.message.lower() for rec in caplog.records)
 
 
 # ---------------------------------------------------------------------------

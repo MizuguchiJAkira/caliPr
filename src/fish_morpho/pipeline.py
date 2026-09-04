@@ -125,14 +125,19 @@ class SpecimenInput:
 def discover_specimens(images_dir: Path, labels_dir: Path) -> list[SpecimenInput]:
     """Pair image files in ``images_dir`` with JSON sidecars in ``labels_dir``.
 
-    Files are paired by stem: ``foo.jpg`` ↔ ``foo.json``. Images without a
-    sidecar are skipped with a warning; sidecars without an image are an
-    error (it almost always means the image is misnamed).
+    Paired by stem, with the rig's view suffix tolerated: ``foo.json`` matches
+    ``foo.jpg`` or ``foo_L.JPEG``. The CUMV preprocessing writes ``<id>_L`` for
+    the lateral crop and ``<id>_F`` for the mirror, while the sidecar is named for
+    the specimen, so a strict stem match found nothing on the entire trout series.
+    Images without a sidecar are skipped with a warning; a sidecar with no image
+    is an error, since it almost always means a file was renamed.
     """
     images: dict[str, Path] = {}
     for p in sorted(images_dir.iterdir()):
         if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
             images[p.stem] = p
+            if p.stem.endswith(("_L", "_F")):
+                images.setdefault(p.stem[:-2], p)
 
     specimens: list[SpecimenInput] = []
     seen_sidecars: set[str] = set()
@@ -155,9 +160,12 @@ def discover_specimens(images_dir: Path, labels_dir: Path) -> list[SpecimenInput
             )
         )
 
-    for stem, path in images.items():
-        if stem not in seen_sidecars:
-            log.warning("No sidecar for image %s — skipping", path.name)
+    unlabelled = sorted({p.name for stem, p in images.items()
+                         if stem not in seen_sidecars})
+    if unlabelled:
+        # One line, not one per file: a dataset of 181 photographs with 5 labelled
+        # produced 176 warnings that buried everything worth reading.
+        log.info("%d image(s) have no sidecar yet and were skipped", len(unlabelled))
 
     return specimens
 
@@ -460,7 +468,26 @@ def run(
             raise RuntimeError(
                 f"No paired image/sidecar specimens found in {images_dir} / {labels_dir}"
             )
-        records = [process_specimen(s) for s in specimens]
+        # One unusable sidecar must not cost the whole batch. A specimen that
+        # cannot be processed is reported by name and skipped, so an export of 45
+        # good fish still happens instead of aborting on the 46th.
+        records = []
+        failed: list[tuple[str, str]] = []
+        for spec in specimens:
+            try:
+                records.append(process_specimen(spec))
+            except Exception as exc:
+                failed.append((spec.fish_id, str(exc)))
+                log.warning("skipped %s: %s", spec.fish_id, exc)
+        if failed:
+            log.warning("%d of %d specimens skipped: %s",
+                        len(failed), len(specimens),
+                        ", ".join(f for f, _ in failed))
+        if not records:
+            raise RuntimeError(
+                f"Every specimen failed to process ({len(failed)} of them). "
+                f"First error: {failed[0][1] if failed else 'unknown'}"
+            )
 
     elif mode == "auto":
         if model_config is None:
@@ -473,6 +500,24 @@ def run(
 
     else:
         raise ValueError(f"Unknown mode {mode!r}")
+
+    # Say it out loud as well as in the sheet: a mixed workbook is easy to
+    # misread as uniform, and the mixture is invisible once it is in Excel.
+    free = [r.measurements.fish_id for r in records
+            if r.calibrations.get("lateral") is not None
+            and r.calibrations["lateral"].method == "none"]
+    scaled = [r for r in records
+              if r.calibrations.get("lateral") is not None
+              and r.calibrations["lateral"].method != "none"]
+    if free:
+        log.warning(
+            "%d of %d specimens have no scale reference; their values are PIXELS, "
+            "not mm (see the 'units' column): %s",
+            len(free), len(records), ", ".join(free[:6]) + (" ..." if len(free) > 6 else ""))
+        if scaled:
+            log.warning(
+                "This workbook MIXES mm and px rows. Do not compare a length "
+                "across rows without checking 'units'.")
 
     return export_to_xlsx(records, output_path)
 
