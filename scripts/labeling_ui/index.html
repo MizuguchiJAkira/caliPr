@@ -37,8 +37,14 @@
   #progress .mk { margin-left:6px; margin-right:2px; }
   .spec .st { color:var(--mut); font-size:11px; }
   .spec.done .st { color:var(--good); }
-  .viewtabs { display:flex; gap:6px; margin-bottom:8px; }
-  .viewtabs button { flex:1; }
+  .pickers { display:flex; gap:8px; margin-bottom:8px; }
+  .pickers label { flex:1; display:flex; flex-direction:column; gap:3px;
+    font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--mut); }
+  .pickers select { background:#0e1218; color:var(--fg); border:1px solid var(--line);
+    border-radius:5px; padding:5px 6px; font-size:12px; }
+  #legend { padding:8px 14px; border-bottom:1px solid var(--line); font-size:10.5px;
+    color:var(--mut); line-height:1.9; }
+  #legend .mk { margin-left:0; margin-right:5px; }
   button { background:#28303c; color:var(--fg); border:1px solid var(--line); border-radius:6px;
     padding:6px 9px; cursor:pointer; font-size:12px; }
   button:hover { background:#313b49; }
@@ -119,9 +125,12 @@
   <div id="side">
     <h1>caliPr <small>labeler</small></h1>
     <div class="sec">
-      <div class="viewtabs">
-        <button id="tabL" class="on" data-view="lateral">Lateral</button>
-        <button id="tabF" data-view="frontal">Frontal</button>
+      <div class="pickers">
+        <label>dataset<select id="dsPick"></select></label>
+        <label>view<select id="viewPick">
+          <option value="lateral">lateral</option>
+          <option value="frontal">frontal</option>
+        </select></label>
       </div>
       <div id="cal">
         <span>known span</span>
@@ -161,6 +170,7 @@
     <div class="sec" style="border-bottom:none">
       <h2>Specimens <span id="progress" style="color:var(--mut)"></span></h2>
     </div>
+    <div id="legend"></div>
     <div id="specWrap"></div>
   </div>
   <div id="main">
@@ -181,6 +191,9 @@ const $ = s => document.querySelector(s);
 const api = async (u,o) => (await fetch(u,o)).json();
 let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=null, imgFilter='none';
 let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
+let DATASETS=[], dataset='';        // which study's photographs are open
+const dsq = () => '?dataset=' + encodeURIComponent(dataset);
+const dsInfo = () => DATASETS.find(d=>d.name===dataset) || {};
 let showAll=false;                  // hold H to reveal the hidden landmarks
 // Above this many image pixels per screen pixel a click cannot be placed
 // carefully. Matches the standalone labeler.
@@ -281,7 +294,13 @@ function loadDraft(id){
 function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){} }
 
 async function boot(){
-  SCHEMA=await api('/api/schema');
+  const info=await api('/api/datasets');
+  DATASETS=info.datasets;
+  const saved=localStorage.getItem('calipr_dataset');
+  dataset = DATASETS.some(d=>d.name===saved) ? saved : info.default;
+  $('#dsPick').innerHTML=DATASETS.map(d=>
+    `<option value="${d.name}"${d.name===dataset?' selected':''}>${d.name} (${d.images})</option>`).join('');
+  SCHEMA=await api('/api/schema'+dsq());
   restoreRetrace();
   await loadSpecs();
   loadRef(); loadCalStats();
@@ -293,17 +312,18 @@ async function boot(){
   requestAnimationFrame(draw);
 }
 async function loadSpecs(){
-  SPECS=await api('/api/specimens');
+  SPECS=await api('/api/specimens'+dsq());
   const dl=SPECS.filter(s=>s.lateral_done).length;
   const df=SPECS.filter(s=>s.frontal_done).length;
   const dv=SPECS.filter(s=>s.fins_done).length;
   $('#progress').innerHTML=`<span class="mk on">L</span>${dl}/${SPECS.length} `+
-                           `<span class="mk f on">F</span>${df}/${SPECS.length} `+
-                           `<span class="mk v on">V</span>${dv}/${dl}`;
+    `<span class="mk f on">F</span>${df}/${SPECS.length}`+
+    (dsInfo().has_fin_polygons ? ` <span class="mk v on">V</span>${dv}/${dl}` : '');
   const ns=SPECS.filter(x=>x.suggested&&!x.lateral_done).length;
   const nsTot=SPECS.filter(x=>x.suggested).length;
   if(nsTot) $('#progress').innerHTML +=
     ` <span class="mk s on">S</span>${nsTot-ns}/${nsTot}`;
+  renderLegend();
   const w=$('#specWrap'); w.innerHTML='';
   // In retrace mode the list IS the worklist: only fish that are landmarked but
   // whose fins are not yet re-done. The one in hand stays visible so it does not
@@ -328,8 +348,11 @@ async function loadSpecs(){
     // traced too sparsely — amber means "labeled, but the fins need points".
     const L=`<span class="mk ${s.lateral_done?'on':''}" title="lateral">L</span>`;
     const F=`<span class="mk f ${s.frontal_done?'on':''}" title="frontal / mouth width">F</span>`;
-    const V=`<span class="mk v ${s.fins_done?'on':(s.lateral_done?'thin':'')}" `+
-            `title="fin outlines dense enough for area">V</span>`;
+    // V is about fin-outline density; a dataset that traces no fin outlines can
+    // never satisfy it, so showing a permanently grey badge is just noise.
+    const V=dsInfo().has_fin_polygons
+      ? `<span class="mk v ${s.fins_done?'on':(s.lateral_done?'thin':'')}" `+
+        `title="fin outlines dense enough for area">V</span>` : '';
     const H=s.heldout?`<span class="mk h on" title="DLC held-out — re-trace these first">H</span>`:'';
     const S=(s.suggested&&!s.lateral_done)
       ?`<span class="mk s on" title="stratified subset: one per collection lot, label these first">S</span>`:'';
@@ -343,7 +366,7 @@ async function selectSpec(s){
   cur=s; model=blankModel();
   const draft=loadDraft(s.id);
   if(draft){ model=draft; }                 // unsaved in-progress work wins
-  else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id));
+  else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id)+dsq());
     ingest(sc);}catch(e){} }               // else fall back to the committed sidecar
   localStorage.setItem('calipr_last', s.id);
   // Show only the human-typed remainder; the flag notes are regenerated by
@@ -392,7 +415,7 @@ function loadImage(){
     if(!file){ img=new Image(); imgW=imgH=0; buildTasks(); draw(); return res(); }
     img=new Image();
     img.onload=()=>{imgW=img.naturalWidth;imgH=img.naturalHeight;resize();fit();buildTasks();draw();res();};
-    img.src='/img/'+view+'/'+encodeURIComponent(file);
+    img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq();
   });
 }
 // Per-view default span. The frontal mirror ruler is small — its usable span
@@ -400,8 +423,7 @@ function loadImage(){
 // per-view default, switching tabs silently inherited the other view's value,
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
-function setView(v){ view=v; $('#tabL').classList.toggle('on',v==='lateral');
-  $('#tabF').classList.toggle('on',v==='frontal');
+function setView(v){ view=v; $('#viewPick').value=v;
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
   activeTask=null; return loadImage(); }
@@ -490,6 +512,18 @@ function zoomToFin(g){
   vs.ox=r.width/2-((Math.min(...xs)+Math.max(...xs))/2)*vs.scale;
   vs.oy=r.height/2-((Math.min(...ys)+Math.max(...ys))/2)*vs.scale;
   draw();
+}
+function renderLegend(){
+  const fins=dsInfo().has_fin_polygons;
+  const rows=[
+    ['mk on','L','lateral view labelled'],
+    ['mk f on','F','frontal labelled (mouth width)'],
+    fins?['mk v on','V','fin outlines dense enough for area']:null,
+    SPECS.some(s=>s.suggested)?['mk s on','S','stratified subset — label these first']:null,
+    SPECS.some(s=>s.heldout)?['mk h on','H','held out from model training']:null,
+  ].filter(Boolean);
+  $('#legend').innerHTML = rows.map(([c,l,t])=>
+    `<div><span class="${c}">${l}</span>${t}</div>`).join('');
 }
 function renderRetraceStatus(){
   const el=$('#rtstat'); if(!el) return;
@@ -808,7 +842,7 @@ async function loadAutoCal(){
   autoCal=null; $('#autotxt').textContent='detecting…';
   if(!cur||!cur.lateral){ $('#autotxt').textContent=''; return; }
   try{
-    const r=await api('/api/autocal/'+encodeURIComponent(cur.lateral));
+    const r=await api('/api/autocal/'+encodeURIComponent(cur.lateral)+dsq());
     if(r && r.px_per_mm){ autoCal=r;
       $('#autotxt').textContent=`${r.px_per_mm.toFixed(2)} px/mm detected`; }
     else { $('#autotxt').textContent='auto-scale unavailable'; }
@@ -825,7 +859,7 @@ function applyAutoCal(){
 // Live px/mm readout — catches a mistyped known_mm (the one calibration error
 // nothing downstream can detect, since the wrong scale is self-consistent).
 let calMedian=null;
-async function loadCalStats(){ try{ const s=await api('/api/calibstats');
+async function loadCalStats(){ try{ const s=await api('/api/calibstats'+dsq());
   calMedian=s.median_px_per_mm; }catch(e){} }
 function updateCalRead(){
   const el=$('#calread'); if(!el||!model) return;
@@ -846,8 +880,19 @@ function updateImgFilter(){ const c=$('#ctrst').value, b=$('#brt').value;
 $('#ctrst').oninput=updateImgFilter; $('#brt').oninput=updateImgFilter;
 $('#enhReset').onclick=()=>{$('#ctrst').value=1;$('#brt').value=1;updateImgFilter();};
 $('#datanote').oninput=()=>{ if(model){ syncCompromise(); persistDraft(); } };
-$('#tabL').onclick=()=>setView('lateral');
-$('#tabF').onclick=()=>setView('frontal');
+$('#viewPick').onchange=e=>setView(e.target.value);
+$('#dsPick').onchange=async e=>{
+  dataset=e.target.value;
+  localStorage.setItem('calipr_dataset', dataset);
+  // A different study means a different schema, specimen list and reference, so
+  // clear the in-hand specimen rather than carry one across.
+  cur=null; model=null; activeTask=null; imgW=imgH=0;
+  SCHEMA=await api('/api/schema'+dsq());
+  await loadSpecs(); loadCalStats();
+  buildTasks(); showHint(); draw();
+  if(SPECS.length) await selectSpec(SPECS[0]);
+  toast('Switched to '+dataset);
+};
 $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownmm').value);persistDraft();updateCalRead();}};
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
 function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
@@ -963,7 +1008,7 @@ $('#save').onclick=async()=>{
       blk.calibration={mode:'none',notes:'no scale reference placed'};
     out[v]=blk;
   }
-  const res=await api('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});
+  const res=await api('/api/save'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});
   if(res.ok){
     clearDraft(cur.id);
     // Report what is still short rather than refusing the save: partial fin work
