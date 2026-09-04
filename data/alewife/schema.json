@@ -1,5 +1,11 @@
 {
-  "note": "Alewife: pelvic and anal fin OUTLINES and TIPS are not labelled — the pelvic has almost no contrast against the flank, and the anal frays too badly for a reliable margin. The two base keypoints ARE collected: they sit on the body at the fin junction, not on the frayed edge, so they cost one click each and are unaffected by the reasons the outlines were dropped.",
-  "exclude_polygons": ["pelvic", "anal"],
-  "exclude_keypoints": ["pelvic_tip", "anal_tip"]
+  "note": "Alewife: pelvic and anal fin OUTLINES and TIPS are not labelled \u2014 the pelvic has almost no contrast against the flank, and the anal frays too badly for a reliable margin. The base keypoints ARE collected, plus anal_base_posterior, which keeps caudal peduncle length (CPl) on exactly the same definition as the brook trout series for one extra click.",
+  "exclude_polygons": [
+    "pelvic",
+    "anal"
+  ],
+  "exclude_keypoints": [
+    "pelvic_tip",
+    "anal_tip"
+  ]
 }

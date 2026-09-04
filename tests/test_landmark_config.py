@@ -80,11 +80,37 @@ def test_frontal_has_two_mouth_keypoints():
     assert set(keypoint_names(View.FRONTAL)) == {"mouth_left", "mouth_right"}
 
 
-def test_lateral_keypoint_count():
-    """19 lateral landmarks: 4 eye cardinals + 3 mouth + 1 operculum +
-    2 pectoral + 3 peduncle/caudal + 6 fin base/tip extras. Calibration
-    keypoints live in a separate tuple and must NOT inflate this count."""
-    assert len(keypoint_names(View.LATERAL)) == 19
+def test_calibration_keypoints_are_not_landmarks():
+    """Calibration points live in their own tuple and must not leak into KEYPOINTS.
+
+    They are ruler clicks, not anatomy: counting them as landmarks would put them
+    in the labeler's anatomical task list and in any model's output contract. This
+    replaces an assertion that the count was exactly 19, which broke the moment a
+    landmark was legitimately added and tested nothing about what it claimed to.
+    """
+    lateral = set(keypoint_names(View.LATERAL))
+    assert not (lateral & {c.name for c in CALIBRATION_KEYPOINTS})
+
+
+def test_every_trait_input_exists_in_the_schema():
+    """A trait cannot require a landmark or polygon that nothing asks the
+    annotator to place -- it would be permanently uncomputable."""
+    kps = {k.name for k in KEYPOINTS}
+    polys = {p.name for p in POLYGONS}
+    for t in TRAITS:
+        for name in t.required_keypoints:
+            assert name in kps, f"{t.code} requires unknown keypoint {name}"
+        for name in t.required_polygons:
+            assert name in polys, f"{t.code} requires unknown polygon {name}"
+
+
+def test_the_anatomical_groups_are_all_present():
+    names = set(keypoint_names(View.LATERAL))
+    assert {"eye_anterior", "eye_posterior", "eye_dorsal", "eye_ventral"} <= names
+    assert {"premaxilla_tip", "lower_jaw_tip"} <= names
+    assert {"peduncle_narrowest_dorsal", "peduncle_narrowest_ventral"} <= names
+    for fin, (base, tip) in FIN_KEYPOINTS.items():
+        assert base in names and tip in names, fin
 
 
 def test_every_keypoint_has_labeling_hint():
