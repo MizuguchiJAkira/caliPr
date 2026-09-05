@@ -122,6 +122,51 @@ def split_indices(cfg_path: Path, split: dict):
     return train, test
 
 
+def patch_training_config(cfg_path: Path, resume: Path | None,
+                          lr: float | None) -> None:
+    """Write warm-start settings into the generated pytorch_config.yaml.
+
+    ``create_training_dataset`` writes this file, so it can only be edited
+    between that call and ``train_network``. Two keys matter:
+
+    ``resume_training_from``
+        Loads a snapshot before training starts. A full run from ImageNet costs
+        ~37 min here; picking up a fitted model to absorb ten new specimens
+        should not.
+
+    ``load_scheduler_state_dict: false``
+        Without it the scheduler state comes back from the snapshot too, so a
+        resumed run silently keeps the old learning-rate schedule and any
+        override below is discarded.
+    """
+    yaml = ruamel.yaml.YAML()
+    # Without this ruamel wraps a long snapshot path onto a continuation line.
+    # It round-trips correctly, but a config a human cannot read at a glance is
+    # a config nobody checks.
+    yaml.width = 4096
+    hits = sorted(cfg_path.parent.glob(
+        "dlc-models-pytorch/iteration-*/*/train/pytorch_config.yaml"))
+    if not hits:
+        raise SystemExit("no pytorch_config.yaml — did create_training_dataset run?")
+    target = hits[-1]
+    with open(target) as fh:
+        conf = yaml.load(fh)
+
+    if resume is not None:
+        snap = resume.resolve()
+        if not snap.is_file():
+            raise SystemExit(f"snapshot not found: {snap}")
+        conf["resume_training_from"] = str(snap)
+        conf.setdefault("runner", {})["load_scheduler_state_dict"] = False
+        print(f"  warm start from {snap.name}")
+    if lr is not None:
+        conf["runner"]["optimizer"]["params"]["lr"] = lr
+        print(f"  learning rate {lr}")
+
+    with open(target, "w") as fh:
+        yaml.dump(conf, fh)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="train_dlc")
     ap.add_argument("--built", type=Path, default=_ROOT / "dlc")
@@ -130,6 +175,15 @@ def main(argv=None) -> int:
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--net", default="resnet_50")
     ap.add_argument("--skip-train", action="store_true")
+    ap.add_argument("--resume", type=Path, default=None, metavar="SNAPSHOT.pt",
+                    help="Warm-start from an existing snapshot instead of "
+                         "ImageNet. Adding a handful of specimens then costs a "
+                         "short run rather than a full one. The keypoint set "
+                         "must match the snapshot's.")
+    ap.add_argument("--lr", type=float, default=None,
+                    help="Override the optimizer learning rate. Worth lowering "
+                         "on a warm start: the default schedule assumes it is "
+                         "starting from ImageNet, not from a fitted model.")
     args = ap.parse_args(argv)
 
     import deeplabcut
@@ -152,8 +206,13 @@ def main(argv=None) -> int:
         net_type=args.net, userfeedback=False,
     )
 
+    if args.resume or args.lr is not None:
+        patch_training_config(cfg_path, args.resume, args.lr)
+
     if not args.skip_train:
-        print(f"[4/5] train_network ({args.epochs} epochs)")
+        print(f"[4/5] train_network ({args.epochs} epochs"
+              + (f", resuming from {args.resume.name}" if args.resume else "")
+              + ")")
         deeplabcut.train_network(
             str(cfg_path), shuffle=1, device=device,
             epochs=args.epochs, batch_size=args.batch_size,
