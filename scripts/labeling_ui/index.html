@@ -134,6 +134,9 @@
   #imgpanel summary::before { content:'▸ '; }
   #imgpanel[open] summary::before { content:'▾ '; }
   #imgstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  #demobar { display:none; background:#ffb454; color:#2a1a00; font-weight:600;
+    text-align:center; padding:4px 8px; font-size:12px; }
+  #demobar.on { display:block; }
   #autostat { margin-top:6px; font-size:11px; color:var(--mut); line-height:1.4; }
   #autostat b { color:var(--warn); }
   .task .conf { font-size:10px; padding:0 4px; border-radius:3px; margin-left:4px;
@@ -271,6 +274,7 @@
         <span>each photo with its annotation drawn on</span></div>
     </details>
     <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
+    <div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
     <div id="specsearchrow">
       <input id="specsearch" type="search" placeholder="find specimen  (/)"
              autocomplete="off" spellcheck="false">
@@ -454,7 +458,7 @@ async function boot(){
   SCHEMA=await api('/api/schema'+dsq());
   restoreRetrace();
   await loadSpecs();
-  loadRef(); loadCalStats();
+  loadRef(); loadCalStats(); refreshAuth();
   resize();
   const last=localStorage.getItem('calipr_last');   // re-open where you left off
   if(last){ const s=SPECS.find(x=>x.id===last); if(s){ await selectSpec(s);
@@ -1420,8 +1424,26 @@ function renderAutoStat(){
     + (low.length ? `<br><b>check ${low.length}:</b> ${low.slice(0,4).join(', ')}`
                     + (low.length>4?` +${low.length-4}`:'') : '');
 }
+let AUTH={required:false, unlocked:false, demo:false};
+async function refreshAuth(){
+  try{ AUTH=await api('/api/authstate'); }catch(e){}
+  $('#demobar').classList.toggle('on', !!AUTH.demo);
+  const b=$('#autolabel');
+  if(b) b.textContent = (AUTH.required && !AUTH.unlocked) ? 'Auto-label 🔒' : 'Auto-label';
+}
+async function unlock(){
+  const pw=prompt('Passphrase to unlock automated landmarking on this machine:');
+  if(pw===null) return false;
+  const r=await api('/api/unlock',{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({passphrase:pw})});
+  if(r.ok){ await refreshAuth(); toast('Unlocked for this session'); return true; }
+  toast(r.error||'wrong passphrase');
+  return false;
+}
 $('#autolabel').onclick=async()=>{
   if(!cur){ toast('Pick a specimen first'); return; }
+  await refreshAuth();
+  if(AUTH.required && !AUTH.unlocked){ if(!await unlock()) return; }
   if(view!=='lateral'){ toast('Auto-label works on the lateral view'); return; }
   const placed=Object.keys(model.lateral.keypoints).length;
   if(placed && !confirm(
@@ -1520,6 +1542,8 @@ $('#save').onclick=async()=>{
       ? `Saved ${res.saved} — still short: `+short.map(x=>`${x.g.fin} ${x.st.n}/${x.g.target}`).join(', ')
       : 'Saved '+res.saved+' — all four fins at target');
     loadSpecs();
+  } else if(res.demo){
+    toast('Demo mode — nothing was saved. Your labels on disk are untouched.');
   } else toast('Error: '+(res.error||'?'));
 };
 boot();
