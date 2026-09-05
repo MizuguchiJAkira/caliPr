@@ -46,6 +46,14 @@
   .sec h2 { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--mut);
     margin:0 0 8px; }
   #specWrap { overflow:auto; flex:1; min-height:120px; }
+  #specsearchrow { display:flex; align-items:center; gap:6px; padding:4px 6px 5px; }
+  #specsearch { flex:1; min-width:0; background:var(--panel2,#141a22);
+    border:1px solid #2b3644; border-radius:4px; color:inherit;
+    padding:4px 7px; font:inherit; font-size:12px; }
+  #specsearch:focus { outline:none; border-color:var(--accent); }
+  #specsearch::-webkit-search-cancel-button { cursor:pointer; }
+  #speccount { font-size:10px; color:var(--mut); white-space:nowrap; }
+  #speccount.filtered { color:var(--accent); }
   .spec { padding:5px 14px; cursor:pointer; display:flex; justify-content:space-between;
     gap:6px; border-left:3px solid transparent; }
   .spec:hover { background:#232a35; }
@@ -263,6 +271,11 @@
         <span>each photo with its annotation drawn on</span></div>
     </details>
     <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
+    <div id="specsearchrow">
+      <input id="specsearch" type="search" placeholder="find specimen  (/)"
+             autocomplete="off" spellcheck="false">
+      <span id="speccount"></span>
+    </div>
     <div id="specWrap"></div>
     <details id="dcsec"><summary>data note / compromise <span id="dcstate"></span></summary>
       <div id="clipflags"></div>
@@ -449,9 +462,29 @@ async function boot(){
   if(retrace && model) nextFin();
   requestAnimationFrame(draw);
 }
+let specQuery='';
+const shortId = id => id.replace(/^Salvelinus_fontinalis_/,'');
+// Status words so the box doubles as a filter: "todo" is the common one, and
+// typing it is faster than reading badges down a list of 131.
+function statusWords(s){
+  const w=[];
+  w.push(s.lateral_done?'labelled labeled done':'todo unlabelled unlabeled');
+  if(s.frontal_done) w.push('frontal mouth');
+  if(s.fins_done) w.push('fins');
+  if(s.heldout) w.push('heldout held-out');
+  if(s.suggested) w.push('suggested subset');
+  return w.join(' ');
+}
+
 async function loadSpecs(){
   SPECS=await api('/api/specimens'+dsq());
   renderLegend();          // counts live on the key's rows now
+  renderSpecList();
+}
+
+// Pure render from SPECS. Split out from loadSpecs so filtering as you type
+// redraws the list without re-fetching 131 specimens on every keystroke.
+function renderSpecList(){
   const w=$('#specWrap'); w.innerHTML='';
   // In retrace mode the list IS the worklist: only fish that are landmarked but
   // whose fins are not yet re-done. The one in hand stays visible so it does not
@@ -467,6 +500,34 @@ async function loadSpecs(){
   // lot is confounded with locality and date.
   else shown = [...shown].sort((a,b)=>
     ((b.suggested&&!b.lateral_done)?1:0) - ((a.suggested&&!a.lateral_done)?1:0));
+  // Free-text filter. Matching is on the short id as well as the full one, so
+  // "TXD_4" finds Salvelinus_fontinalis_TXD_4 — nobody types the genus. Spaces
+  // are ANDed, so "hrn 4" narrows twice rather than matching nothing.
+  const q=(specQuery||'').trim().toLowerCase();
+  const terms=q?q.split(/\s+/):[];
+  if(terms.length){
+    shown = shown.filter(s=>{
+      // Ids match as substrings, so "TXD_4" finds TXD_40..49 as well as TXD_4.
+      // Status words match whole-word only: "unlabelled" contains "labelled",
+      // so a substring test there quietly returns every specimen for either.
+      const hay=(s.id+' '+shortId(s.id)).toLowerCase();
+      const words=new Set(statusWords(s).toLowerCase().split(/\s+/));
+      return terms.every(t=>hay.includes(t)||words.has(t));
+    });
+  }
+  const cnt=$('#speccount');
+  if(cnt){
+    cnt.textContent = terms.length ? `${shown.length}/${SPECS.length}`
+                                   : `${SPECS.length}`;
+    cnt.classList.toggle('filtered', !!terms.length);
+  }
+  if(terms.length && !shown.length){
+    w.innerHTML='<div style="padding:10px;color:var(--mut);font-size:11px">'
+      + `nothing matches “${q.replace(/</g,'&lt;')}”.<br>`
+      + 'Try a catalog number, or a word like <b>todo</b>, <b>labelled</b>, '
+      + '<b>heldout</b>, <b>fins</b>.</div>';
+    return;
+  }
   shown.forEach(s=>{
     const d=document.createElement('div');
     d.className='spec'+(s.lateral_done?' done':'')+(cur&&cur.id===s.id?' active':'');
@@ -1389,6 +1450,25 @@ $('#autolabel').onclick=async()=>{
   }catch(e){ toast('Auto-label failed: '+e); $('#autostat').textContent=''; }
   finally{ btn.disabled=false; btn.textContent=was; }
 };
+(function wireSearch(){
+  const box=$('#specsearch'); if(!box) return;
+  let t=null;
+  box.addEventListener('input',()=>{                 // debounced: 131 rows re-render
+    clearTimeout(t); t=setTimeout(()=>{ specQuery=box.value; renderSpecList(); },90);
+  });
+  box.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ box.value=''; specQuery=''; renderSpecList(); box.blur(); }
+    if(e.key==='Enter'){                              // jump to the only match
+      e.preventDefault();
+      const first=$('#specWrap').querySelector('.spec');
+      if(first) first.click();
+    }
+  });
+  window.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if(e.key==='/'){ e.preventDefault(); box.focus(); box.select(); }
+  });
+})();
 $('#save').onclick=async()=>{
   if(!cur){toast('No specimen');return;}
   // capture the "known span" field value even if it was left at its default
