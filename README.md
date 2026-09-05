@@ -20,6 +20,8 @@ actually use:
 
 Built at the Cornell University Museum of Vertebrates, and validated against
 physical caliper measurements at **1.12% median agreement** on standard length.
+Collaborators without Python can label in a single self-contained HTML file and
+send work back in a form the pipeline verifies before it accepts.
 
 ![Annotated brook trout: 5 polygons and 23 keypoints](docs/img/annotated_example.jpg)
 
@@ -304,8 +306,24 @@ It exports in two shapes:
 - **Bundle (`.zip`)** — `labels.json` plus every photograph, **byte for byte as
   the labeller opened them**. This is the one that lets a contributor supply
   their own specimens: coordinates without their pixels train nothing.
-- **Labels only (`.json`)** — coordinates alone. Small enough to email, and
-  correct only for someone who already holds the identical photographs.
+- **Labels only (`.json`)** — coordinates alone. Correct only for someone who
+  already holds the identical photographs.
+
+Bundles are smaller than they sound. Measured on the two datasets here:
+
+| | per photograph | bundle of 40 | whole dataset |
+|---|---|---|---|
+| trout (4237×4000) | 3.1 MB | 123 MB | 0.45 GB (131) |
+| alewife (6000×4000) | 2.1 MB | 84 MB | 0.34 GB (181) |
+
+A classmate's 40-specimen bundle is under 150 MB either way — a Drive or
+WeTransfer link, not an email attachment, and no reason to compromise on
+sending the originals. Downscaling to the 0.25 the model actually trains at
+would cut a 40-fish bundle to 8–11 MB, which is not worth giving up the
+full-resolution copy: those same pixels are what a millimetre measurement and
+any future re-labelling need. The labeler shows the size and asks before
+building anything over a few hundred megabytes, and refuses past 3.5 GB, where
+the zip format would need ZIP64.
 
 ```bash
 python scripts/build_standalone_labeler.py --out caliPr-labeler.html --theme light
@@ -438,14 +456,68 @@ trained model covers the 19 keypoints the trout study collects; the four fin bas
 endpoints were added afterwards and land in the next training round.
 
 ```bash
-python scripts/build_dlc_dataset.py --out dlc --scale 0.15   # sidecars → DLC
-python scripts/train_dlc.py --epochs 300 --batch-size 2      # train + evaluate
-python scripts/dlc_report.py --project dlc_project/jcalipr-* # error in mm
+# Pool every dataset photographed the same way, then train
+python scripts/build_dlc_dataset.py --dataset data/cornell --dataset data/alewife \
+    --out dlc --scale 0.25
+python scripts/train_dlc.py --epochs 300 --batch-size 2
+python scripts/dlc_report.py --project dlc_project/jcalipr-*   # error in mm
+
+# Absorb a handful of new labels without paying for a full run
+python scripts/train_dlc.py --epochs 60 --lr 1e-4 \
+    --resume dlc_project/jcalipr-*/dlc-models-pytorch/iteration-0/*/train/snapshot-best-170.pt
 ```
 
-The split is stratified by strain, and absent landmarks are written as NaN rather
-than a placeholder, so a clipped snout never teaches the model to predict the
-frame edge.
+### How training is structured
+
+Labels are the scarce resource here — every one is a person at a screen placing
+23 points — so the loop is organised around spending as few of them as possible,
+not around squeezing the architecture.
+
+**Adding labels must be cheap.** Every run used to start from ImageNet and
+retrain on everything, so absorbing one new specimen cost a full ~37-minute run,
+which is a strong disincentive to label ten more fish. `--resume` writes
+DeepLabCut's `resume_training_from` into the generated `pytorch_config.yaml`, so
+a fitted model picks up where it left off. It also sets
+`load_scheduler_state_dict: false`, without which the learning-rate schedule
+comes back from the snapshot and any `--lr` override is silently discarded.
+
+**The two species share a backbone.** `--dataset` is repeatable. The landmark
+schema is the same for both, so `premaxilla_tip` on an alewife is the same
+anatomical point as on a trout, and their shared anatomy is one problem with 51
+examples rather than two with 46 and 5. The split stratifies on dataset as well
+as strain — a plain random split can put every alewife in the test set and then
+report a trout model's error as the pooled one.
+
+The trout-only model transferring badly to alewife (median likelihood 0.18, 98%
+of predictions under 0.5) is **not** evidence against pooling. It is a model that
+has never seen a clupeiform being asked to label one, and it is the correct
+response to that. Pooling is the fix for it, not the thing it warns against.
+
+**Label the right fish next.** Not built yet, and the largest remaining win per
+label. 46 of 131 trout are labelled; choosing the next 20 by running the current
+model over the other 85 and ranking by the relative-confidence gate
+`dlc_report.py` already computes would spend those labels where the model is
+actually weak, rather than uniformly.
+
+### What the evidence says not to change
+
+Three plausible-sounding changes that the data argues against, recorded so they
+are not re-attempted:
+
+- **Do not enable horizontal-flip augmentation.** It is off, and must stay off.
+  The whole pipeline assumes the fish faces left — `validation.check_orientation`
+  treats a right-facing specimen as an *error* because the engine would swap `Bs`
+  and `CFs`. Flip augmentation would teach the model that mirrored anatomy is
+  acceptable, in a project whose geometry depends on it not being.
+- **Widening the scaling augmentation will not fix the small-fish failure.** The
+  one large miss (`pectoral_ray_tip`, 104 mm on HRN_46) is the smallest specimen
+  in the set. But the observed size range is 0.65–1.21× the median SL, and the
+  augmentation already samples `[0.5, 1.25]`. The range covers it; what is thin
+  is the number of *real* specimens at the extremes, which is a labelling
+  problem, not an augmentation one.
+- **Fish-Vista is not a landmark corpus.** 69,269 images over 4,316 species, but
+  annotated for classification and nine-trait *segmentation* — no keypoints. It
+  could pretrain a fish-aware backbone; it cannot supply landmark supervision.
 
 **Keep `--batch-size` small.** The default batch of 8 at 0.25 scale exhausts
 memory on a 16 GB machine once the crops carry the lateral margin: training
@@ -453,6 +525,9 @@ wedges at epoch 3 with the process in uninterruptible disk wait and swap
 effectively full. Batch 2 at 0.25 scale completes 300 epochs in ~37 min on Apple
 MPS with room to spare. Dropping to `--scale 0.15` also works (~25 min) but costs
 accuracy.
+
+Absent landmarks are written as NaN rather than a placeholder, so a clipped snout
+never teaches the model to predict the frame edge.
 
 ### Keypoints
 
@@ -476,9 +551,11 @@ separate three distinct landmarks. Retraining at 0.25 scale halved their error
 defines reference line A, so it propagates into Bs, CFs, CFd, MBd, Eh, Mo, PFi and
 PFb, and directly measures CPd.
 
-Progression: 3.88 mm (28 images, 0.15) → 1.40 mm (37 images, 0.15) → 1.10 mm
+Progression: 3.88 mm (28 images, 0.15) → 1.40 mm (37 images, 0.15) → 0.81 mm
 (37 images, 0.25). The first step removed overfitting; the second removed a
-resolution limit.
+resolution limit. The two earlier figures predate the switch to median-of-medians
+reporting, so read them as the shape of a trend rather than three measurements of
+one quantity.
 
 **Still weak:** `dorsal_tip` (2.10 mm) and `peduncle_narrowest_ventral` (2.01 mm)
 are the only landmarks above 2 mm by median. `dorsal_tip` is one of the two whose
@@ -619,7 +696,8 @@ scripts/
   morfishj_validation.py     Trait definitions against the MorFishJ paper.
 
   build_dlc_dataset.py    Sidecars → DeepLabCut project + stratified split.
-  train_dlc.py            Train + evaluate the keypoint model.
+                          --dataset is repeatable, to pool species.
+  train_dlc.py            Train + evaluate. --resume warm-starts from a snapshot.
   dlc_report.py           Per-landmark error in specimen millimetres.
   eval_sam_polygons.py    Zero-shot SAM vs the hand-traced polygons.
   eval_sam_zoom.py        SAM with cropping + negative prompts (fins).
@@ -652,40 +730,58 @@ nothing outside the fins is affected.
 
 **The alewife study is labelling.** 5 of 181.
 
-**Automated landmarking is not ready.** See the section above for where it stands.
+**Contributed labels round-trip.** Someone with no Python can label in a
+single HTML file and send back a bundle carrying their photographs unmodified;
+the import verifies the bytes before it will accept them, and the result reaches
+the training set regardless of how the files are named.
+
+**Automated landmarking is not ready.** 0.81 mm median held-out error against a
+manual pipeline that agrees with calipers to ~1.4 mm — but that median hides two
+landmarks over 2 mm and rests on a 9-specimen test set, which is too small to
+carry an error bar. See the section above.
 
 ### Roadmap
 
-Ordered by what blocks what.
+Ordered by what blocks what. The first two are not code.
 
 1. **Quantify measurement repeatability.** Label 8–10 fish twice, blind, and
-   compute per-landmark error. Cheap, and it bounds every claim the studies make.
-2. **Assign the 27 alewife lots to landlocked or migratory.** Not a code task, and
-   the analysis blocker for that study — every landmark in the world is
-   uninterpretable until the grouping variable exists.
+   compute per-landmark error. Cheap, and it bounds every claim either study can
+   make.
+2. **Assign the 27 alewife lots to landlocked or migratory.** The analysis
+   blocker for that study — every landmark in the world is uninterpretable until
+   the grouping variable exists.
 3. **Finish the trout fin re-tracing** (41 remaining). SAM cannot take any of it,
    so this is hand work; the labeler's retrace mode and worklist exist for it.
-4. **Rebuild the DLC dataset and retrain** once that lands, renaming the
-   `SCORER`/`PROJECT` constants from `jcalipr` in the same pass — deferred until
-   now because it forces a rebuild and retrain. Expect the train/test gap to close
-   as much from more data as from better tips: 46 of 131 trout are labelled.
-5. **Confirm the `CPl` definition.** MorFishJ sheet #17 gives none, so the
-   implementation (posterior end of the anal fin base → `caudal_base`) is an
-   interpretation and should be checked against how it was measured by hand.
-6. **Resolve TXD spreadsheet rows 42, 44, 46–50** with the lab — those rows do not
-   describe those photographs (see [Agreement with
-   calipers](#agreement-with-calipers)).
-7. **Decide on the 11 MorFishJ traits the spreadsheet does not request** (TL, Bs,
-   AO, POC, Eh, Mo, Jl, EMd, EMa, PFi, PFb). They are computed and exported today;
-   keeping them is free, and the question is only whether they are wanted.
-8. **Get depth-dimension caliper measurements.** Validation rests on SL alone,
-   because the spreadsheet's width columns measure a perpendicular axis.
-9. **Wire up auto mode** — DLC for keypoints, SAM for `body_plus_caudal` only,
+4. **Rank the unlabelled specimens by model uncertainty** and label those next.
+   The pieces exist — the relative-confidence gate in `dlc_report.py`, and 85
+   unlabelled trout — but nothing joins them, so labelling order is arbitrary
+   today. This is the cheapest remaining gain per label.
+5. **Replace the single 9-specimen holdout with k-fold.** One fish dominating a
+   mean (`pectoral_ray_tip`: 12.26 by mean, 0.94 by median) is a symptom of a
+   test set too small to estimate anything from. Warm starts make five folds
+   affordable where five full runs were not.
+6. **Rebuild the dataset and retrain** once the fins land, renaming the
+   `SCORER`/`PROJECT` constants from `jcalipr` in the same pass — deferred
+   because it forces exactly that rebuild. Expect the train/test gap to close as
+   much from more data as from better tips: 46 of 131 trout are labelled.
+7. **Wire up auto mode** — DLC for keypoints, SAM for `body_plus_caudal` only,
    anatomical constraints applied, low-confidence points demoted to missing
    landmarks rather than trusted.
-10. **Re-fit the anatomical allowances** once more specimens are densely
-    re-traced; they are currently fitted against a distribution dominated by
-    sparse outlines.
+8. **Re-fit the anatomical allowances** once more specimens are densely
+   re-traced; they are currently fitted against a distribution dominated by
+   sparse outlines.
+9. **Confirm the `CPl` definition.** MorFishJ sheet #17 gives none, so the
+   implementation (posterior end of the anal fin base → `caudal_base`) is an
+   interpretation and should be checked against how it was measured by hand.
+10. **Resolve TXD spreadsheet rows 42, 44, 46–50** with the lab — those rows do
+    not describe those photographs (see [Agreement with
+    calipers](#agreement-with-calipers)).
+11. **Decide on the 11 MorFishJ traits the spreadsheet does not request** (TL,
+    Bs, AO, POC, Eh, Mo, Jl, EMd, EMa, PFi, PFb). They are computed and exported
+    today; keeping them is free, and the question is only whether they are
+    wanted.
+12. **Get depth-dimension caliper measurements.** Validation rests on SL alone,
+    because the spreadsheet's width columns measure a perpendicular axis.
 
 Known data issues: ASN_31 has an empty sidecar; 13 specimens have frontal crops
 under 700 px (boundary too far left) and cannot be used for mouth width; ASN_30's
