@@ -9,13 +9,14 @@ Usage (CLI)::
                 --out results.xlsx --mode auto
 
 In manual mode, annotations are loaded from a JSON sidecar file per
-image — this is what we use right now, before the DLC + SAM model stack
-is trained, so the geometry pipeline can be exercised and validated
-against hand measurements emitted from CVAT.
+image, normally written by the browser labeler in ``scripts/``. This is
+the released path, and the one every published number comes from.
 
-In auto mode, the trained model is invoked to predict polygons and
+In auto mode, a trained model is invoked to predict polygons and
 keypoints. This is stubbed out — the integration point is clearly marked
-so that when the model is ready we only touch one function.
+so that when the models are ready we only touch one function. The
+keypoint model is trained but not yet wired in here; SAM is usable for
+``body_plus_caudal`` only. See the README.
 
 JSON sidecar format
 -------------------
@@ -580,7 +581,7 @@ def run(
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="fish-morpho",
-        description="Automated morphometrics for brook trout specimens",
+        description="Reproducible morphometrics for museum fish collections",
     )
     p.add_argument(
         "--images",

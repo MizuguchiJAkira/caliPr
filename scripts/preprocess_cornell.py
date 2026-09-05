@@ -1,4 +1,4 @@
-"""Preprocess raw Cornell lab photos into CVAT-ready lateral + frontal crops.
+"""Preprocess raw Cornell lab photos into lateral + frontal crops for labeling.
 
 Raw photos from the lab have a consistent layout:
   * Fish (lateral view) in the center of a white styrofoam tray

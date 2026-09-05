@@ -1,14 +1,23 @@
-# `data/` — training-image provenance for brook trout morphometrics
+# `data/` — datasets and training-image provenance
 
-This directory holds **external** brook trout (*Salvelinus fontinalis*) photos
-harvested from public collections, plus the scripts and metadata needed to
-reproduce the harvest. None of the image bytes should be committed to git
-(they're covered by `.gitignore` under `data/*/images/`); only the CSVs and
-this README are source-controlled so provenance stays reviewable.
+This directory holds two different kinds of thing.
+
+**Working datasets** — one folder per study (`cornell/`, `alewife/`), each with
+a `lateral/` of photographs, a `sidecars/` of annotations, and an optional
+`schema.json` narrowing the master schema to what that study collects. The
+labeler discovers them by folder name. Photographs are git-ignored; **the
+sidecars are tracked**, because they are the data.
+
+**External harvest provenance** — brook trout (*Salvelinus fontinalis*) photos
+pulled from public collections to enlarge the training pool, plus the scripts
+and metadata needed to reproduce the harvest. None of the image bytes should be
+committed (they're covered by `.gitignore` under `data/*/images/`); only the
+CSVs and this README are source-controlled so provenance stays reviewable. The
+rest of this file documents that harvest.
 
 The goal of the harvest is to assemble a labeling pool for training the
 **DLC + SAM hybrid model stack** used by `fish_morpho.pipeline` in auto mode:
-DeepLabCut predicts the 21 anatomical keypoints (19 lateral + 2 frontal)
+DeepLabCut predicts the 25 anatomical keypoints (23 lateral + 2 frontal)
 and Segment Anything consumes those keypoints as prompts to trace the 5
 polygons (`body_plus_caudal`, `pectoral`, `dorsal`, `pelvic`, `anal`).
 Both halves of the stack draw from the same labeling pool, which needs to
@@ -22,6 +31,9 @@ hundreds of new specimens in-house.
 
 ```
 data/
+  cornell/           # brook trout study  — lateral/, frontal/, sidecars/, schema.json
+  alewife/           # alewife study      — lateral/, sidecars/, schema.json
+  validation/        # caliper reference measurements + exclusions
   idigbio/
     images/          # 41 JPEGs (git-ignored)
     metadata.csv     # per-image provenance (institution, catalog, license, …)
@@ -160,13 +172,20 @@ usable labeled set faster and leaves the pipeline producing
 morphometrics that are biologically clean (no mixed-species bias from
 option 3).
 
-## Labeling workflow — CVAT
+## Labeling workflow
 
-We label in **CVAT** (https://www.cvat.ai or a self-hosted instance) because
-the MorFishJ-port schema mixes polygons and keypoints, and CVAT natively
-supports both in the same task — the DLC labeling GUI only handles
-keypoints, and Label Studio's polygon UX is clunky enough to slow
-annotators down on fin outlines.
+**The current path is the built-in browser labeler** (`scripts/label_server.py`,
+or a self-contained HTML build for people without Python). It reads this
+project's schema live, writes sidecar JSON directly, and needs no import step.
+See the main README.
+
+CVAT remains supported as an alternative for anyone who already runs it — the
+schema exports to a CVAT label config, and `scripts/cvat_to_sidecar.py` converts
+a CVAT XML dump back. It was the original path, chosen because the MorFishJ-port
+schema mixes polygons and keypoints and CVAT natively supports both in one task,
+where the DLC labeling GUI only handles keypoints and Label Studio's polygon UX
+slows annotators down on fin outlines. The rest of this section describes that
+route; **the labeling rules below apply to either.**
 
 ### One-time CVAT project setup
 
@@ -181,7 +200,7 @@ annotators down on fin outlines.
 
    - `cvat/cvat_labels_lateral.json` — 5 polygon labels
      (`body_plus_caudal`, `pectoral`, `dorsal`, `pelvic`, `anal`) plus
-     19 point labels for the lateral orbit cardinals, mouth/jaw/
+     23 point labels for the lateral orbit cardinals, mouth/jaw/
      operculum keypoints, pectoral insertion and ray tip, peduncle
      narrowest pair, caudal base, and four fin base/tip anchors.
    - `cvat/cvat_labels_frontal.json` — 2 point labels (`mouth_left`,
@@ -239,11 +258,13 @@ is the only trait on that view.
 ### Export from CVAT → sidecar JSON
 
 CVAT's native export formats (CVAT XML, COCO JSON) don't match our
-`examples/sample_sidecar.json` schema directly. The eventual plan is a
-small `scripts/cvat_to_sidecar.py` helper that walks a CVAT XML dump
-and emits one sidecar per image; until that's written, you can also
-paste coordinates straight from CVAT into the sample sidecar's format
-for small batches.
+`examples/sample_sidecar.json` schema directly, so `scripts/cvat_to_sidecar.py`
+walks a CVAT XML 1.1 dump and emits one sidecar per image:
+
+```bash
+.venv/bin/python scripts/cvat_to_sidecar.py --cvat-xml annotations.xml \
+    --view lateral --out-dir data/cornell/sidecars
+```
 
 ### Validating against MorFishJ
 

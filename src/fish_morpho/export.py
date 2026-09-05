@@ -1,9 +1,10 @@
 """Excel export for a batch of measurement sets.
 
-One row per fish, one column per measurement, plus metadata columns at the
-front (fish_id, locality, date, image filename). We also emit a second sheet
-with quality-control info: which landmarks were missing, calibration method
-and confidence, and any warning notes from the ruler detector.
+Six sheets, because a bare measurement table answers fewer questions than it
+appears to: the numbers alone cannot say what units a row is in, how a group
+comparison should be size-corrected, or whether anything about the batch looked
+wrong on the way out. About, Ratios, Shape, QC and Validation each carry one of
+those, so the workbook explains itself to someone who did not run it.
 
 We use openpyxl directly (no pandas) to keep dependencies light.
 """
@@ -62,8 +63,10 @@ def export_to_xlsx(
 ) -> Path:
     """Write ``records`` to an xlsx workbook at ``output_path``.
 
-    The workbook has two sheets:
+    The workbook has six sheets:
 
+    * ``About`` — what the file is, when and from which commit it came, the
+      unit split, the check counts, and any traits held out of scope.
     * ``Measurements`` — metadata columns + one column per measurement,
       with numeric values in mm / mm^2.
     * ``Ratios`` — every length over standard length and every area over SL
@@ -75,6 +78,8 @@ def export_to_xlsx(
       comparing groups that may differ in size; see ``_write_shape_sheet``.
     * ``QC`` — calibration method / confidence / notes per view, plus a
       ``missing_landmarks`` column summarizing any gaps.
+    * ``Validation`` — the checks from :mod:`fish_morpho.validation`, most
+      severe first. Written only when ``issues`` is passed.
 
     Returns the resolved path.
     """

@@ -11,17 +11,17 @@ The lateral and frontal views live in two separate CVAT projects (see
 ``data/README.md``) so each project exports its own XML and this script
 runs twice:
 
-    # Lateral project (polygons + 19 keypoints)
+    # Lateral project (polygons + 23 keypoints)
     python scripts/cvat_to_sidecar.py \\
         --cvat-xml exports/lateral.xml \\
         --view lateral \\
-        --out-dir data/sidecars/
+        --out-dir data/cornell/sidecars/
 
     # Frontal project (2 mouth keypoints) — merged into existing sidecars
     python scripts/cvat_to_sidecar.py \\
         --cvat-xml exports/frontal.xml \\
         --view frontal \\
-        --out-dir data/sidecars/ \\
+        --out-dir data/cornell/sidecars/ \\
         --merge
 
 Calibration is stored in CVAT itself via two dedicated "calibration"
