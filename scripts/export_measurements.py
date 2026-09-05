@@ -6,8 +6,11 @@ paths that have to agree with each other.
 
     python scripts/export_measurements.py --dataset alewife
 
-Writes ``results/<dataset>/measurements.xlsx`` with three sheets:
+Writes ``results/<dataset>/measurements.xlsx`` with six sheets:
 
+  About         what the file is, the commit it came from, the millimetre /
+                pixel split, and the check counts — so the workbook can be read
+                by someone who did not run it.
   Measurements  one row per specimen, one column per trait, plus a ``units``
                 column — a series photographed without a usable scale reference
                 measures in PIXELS, and mixing those with millimetres under one
@@ -17,8 +20,12 @@ Writes ``results/<dataset>/measurements.xlsx`` with three sheets:
                 fish of different sizes. This is the sheet a between-population
                 comparison wants, and the only meaningful one when there is no
                 scale.
+  Shape         Mosimann log-shape variables: each length over the geometric
+                mean of all lengths, logged. The defensible size correction when
+                the groups being compared may differ in body size.
   QC            calibration method and confidence per view, which landmarks were
                 missing, and any recorded data compromise.
+  Validation    the automated checks, most severe first. Read before analysing.
 
 Specimens that cannot be processed are named and skipped rather than aborting the
 batch.

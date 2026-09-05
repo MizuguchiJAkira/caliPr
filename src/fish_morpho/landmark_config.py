@@ -1,14 +1,20 @@
-"""Annotation schema for brook trout morphometrics.
+"""Annotation schema for photographic fish morphometrics.
 
-This module is the single source of truth for the ML model's output
-contract: which polygons, which keypoints, and which named reference
-lines an annotated fish image must carry in order to compute all 22
-MorFishJ traits plus our extras. The same declarations feed:
+This module is the single source of truth for the annotation contract:
+which polygons, which keypoints, and which named reference lines an
+annotated fish image must carry in order to compute all 22 MorFishJ
+traits plus our extras. The same declarations feed:
 
-  * the CVAT / Label Studio project config (so labelers see exactly the
-    shapes the measurement engine expects, no more and no less),
+  * the browser labeler, which reads this schema live so the UI cannot
+    drift from what the measurement engine expects,
   * the measurement engine's input validation,
+  * the DeepLabCut training set and the CVAT project config,
   * the labeling guide that ships with the data README.
+
+A dataset may narrow the schema through its ``schema.json``, which can
+only remove from what is declared here, never add — see
+``traits_requiring()``, which maps an excluded landmark to the trait
+columns that have to disappear with it.
 
 Three shape types live here:
 
@@ -52,10 +58,10 @@ highest = smallest y; "lowest body edge" = largest y.
 Trait source
 ------------
 Every trait declares whether it comes from MorFishJ (22 of them) or
-from our extras (8 of them, pending full anatomical definitions from
-the Cornell reference sheets). Extras carry a reference-sheet number so
-the export column order can group them alongside the existing manual
-workflow.
+from our extras (11 of them, a few still pending full anatomical
+definitions from the Cornell reference sheets). Extras carry a
+reference-sheet number so the export column order can group them
+alongside the existing manual workflow.
 """
 
 from __future__ import annotations

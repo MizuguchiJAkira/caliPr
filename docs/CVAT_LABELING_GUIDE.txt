@@ -1,6 +1,10 @@
 CVAT LATERAL LABELING — QUICK REFERENCE
 ========================================
-Per image: 5 polygons + 19 keypoints + 2 ruler clicks = 26 annotations
+NOTE: CVAT is the alternative path. The current tool is the built-in browser
+labeler (scripts/label_server.py), which writes sidecars directly and needs no
+export step. These labeling definitions apply to either route.
+
+Per image: 5 polygons + 23 keypoints + 2 ruler clicks = 30 annotations
 
 KEYBOARD SHORTCUTS (memorize these — they're 5× faster than menus)
   N          = New annotation (pick label from dropdown)
@@ -34,16 +38,25 @@ KEYPOINTS — BODY
   14. pectoral_insertion_upper    — Top of pectoral fin base
   15. pectoral_ray_tip            — Tip of longest pectoral ray
   16. dorsal_base_center          — Center of dorsal fin base on back
-  17. dorsal_tip                  — Outermost point of dorsal fin
-  18. pelvic_base_center          — Center of pelvic fin base on belly
-  19. pelvic_tip                  — Outermost point of pelvic fin
-  20. anal_base_center            — Center of anal fin base on belly
-  21. anal_tip                    — Outermost point of anal fin
+  17. dorsal_tip                  — Distal tip (apex) of the dorsal fin
+  18. dorsal_base_anterior        — Where the FIRST dorsal ray meets the body
+  19. dorsal_base_posterior       — Where the LAST dorsal ray meets the body
+  20. pelvic_base_center          — Center of pelvic fin base on belly
+  21. pelvic_tip                  — Outermost point of pelvic fin
+  22. anal_base_center            — Center of anal fin base on belly
+  23. anal_tip                    — Outermost point of anal fin
+  24. anal_base_anterior          — Where the FIRST anal ray meets the body
+  25. anal_base_posterior         — Where the LAST anal ray meets the body
+
+  The four base endpoints give dorsal and anal fin base length — and so
+  caudal peduncle length — WITHOUT tracing the fin outline. Where the fin
+  polygon is traced, the same points are derived from it and these are
+  redundant; a study that skips those outlines needs them.
 
 KEYPOINTS — TAIL
-  22. peduncle_narrowest_dorsal   — Top of narrowest peduncle spot
-  23. peduncle_narrowest_ventral  — Bottom at same x position
-  24. caudal_base                 — Where scales end and caudal rays begin
+  26. peduncle_narrowest_dorsal   — Top of narrowest peduncle spot
+  27. peduncle_narrowest_ventral  — Bottom at same x position
+  28. caudal_base                 — Where scales end and caudal rays begin
 
 CALIBRATION
   25. ruler_point_a               — One end of a known ruler span
@@ -63,4 +76,4 @@ TIPS
 AFTER EXPORT
 ────────────
   bash scripts/run_pipeline.sh exports/lateral.xml 100
-  # → results/cornell_measurements.xlsx  (30 morphometric traits)
+  # → results/cornell_measurements.xlsx  (33 morphometric traits, 6 sheets)

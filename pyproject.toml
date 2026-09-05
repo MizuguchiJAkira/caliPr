@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fish_morpho"
 version = "0.1.0"
-description = "Automated morphometrics pipeline for brook trout (Salvelinus fontinalis) specimens"
+description = "Reproducible morphometrics for museum fish collections"
 requires-python = ">=3.11"
 authors = [{ name = "Cornell Museum of Vertebrates" }]
 dependencies = [

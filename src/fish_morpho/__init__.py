@@ -1,3 +1,3 @@
-"""Fish morphometrics automation pipeline for brook trout specimens."""
+"""Reproducible morphometrics for museum fish collections."""
 
 __version__ = "0.1.0"

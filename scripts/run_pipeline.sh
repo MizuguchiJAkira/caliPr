@@ -9,7 +9,7 @@
 #   $2  Known ruler span in mm (default: 100 — two 10-cm tick marks)
 #
 # Output:
-#   data/cornell/labels/*.json   (one sidecar per specimen)
+#   data/cornell/sidecars/*.json   (one sidecar per specimen)
 #   results/cornell_measurements.xlsx
 
 set -euo pipefail
@@ -18,7 +18,7 @@ cd "$(dirname "$0")/.."
 CVAT_XML="${1:?Usage: bash scripts/run_pipeline.sh <lateral.xml> [known_mm]}"
 KNOWN_MM="${2:-100}"
 
-LABEL_DIR="data/cornell/labels"
+LABEL_DIR="data/cornell/sidecars"
 IMAGE_DIR="data/cornell/lateral"
 OUT_XLSX="results/cornell_measurements.xlsx"
 
@@ -48,4 +48,4 @@ python3 -m fish_morpho.pipeline \
 echo ""
 echo "=== Done ==="
 echo "Open $OUT_XLSX in Excel to review measurements."
-echo "(Measurements sheet = 30 traits; QC sheet = flagged outliers.)"
+echo "(33 traits across six sheets; read Validation before analysing.)"
