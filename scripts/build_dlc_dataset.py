@@ -48,14 +48,35 @@ SCORER = "jcalipr"
 VIDEO = "cornell_lateral"
 
 
+def find_image(images: Path, fid: str, recorded: str | None = None):
+    """Locate a specimen's photograph without assuming one naming convention.
+
+    The trout rig names its crops ``<fish_id>_L.JPEG``; the alewife series and
+    anything a contributor photographs do not. Hardcoding the trout pattern
+    silently skipped every specimen from every other dataset, which looks
+    identical to "nothing is labelled yet".
+    """
+    if recorded:
+        p = images / recorded
+        if p.is_file():
+            return p
+    lookup = {p.name.lower(): p for p in images.iterdir() if p.is_file()}
+    for stem in (fid, f"{fid}_L"):
+        for ext in (".jpeg", ".jpg", ".png", ".tif", ".tiff"):
+            hit = lookup.get(f"{stem}{ext}".lower())
+            if hit is not None:
+                return hit
+    return None
+
+
 def load_specimens(sidecars: Path, images: Path):
     out = []
     for path in sorted(sidecars.glob("*.json")):
         data = json.loads(path.read_text())
         fid = data["fish_id"]
-        img = images / f"{fid}_L.JPEG"
-        if not img.is_file():
-            print(f"  SKIP {fid}: no image")
+        img = find_image(images, fid, (data.get("metadata") or {}).get("image"))
+        if img is None:
+            print(f"  SKIP {fid}: no image in {images}")
             continue
         kps = (data.get("lateral") or {}).get("keypoints") or {}
         if not kps:
@@ -79,6 +100,12 @@ def stratified_split(specs, test_frac, seed):
     by_strain: dict[str, list] = {}
     for s in specs:
         by_strain.setdefault(s["strain"], []).append(s)
+    if len(by_strain) == 1 and "UNK" in by_strain:
+        # Nothing matched the strain pattern, so this is a plain random split.
+        # Say so: a split that only looks stratified is worse than one that
+        # admits it is not.
+        print("  NOTE: no strain/group parsed from any fish_id — "
+              "splitting at random, so held-out error is not group-balanced")
     for strain in sorted(by_strain):
         group = sorted(by_strain[strain], key=lambda s: s["fish_id"])
         rng.shuffle(group)

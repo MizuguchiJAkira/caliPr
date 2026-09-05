@@ -203,7 +203,7 @@ heavy and pinned separately — install it into its own environment rather than
 alongside the pipeline.
 
 ```bash
-python -m pytest        # 123 passed
+python -m pytest        # 134 passed
 ```
 
 ## Usage
@@ -295,26 +295,55 @@ repo.
 
 `scripts/build_standalone_labeler.py` emits a single ~24 KB HTML file with the
 schema, the reference imagery and the whole editor inlined. It runs from a
-double-click, needs no Python, no server and no network, and exports one JSON
-file holding every specimen they labelled, which
-`scripts/import_standalone_labels.py` folds back into a dataset as sidecars. It
-collects landmarks only — no outlines, no ruler — which is what geomorph needs
-and what makes the task explainable in two sentences.
+double-click, needs no Python, no server and no network. It collects landmarks
+only — no outlines, no ruler — which is what geomorph needs and what makes the
+task explainable in two sentences.
 
-Photographs are loaded by the person labelling and never leave their machine.
-**Only coordinates come back**, so importing a contributor's labels requires
-already having the identical photograph files they labelled.
+It exports in two shapes:
+
+- **Bundle (`.zip`)** — `labels.json` plus every photograph, **byte for byte as
+  the labeller opened them**. This is the one that lets a contributor supply
+  their own specimens: coordinates without their pixels train nothing.
+- **Labels only (`.json`)** — coordinates alone. Small enough to email, and
+  correct only for someone who already holds the identical photographs.
 
 ```bash
 python scripts/build_standalone_labeler.py --out caliPr-labeler.html --theme light
-python scripts/import_standalone_labels.py --labels ~/Downloads/calipr_labels.json \
-    --images data/alewife/lateral --out data/alewife/sidecars --annotator "R. Chen"
+
+python scripts/import_standalone_labels.py --labels ~/Downloads/calipr_bundle.zip \
+    --images data/alewife/lateral --out data/alewife/sidecars \
+    --annotator "R. Chen" --prefix rchen
 ```
 
-It stamps the schema version and the git commit it was built from into the file,
-and every sidecar it writes records who labelled it. Duplicate filenames across
-contributors are detected on import rather than quietly overwriting each other —
-the failure this guards against is two people both labelling `IMG_0042`.
+### Verifying a contributor's labels
+
+A landmark set is valid for exactly the pixels it was drawn on, and the likely
+accident is not a misplaced click but a **resized photograph** — a phone
+download, a Preview re-export, a mail client shrinking an attachment. That scales
+every coordinate by a constant factor, and the result still lands inside the
+frame and still looks like a plausible fish. Training on it teaches the model a
+systematically displaced anatomy.
+
+So the labeler records each photograph's byte count and a content hash
+(SHA-256, or FNV-1a where the browser withholds SubtleCrypto from a `file://`
+page), and the import recomputes both from the copy here. It refuses, rather
+than warns, on:
+
+| | |
+|---|---|
+| different dimensions | reports the exact scale factor the coordinates are off by |
+| same size, different bytes | the photograph was re-encoded after labelling |
+| no photograph at all | ask for the bundle export, not labels-only |
+| a bundled photo colliding with a different file already here | `--prefix` namespaces a contributor |
+| a sidecar that already exists | `--overwrite` to replace |
+
+A hash match is proof the two files are the same bytes; matching dimensions
+alone is not, because a re-encode at the same size changes every pixel and
+neither the dimensions nor the file length need move.
+
+The build stamps the schema version and the git commit it came from into the
+HTML, and every sidecar records who labelled it — between-annotator differences
+are a real effect and cannot be checked for after the fact without that.
 
 ## Measurement schema
 
@@ -603,8 +632,8 @@ scripts/
 data/<dataset>/sidecars/  Hand-labelled annotations (the valuable artifact).
 docs/                     Labeling guide, figures, and what-we-tried.md — a
                           ledger of every technique attempted, failures included.
-tests/                    123 tests: geometry, calibration, schema, validation,
-                          export, I/O.
+tests/                    134 tests: geometry, calibration, schema, validation,
+                          export, contributor round-trip, I/O.
 ```
 
 ## Development status

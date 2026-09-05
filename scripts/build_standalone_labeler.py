@@ -145,7 +145,12 @@ TEMPLATE = r"""<!doctype html>
   </div>
   <div class="sec">
    <div class="row" style="margin-bottom:6px">
-     <button id="expJson" class="primary">Export labels</button></div>
+     <button id="expBundle" class="primary"
+       title="Labels plus the original photo files, so the other end can rebuild
+the training set exactly. Large.">Export bundle (+ photos)</button></div>
+   <div class="row" style="margin-bottom:6px">
+     <button id="expJson" title="Coordinates only. Small, but only usable by
+someone who already has these exact photographs.">Export labels only</button></div>
    <div class="row"><button id="expTps">Export .tps for R</button></div>
    <div class="row" style="margin-top:6px"><button id="reset"
      title="Delete all saved landmarks in this browser">Reset all labels</button></div>
@@ -381,6 +386,9 @@ function loadFiles(list){
   files=imgs.map(f=>({name:f.name, file:f, url:URL.createObjectURL(f)}));
   $("#drop").classList.add("hide");
   select(0);
+  // Hash in the background: it is only needed at export, and on a large batch
+  // it takes long enough that blocking the first click on it would be rude.
+  fingerprintAll();
 }
 $("#files").onchange=e=>loadFiles(e.target.files);
 $("#files2").onchange=e=>loadFiles(e.target.files);
@@ -388,10 +396,77 @@ $("#ctrst").oninput=$("#brt").oninput=()=>{
   filter=`contrast(${$("#ctrst").value}) brightness(${$("#brt").value})`; draw(); };
 
 function download(name, text){
-  const b=new Blob([text],{type:"application/octet-stream"});
+  downloadBlob(name, new Blob([text],{type:"application/octet-stream"}));
+}
+function downloadBlob(name, blob){
   const a=document.createElement("a");
-  a.href=URL.createObjectURL(b); a.download=name; a.click();
+  a.href=URL.createObjectURL(blob); a.download=name; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+
+// ---- integrity fingerprints ------------------------------------------------
+// A landmark set is only valid for the exact pixels it was drawn on. The likely
+// accident is a resize — a phone download, a Preview re-export, an email client
+// shrinking an attachment — which scales every coordinate by a constant factor
+// while leaving the labels looking perfectly sane. Recording a hash of the
+// original bytes lets the receiving end prove the photograph is the same one.
+const CRCT=(()=>{const t=new Uint32Array(256);
+  for(let i=0;i<256;i++){let c=i;
+    for(let k=0;k<8;k++) c = (c&1) ? (0xEDB88320^(c>>>1)) : (c>>>1);
+    t[i]=c>>>0;}
+  return t;})();
+function crc32(u8){let c=0xFFFFFFFF;
+  for(let i=0;i<u8.length;i++) c = CRCT[(c^u8[i])&0xFF] ^ (c>>>8);
+  return (c^0xFFFFFFFF)>>>0;}
+const hex=buf=>[...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,"0")).join("");
+async function sha256(u8){
+  if(self.crypto && crypto.subtle && crypto.subtle.digest){
+    try { return hex(await crypto.subtle.digest("SHA-256", u8)); } catch(e){}
+  }
+  // A browser that withholds SubtleCrypto from file:// still needs to say
+  // something about these bytes. FNV-1a is weaker but catches a resize or a
+  // re-encode, which is all this has to do.
+  let h1=0x811c9dc5, h2=0x01000193;
+  for(let i=0;i<u8.length;i++){
+    h1=Math.imul(h1^u8[i],16777619)>>>0;
+    if((i&2047)===0) h2=Math.imul(h2^h1,16777619)>>>0; }
+  return "fnv1a:"+h1.toString(16).padStart(8,"0")+h2.toString(16).padStart(8,"0");
+}
+async function fingerprintAll(){
+  let n=0;
+  for(const f of files){
+    const r=data[f.name] || (data[f.name]={kp:{},w:0,h:0});
+    if(r.fp && r.fp.bytes===f.file.size) { n++; continue; }
+    $("#prog").textContent=`checking photo ${++n}/${files.length}…`;
+    try {
+      const u8=new Uint8Array(await f.file.arrayBuffer());
+      r.fp={bytes:f.file.size, modified:f.file.lastModified||0,
+            sha256:await sha256(u8), crc32:crc32(u8)};
+    } catch(e){ r.fp={bytes:f.file.size, error:String(e)}; }
+  }
+  save(); renderSpecs();
+}
+
+// ---- zip (store mode; JPEGs are already compressed) ------------------------
+function zipStore(entries){
+  const enc=new TextEncoder(), parts=[], central=[];
+  let off=0;
+  const u16=v=>{const b=new Uint8Array(2); new DataView(b.buffer).setUint16(0,v,true); return b;};
+  const u32=v=>{const b=new Uint8Array(4); new DataView(b.buffer).setUint32(0,v>>>0,true); return b;};
+  for(const e of entries){
+    const nm=enc.encode(e.name);
+    parts.push(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(0),u16(33),
+               u32(e.crc),u32(e.size),u32(e.size),u16(nm.length),u16(0),nm,e.body);
+    central.push([u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(0),u16(33),
+                  u32(e.crc),u32(e.size),u32(e.size),u16(nm.length),u16(0),u16(0),
+                  u16(0),u16(0),u32(0),u32(off),nm]);
+    off += 30+nm.length+e.size;
+  }
+  const cdStart=off; let cdLen=0;
+  for(const row of central) for(const p of row){ parts.push(p); cdLen+=p.length; }
+  parts.push(u32(0x06054b50),u16(0),u16(0),u16(central.length),u16(central.length),
+             u32(cdLen),u32(cdStart),u16(0));
+  return new Blob(parts,{type:"application/zip"});
 }
 $("#expJson").onclick=()=>{
   const out={format:"calipr-landmarks/1", landmark_order:LANDMARKS.map(L=>L.name),
@@ -399,7 +474,8 @@ $("#expJson").onclick=()=>{
   let n=0;
   for(const [fn,d] of Object.entries(data)){
     if(!d.kp||!Object.keys(d.kp).length) continue;
-    out.specimens[fn]={width:d.w, height:d.h, keypoints:d.kp}; n++; }
+    out.specimens[fn]={width:d.w, height:d.h, keypoints:d.kp, file:d.fp||null};
+    n++; }
   if(!n){ toast("Nothing labeled yet"); return; }
   const part=Object.values(out.specimens)
     .filter(s2=>Object.keys(s2.keypoints).length<LANDMARKS.length).length;
@@ -408,6 +484,49 @@ $("#expJson").onclick=()=>{
       `useful — missing landmarks are recorded as missing, not guessed.`)) return;
   download("calipr_labels___KEY__.json", JSON.stringify(out,null,1));
   toast(`Exported ${n} specimens${part?` (${part} partial)`:""} — send this file back`);
+};
+function labelPayload(){
+  const out={format:"calipr-landmarks/1", landmark_order:LANDMARKS.map(L=>L.name),
+             exported:new Date().toISOString(), specimens:{}};
+  let n=0;
+  for(const [fn,d] of Object.entries(data)){
+    if(!d.kp||!Object.keys(d.kp).length) continue;
+    out.specimens[fn]={width:d.w, height:d.h, keypoints:d.kp, file:d.fp||null};
+    n++; }
+  return [out,n];
+}
+$("#expBundle").onclick=async()=>{
+  const [out,n]=labelPayload();
+  if(!n){ toast("Nothing labeled yet"); return; }
+  const want=new Set(Object.keys(out.specimens));
+  const have=files.filter(f=>want.has(f.name));
+  if(have.length<want.size){
+    alert(`${want.size-have.length} labelled specimen(s) are not among the photos `+
+          `currently loaded, so their images cannot go in the bundle.\n\n`+
+          `Choose all the photos again, then export.`);
+    return; }
+  await fingerprintAll();
+  const total=have.reduce((a,f)=>a+f.file.size,0);
+  const mb=(total/1048576).toFixed(0);
+  if(total > 3.5*1024*1024*1024){
+    alert(`That bundle would be ${mb} MB, past the 4 GB limit of this zip `+
+          `format. Export in smaller batches.`); return; }
+  if(!confirm(`Bundle ${have.length} photo(s) + labels — about ${mb} MB.\n\n`+
+              `The photographs go in unmodified, byte for byte, so the other end `+
+              `can rebuild the training set exactly.\n\nContinue?`)) return;
+  $("#prog").textContent="building bundle…";
+  const entries=[{name:"labels.json",
+                  body:new Blob([JSON.stringify(out,null,1)]),
+                  size:new Blob([JSON.stringify(out,null,1)]).size,
+                  crc:crc32(new TextEncoder().encode(JSON.stringify(out,null,1)))}];
+  for(const f of have){
+    const fp=(data[f.name]||{}).fp||{};
+    entries.push({name:"images/"+f.name, body:f.file, size:f.file.size,
+                  crc:fp.crc32>>>0});
+  }
+  downloadBlob("calipr_bundle___KEY__.zip", zipStore(entries));
+  $("#prog").textContent="";
+  toast(`Bundle exported — ${have.length} photos, ${mb} MB`);
 };
 $("#expTps").onclick=()=>{
   // Only landmarks that at least one specimen has: an all-NA column makes
