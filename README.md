@@ -282,6 +282,10 @@ landmark, which is the wrong trade when the click is the whole job.
   the file the pipeline reads. A draft older than its sidecar on disk is
   discarded, so an edit made outside the browser cannot be silently overwritten
   by a stale draft.
+- **Specimen search** — `/` focuses it. Ids match as substrings, so `TXD_4`
+  finds `TXD_4` and `TXD_40`–`49`; status words match whole-word, so `todo`,
+  `labelled`, `heldout` and `fins` filter by state. Terms are ANDed
+  (`todo txd` = unlabelled TXD only), Enter opens the top hit, Escape clears.
 - **Fin retrace mode** walks one fin at a time — base, tip, outline — framed and
   zoomed, hiding every other landmark so the specimen is actually visible (hold
   `H` to reveal them). The specimen list becomes a worklist of fish whose fin
@@ -781,7 +785,7 @@ spreadsheet, agreeing with calipers at 1.39% mean absolute difference on the
 **The trout fin outlines are being re-traced.** Every fin base, tip and outline
 was cleared and is being redone at the 16-vertex target, because the originals at
 7–9 vertices carried area errors of up to ±27% in an unpredictable direction.
-Five of 46 are done. Until a specimen is redone its twelve fin-derived traits
+Seven of 46 are done. Until a specimen is redone its twelve fin-derived traits
 export as blank with the reason attached, rather than as a plausible wrong number;
 nothing outside the fins is affected.
 
