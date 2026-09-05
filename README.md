@@ -206,7 +206,7 @@ heavy and pinned separately — install it into its own environment rather than
 alongside the pipeline.
 
 ```bash
-python -m pytest        # 149 passed
+python -m pytest        # 157 passed
 ```
 
 ## Usage
@@ -523,6 +523,52 @@ unreviewed, so the assist is auditable afterwards rather than invisible.
 On an unlabelled trout this places 19 landmarks in about a second, 11 of them
 confident, and names the 8 worth checking.
 
+### Corrections as training signal
+
+Every Auto-labelled specimen you save records, per landmark, which of three
+things happened:
+
+| | how | what it means |
+|---|---|---|
+| **corrected** | you dragged it | the model was wrong here, and by this many pixels |
+| **accepted** | you pressed `A` | you looked at it and agree |
+| **unreviewed** | you did neither | nobody looked |
+
+```bash
+python scripts/correction_report.py --dataset data/cornell --px-per-mm 20.71
+```
+
+That aggregates into a per-landmark correction rate and median correction
+distance — a running error estimate on fish the model has never seen, which is
+worth more than a nine-specimen holdout frozen in August, and costs nothing
+because it falls out of labelling you were doing anyway. Corrected points also
+draw a faint line back to where the model had put them, so the size of each fix
+is visible on the canvas.
+
+**The three states are deliberately not pooled, and acceptance is not inferred
+from inaction.** "I checked and it is right" and "I never looked at it" are
+different claims, and if leaving a point alone counted as agreement then an
+untouched batch would read as a validated one. Hence the explicit `A`.
+
+**Acceptances are still the weak half, and the weakness has a direction.**
+Showing someone a point and asking whether it is right is not the same as asking
+them where the point goes: a plausible-looking marker gets waved through more
+readily than an empty image gets mislabelled, so acceptances are biased *toward
+agreeing with the model*. Treat them as fresh labels and the model's systematic
+errors get confirmed by a human who was primed by those errors — the same
+feedback loop the `source: predicted` guard exists to stop, just wearing a
+lab coat. Corrections carry no such bias: they are places where the error was
+large enough to be worth a click.
+
+The report therefore also states what fraction of corrections landed on points
+the model had already flagged below 0.6. A high share means the confidence gate
+is working. A low one means the model is confidently wrong, which is the failure
+that matters.
+
+One bias to keep in mind when reading the distances: they are **high**. A point
+only gets moved when the error is worth the effort, so sub-pixel errors never
+enter the numbers. Read the median as "how wrong it is when it is visibly wrong."
+
 ### Locking the automation, and demoing it safely
 
 Automated landmarking can be gated behind a passphrase on the machine that holds
@@ -800,6 +846,8 @@ scripts/
                           with per-point confidence and optional overlays.
   predict_worker.py       Long-lived predictor the labeler talks to, so
                           Auto-label costs ~1s a click instead of ~7s.
+  correction_report.py    Per-landmark correction rates and distances, from
+                          the fixes made to predictions.
   dlc_report.py           Per-landmark error in specimen millimetres.
   eval_sam_polygons.py    Zero-shot SAM vs the hand-traced polygons.
   eval_sam_zoom.py        SAM with cropping + negative prompts (fins).
@@ -812,7 +860,7 @@ scripts/
 data/<dataset>/sidecars/  Hand-labelled annotations (the valuable artifact).
 docs/                     Labeling guide, figures, and what-we-tried.md — a
                           ledger of every technique attempted, failures included.
-tests/                    149 tests: geometry, calibration, schema, validation,
+tests/                    157 tests: geometry, calibration, schema, validation,
                           export, auth, contributor round-trip, I/O.
 ```
 
