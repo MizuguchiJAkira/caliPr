@@ -3,8 +3,9 @@
 **Reproducible morphometrics for fish collections.**
 
 Body shape carries a great deal of fish biology: how populations diverge after
-isolation, how hatchery strains differ from one another, how a species partitions
-its habitat. Getting shape *out* of specimens is the bottleneck. A morphometric
+isolation, how taxonomic relationships resolve in morphologically cryptic groups,
+how hatchery strains differ from one another, how a species partitions its
+habitat. Getting shape *out* of specimens is the bottleneck. A morphometric
 study still means opening photographs one at a time and clicking landmarks by
 hand, and the numbers that come out carry no record of how they were produced —
 which landmarks, placed by whom, at what scale, on which photograph.
@@ -789,15 +790,18 @@ dorsal outline has a single spike vertex worth an eye.
 
 ## Citation
 
-If you use caliPr, please cite the trait schema it implements alongside this
-repository:
+**caliPr is in preparation for publication.** A Zenodo DOI will be given here
+for direct citation of the software on release; until then, cite this repository
+and the commit stamped on your workbook's About sheet.
+
+If you use caliPr, please also cite the trait schema it implements:
 
 > Ghilardi, M. (2022). *MorFishJ: an ImageJ plugin for morphometric analysis of
 > fish.* Leibniz Centre for Tropical Marine Research.
 > doi:[10.5281/zenodo.7275017](https://doi.org/10.5281/zenodo.7275017)
 
 Every workbook caliPr writes stamps the git commit it was generated from on its
-About sheet; cite that commit for reproducibility.
+About sheet, so a result can be traced to the exact code that produced it.
 
 ## License
 
