@@ -468,6 +468,33 @@ python scripts/train_dlc.py --epochs 60 --lr 1e-4 \
     --resume dlc_project/jcalipr-*/dlc-models-pytorch/iteration-0/*/train/snapshot-best-170.pt
 ```
 
+### Predicting landmarks on a new photograph
+
+```bash
+python scripts/predict_landmarks.py --dataset data/cornell \
+    --skip-labelled data/cornell/sidecars --overlays
+```
+
+Writes one sidecar per photograph to `<dataset>/sidecars_auto/` — deliberately
+not the hand-label directory — each carrying every point's likelihood and a
+`low_confidence` list. With `--overlays` it also draws them onto the photograph,
+green where the model is confident and orange where it is not.
+
+**A prediction is never a hand label.** Each one records
+`metadata.source = "predicted"`, and `build_dlc_dataset.py` refuses to train on
+those. A model trained on its own output learns its own mistakes, and the error
+curve improves while it happens, because the labels are moving toward the
+predictions. The separate directory is a second line of defence, not the first.
+
+What this looks like in practice on an unlabelled trout: the head cluster — eye
+cardinals, premaxilla, maxilla-mandible, operculum — and the pectoral, peduncle
+and caudal landmarks come out where they belong at 0.8–1.0 likelihood. The fin
+tips on a specimen whose fins dried folded do not, and those are the points the
+model scores 0.2–0.4. On one specimen `pelvic_tip` landed on the mirror head-shot
+still inside the lateral crop — the single worst error in the frame, and also the
+lowest-confidence point in it. **The uncertainty is the useful output**: it says
+which three points to check rather than which twenty-three.
+
 ### How training is structured
 
 Labels are the scarce resource here — every one is a person at a screen placing
@@ -697,8 +724,11 @@ scripts/
   morfishj_validation.py     Trait definitions against the MorFishJ paper.
 
   build_dlc_dataset.py    Sidecars → DeepLabCut project + stratified split.
-                          --dataset is repeatable, to pool species.
+                          --dataset is repeatable, to pool species. Refuses to
+                          train on predicted sidecars.
   train_dlc.py            Train + evaluate. --resume warm-starts from a snapshot.
+  predict_landmarks.py    Trained model → landmarks on unlabelled photographs,
+                          with per-point confidence and optional overlays.
   dlc_report.py           Per-landmark error in specimen millimetres.
   eval_sam_polygons.py    Zero-shot SAM vs the hand-traced polygons.
   eval_sam_zoom.py        SAM with cropping + negative prompts (fins).
