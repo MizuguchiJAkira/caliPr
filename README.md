@@ -295,14 +295,20 @@ repo.
 
 `scripts/build_standalone_labeler.py` emits a single ~24 KB HTML file with the
 schema, the reference imagery and the whole editor inlined. It runs from a
-double-click, needs no Python, no server and no network, and exports a zip of
-sidecar JSON that `scripts/import_standalone_labels.py` folds back into a
-dataset. Photographs are loaded by the person labelling and never leave their
-machine.
+double-click, needs no Python, no server and no network, and exports one JSON
+file holding every specimen they labelled, which
+`scripts/import_standalone_labels.py` folds back into a dataset as sidecars. It
+collects landmarks only — no outlines, no ruler — which is what geomorph needs
+and what makes the task explainable in two sentences.
+
+Photographs are loaded by the person labelling and never leave their machine.
+**Only coordinates come back**, so importing a contributor's labels requires
+already having the identical photograph files they labelled.
 
 ```bash
 python scripts/build_standalone_labeler.py --out caliPr-labeler.html --theme light
-python scripts/import_standalone_labels.py --zip ~/Downloads/labels.zip --dataset alewife
+python scripts/import_standalone_labels.py --labels ~/Downloads/calipr_labels.json \
+    --images data/alewife/lateral --out data/alewife/sidecars --annotator "R. Chen"
 ```
 
 It stamps the schema version and the git commit it was built from into the file,
@@ -571,7 +577,7 @@ scripts/
   label_server.py             Browser labeler (schema-driven, writes sidecars).
   labeling_ui/                Its HTML/CSS/JS and reference assets.
   build_standalone_labeler.py One self-contained .html, no Python needed.
-  import_standalone_labels.py Fold a contributor's zip back into a dataset.
+  import_standalone_labels.py Fold a contributor's export back into a dataset.
   make_reference.py           Rebuild the labeler's reference example.
 
   export_measurements.py  Dataset → validated six-sheet workbook.
