@@ -42,6 +42,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
+from fish_morpho import auth  # noqa: E402
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
     FIN_KEYPOINTS,
@@ -338,6 +339,8 @@ class Handler(BaseHTTPRequestHandler):
     default_dataset: str = ""
     images_dir: Path          # resolved per request from ?dataset=
     out_dir: Path
+    session = auth.Session()  # shared across requests; never persisted
+    demo_mode = False         # read-only: predictions allowed, saving refused
 
     def _use(self, query: str) -> None:
         """Point this request at the dataset named in the query string."""
@@ -570,6 +573,51 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
         return self._send(404, {"error": f"unknown export {kind!r}"})
 
+    def _token(self):
+        raw = self.headers.get("Cookie") or ""
+        for part in raw.split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == "calipr_token":
+                return v
+        return None
+
+    def _locked(self) -> bool:
+        """True when the automation is configured to require an unlock and has
+        not had one. No passphrase configured means no gate — hand labelling
+        must never be blocked by a feature somebody has not opted into."""
+        return auth.is_configured() and not self.session.unlocked(self._token())
+
+    def _authstate(self):
+        return self._send(200, {
+            "required": auth.is_configured(),
+            "unlocked": self.session.unlocked(self._token()),
+            "demo": self.demo_mode,
+        })
+
+    def _unlock(self):
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        if not auth.is_configured():
+            return self._send(200, {"ok": True, "message": "no passphrase set"})
+        ok, msg = self.session.attempt(str(body.get("passphrase", "")))
+        if not ok:
+            return self._send(401, {"ok": False, "error": msg})
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        # Session-scoped, not readable from JS, and not sent on cross-site
+        # requests. It never leaves this machine, but there is no reason to make
+        # it any more available than it has to be.
+        self.send_header("Set-Cookie",
+                         f"calipr_token={self.session.token}; Path=/; "
+                         f"HttpOnly; SameSite=Strict")
+        payload = json.dumps({"ok": True, "message": msg}).encode()
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
     def _predict(self, fid: str):
         """Run the keypoint model on one specimen and return points + confidence.
 
@@ -577,6 +625,10 @@ class Handler(BaseHTTPRequestHandler):
         when a human has looked at it and pressed Save, at which point it is
         saved as their sidecar — so nothing here can quietly manufacture labels.
         """
+        if self._locked():
+            return self._send(401, {
+                "ok": False, "locked": True,
+                "error": "automated landmarking is locked on this machine"})
         lat = list_images(self.images_dir / "lateral")
         match = None
         for name, path in lat.items():
@@ -620,6 +672,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         route = urlparse(self.path).path
         self._use(urlparse(self.path).query)
+
+        if route == "/api/authstate":
+            return self._authstate()
 
         if route == "/api/datasets":
             names = sorted(Handler.datasets)
@@ -712,11 +767,24 @@ class Handler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path
         self._use(urlparse(self.path).query)
 
+        if route == "/api/unlock":
+            return self._unlock()
+
+        if route == "/api/lock":
+            self.session.lock()
+            return self._send(200, {"ok": True})
+
         if route == "/api/schema/exclude":
             return self._set_exclusions()
 
         if route != "/api/save":
             return self._send(404, {"error": "unknown route"})
+        if self.demo_mode:
+            # The whole point of demo mode: the automation can be shown without
+            # any path by which a prediction becomes a label.
+            return self._send(403, {
+                "ok": False, "demo": True,
+                "error": "demo mode — saving is disabled, nothing was written"})
         n = int(self.headers.get("Content-Length", 0))
         try:
             data = json.loads(self.rfile.read(n))
@@ -740,7 +808,43 @@ def main(argv=None) -> int:
     ap.add_argument("--images", type=Path, default=None,
                     help="Single-dataset mode, bypassing discovery.")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--set-password", action="store_true",
+                    help="Set or change the passphrase that unlocks automated "
+                         "landmarking, then exit. Stored as an scrypt hash in "
+                         "~/.calipr/auth.json — outside the repository, so it "
+                         "cannot be committed.")
+    ap.add_argument("--clear-password", action="store_true",
+                    help="Remove the passphrase, leaving the automation open on "
+                         "this machine.")
+    ap.add_argument("--demo", action="store_true",
+                    help="Read-only: automated landmarking runs and can be shown, "
+                         "but Save is refused, so a demo cannot put predictions "
+                         "into the training data.")
     args = ap.parse_args(argv)
+
+    if args.set_password:
+        import getpass
+        p1 = getpass.getpass("New passphrase (min 8 chars): ")
+        if p1 != getpass.getpass("Repeat: "):
+            print("passphrases did not match"); return 1
+        try:
+            where = auth.set_passphrase(p1)
+        except ValueError as exc:
+            print(exc); return 1
+        print(f"stored an scrypt hash in {where}")
+        print("The passphrase itself is not saved anywhere and cannot be "
+              "recovered — only reset.")
+        return 0
+
+    if args.clear_password:
+        path = auth.auth_path()
+        if path.is_file():
+            path.unlink(); print(f"removed {path}")
+        else:
+            print("no passphrase was set")
+        return 0
+
+    Handler.demo_mode = args.demo
 
     if args.images:                       # explicit single dataset
         base = args.images.resolve()
@@ -759,6 +863,14 @@ def main(argv=None) -> int:
     Handler.images_dir = base
     Handler.out_dir = (args.out.resolve() if args.out else base / "sidecars")
     Handler.out_dir.mkdir(parents=True, exist_ok=True)
+    if args.demo:
+        print("DEMO MODE — automated landmarking is live, saving is disabled.")
+    if auth.is_configured():
+        print(f"automated landmarking is LOCKED (passphrase set in "
+              f"{auth.auth_path()})")
+    else:
+        print("automated landmarking is OPEN on this machine — "
+              "`--set-password` to gate it.")
     srv = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     print(f"Labeling server: http://localhost:{args.port}/")
     for n in sorted(Handler.datasets):
