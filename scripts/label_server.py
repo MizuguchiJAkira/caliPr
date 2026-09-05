@@ -341,6 +341,11 @@ class Handler(BaseHTTPRequestHandler):
     out_dir: Path
     session = auth.Session()  # shared across requests; never persisted
     demo_mode = False         # read-only: predictions allowed, saving refused
+    #: Set by --out. Per-request dataset resolution must not clobber it: an
+    #: explicit "write here" is the one instruction that should survive
+    #: switching datasets, and silently ignoring it sends writes to the real
+    #: sidecar directory, which is the opposite of what anyone passing it wants.
+    out_override: Path | None = None
 
     def _use(self, query: str) -> None:
         """Point this request at the dataset named in the query string."""
@@ -350,7 +355,7 @@ class Handler(BaseHTTPRequestHandler):
             base = Handler.datasets.get(Handler.default_dataset)
         if base is not None:
             self.images_dir = base
-            self.out_dir = base / "sidecars"
+            self.out_dir = Handler.out_override or (base / "sidecars")
 
     def log_message(self, *args):  # quieter console
         pass
@@ -861,8 +866,12 @@ def main(argv=None) -> int:
                                    else sorted(Handler.datasets)[0])
     base = Handler.datasets[Handler.default_dataset]
     Handler.images_dir = base
-    Handler.out_dir = (args.out.resolve() if args.out else base / "sidecars")
+    Handler.out_override = args.out.resolve() if args.out else None
+    Handler.out_dir = Handler.out_override or (base / "sidecars")
     Handler.out_dir.mkdir(parents=True, exist_ok=True)
+    if Handler.out_override:
+        print(f"--out is set: EVERY dataset writes sidecars to "
+              f"{Handler.out_override}")
     if args.demo:
         print("DEMO MODE — automated landmarking is live, saving is disabled.")
     if auth.is_configured():

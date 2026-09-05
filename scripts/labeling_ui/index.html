@@ -333,8 +333,21 @@ let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=
 // name of the model that produced them. A landmark leaves `pred` the moment a
 // human moves it — that is what makes the colouring mean "not yet reviewed"
 // rather than "was once predicted".
-let pred={conf:{}, model:null, low:new Set()};
-function clearPred(){ pred={conf:{}, model:null, low:new Set()}; const e=$('#autostat'); if(e) e.textContent=''; }
+// Three states, because "the human did not move it" is two different things
+// wearing one coat: they checked and agreed, or they never looked. Collapsing
+// those loses the only distinction that makes acceptance worth anything.
+//   pred.conf  — still unreviewed (neither accepted nor corrected)
+//   pred.orig  — where the model put each point, kept so a correction can be
+//                measured as a distance rather than just noted
+//   accepted   — explicitly confirmed by a keypress, never inferred from inaction
+//   corrected  — moved by hand; from/to/px recorded
+let pred={conf:{}, orig:{}, model:null, low:new Set(),
+          accepted:new Set(), corrected:{}};
+function clearPred(){
+  pred={conf:{}, orig:{}, model:null, low:new Set(),
+        accepted:new Set(), corrected:{}};
+  const e=$('#autostat'); if(e) e.textContent='';
+}
 function unreviewed(){ return Object.keys(pred.conf).length; }
 let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
 let DATASETS=[], dataset='';        // which study's photographs are open
@@ -871,10 +884,18 @@ function draw(){
       // where it is sure, orange where it is not. Touching the point returns it
       // to the normal colour, so what stays coloured is what still needs a look.
       const c = (view==='lateral') ? pred.conf[nm] : undefined;
-      const col = c===undefined ? kpc
-                : (c>=0.6 ? 'var(--good)' : 'var(--warn)');
-      dot(p, col==='var(--good)' ? '#37c871' : col==='var(--warn)' ? '#ffb454' : kpc,
-          c===undefined ? 3.5 : 4.5);
+      const isAcc = view==='lateral' && pred.accepted.has(nm);
+      const isCor = view==='lateral' && pred.corrected[nm]!==undefined;
+      const fill = c!==undefined ? (c>=0.6?'#37c871':'#ffb454')
+                 : isAcc ? '#2f8f57'          // confirmed: muted green, work done
+                 : kpc;                        // corrected or hand-placed
+      dot(p, fill, c===undefined ? 3.5 : 4.5);
+      if(isCor){                                // show what the model had said
+        const o=pred.orig[nm];
+        if(o){ const [ox,oy]=toScr(o[0],o[1]), [nx,ny]=toScr(p[0],p[1]);
+          ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(nx,ny);
+          ctx.strokeStyle='#ff5d6c66'; ctx.lineWidth=1; ctx.stroke();
+          ctx.beginPath(); ctx.arc(ox,oy,2,0,7); ctx.fillStyle='#ff5d6c66'; ctx.fill(); } }
       if(c!==undefined && c<0.6){            // ring the ones worth checking
         const [sx,sy]=toScr(p[0],p[1]);
         ctx.beginPath(); ctx.arc(sx,sy,8,0,7);
@@ -1100,6 +1121,10 @@ window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}}
   if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undo(); }
+  if((e.key==='a'||e.key==='A') && activeTask && activeTask.kind==='keypoint'){
+    e.preventDefault();
+    if(acceptPoint(activeTask.name)){ toast('Accepted '+activeTask.name); advance(); }
+  }
   if(retrace && (e.key==='f'||e.key==='F')){ e.preventDefault(); nextFin(); }
   if(retrace && (e.key==='h'||e.key==='H') && !showAll){ showAll=true; draw(); }
   if(retrace && (e.key==='n'||e.key==='N')){ e.preventDefault(); nextSpecimen(); }
@@ -1411,18 +1436,37 @@ window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return;
   if(e.key==='r'||e.key==='R') toggleRefMin(); });
 setRefMin(localStorage.getItem('calipr_ref_min')==='1');
 
-function reviewed(name){
+function reviewed(name){          // the human MOVED this point
   if(pred.conf[name]===undefined) return;
+  const from=pred.orig[name], to=(model.lateral.keypoints||{})[name];
+  if(from && to){
+    pred.corrected[name]={from:[from[0],from[1]], to:[to[0],to[1]],
+                          px:+Math.hypot(to[0]-from[0], to[1]-from[1]).toFixed(1),
+                          conf:pred.conf[name]};
+  }
+  pred.accepted.delete(name);
   delete pred.conf[name]; pred.low.delete(name); renderAutoStat();
+}
+function acceptPoint(name){       // the human LOOKED and agrees
+  if(!name || pred.conf[name]===undefined) return false;
+  pred.accepted.add(name);
+  delete pred.conf[name]; pred.low.delete(name);
+  renderAutoStat(); buildTasks(); draw();
+  return true;
 }
 function renderAutoStat(){
   const el=$('#autostat'); if(!el) return;
-  const n=unreviewed();
-  if(!n){ el.innerHTML = pred.model ? 'All predicted points reviewed.' : ''; return; }
+  if(!pred.model){ el.textContent=''; return; }
+  const n=unreviewed(), nc=Object.keys(pred.corrected).length, na=pred.accepted.size;
+  const tally=`<span style="color:var(--good)">${na} accepted</span> · `
+            + `<span style="color:var(--kp)">${nc} corrected</span>`
+            + (n?` · ${n} unreviewed`:'');
+  if(!n){ el.innerHTML = tally + '<br>All points reviewed.'; return; }
   const low=[...pred.low];
-  el.innerHTML = `${n} unreviewed from <code>${pred.model||'model'}</code>`
+  el.innerHTML = tally
     + (low.length ? `<br><b>check ${low.length}:</b> ${low.slice(0,4).join(', ')}`
-                    + (low.length>4?` +${low.length-4}`:'') : '');
+                    + (low.length>4?` +${low.length-4}`:'') : '')
+    + `<br><span style="color:var(--mut)">A = accept · drag = correct</span>`;
 }
 let AUTH={required:false, unlocked:false, demo:false};
 async function refreshAuth(){
@@ -1456,10 +1500,14 @@ $('#autolabel').onclick=async()=>{
     const r=await api('/api/predict/'+encodeURIComponent(cur.id)+dsq());
     if(!r.ok){ toast('Auto-label unavailable: '+(r.error||'?'));
                $('#autostat').textContent=''; return; }
-    pred={conf:r.confidence||{}, model:r.model||null,
-          low:new Set(r.low_confidence||[])};
-    for(const [nm,pt] of Object.entries(r.keypoints||{}))
-      model.lateral.keypoints[nm]=[Math.round(pt[0]),Math.round(pt[1])];
+    pred={conf:r.confidence||{}, orig:{}, model:r.model||null,
+          low:new Set(r.low_confidence||[]),
+          accepted:new Set(), corrected:{}};
+    for(const [nm,pt] of Object.entries(r.keypoints||{})){
+      const q=[Math.round(pt[0]),Math.round(pt[1])];
+      model.lateral.keypoints[nm]=q;
+      pred.orig[nm]=[q[0],q[1]];        // frozen: the correction is measured from here
+    }
     persistDraft();
     // Send the labeller straight to the least trustworthy point rather than
     // making them hunt for it.
@@ -1508,8 +1556,19 @@ $('#save').onclick=async()=>{
         `them — nothing has been checked.\n\nSaving now records this as a hand `+
         `label and it WILL be used for training. Save anyway?`)) return;
     }
-    // Traceable either way: which points a human moved, and which they accepted.
+    // Per-landmark provenance. The three states are kept apart deliberately:
+    // a corrected point is independent evidence, an accepted one is a human
+    // agreeing with a suggestion they were shown, and an unreviewed one is
+    // nothing at all. Collapsing them would make the weakest look like the
+    // strongest.
     out.metadata.assisted_by=pred.model;
+    out.metadata.assist={
+      model: pred.model,
+      accepted: [...pred.accepted].sort(),
+      corrected: pred.corrected,
+      unreviewed: Object.keys(pred.conf).sort(),
+      predicted_at: new Date().toISOString(),
+    };
     out.metadata.unreviewed_predictions=Object.keys(pred.conf).sort();
   }
   if(model.data_note) out.metadata.data_note=model.data_note;
