@@ -668,6 +668,17 @@ repository:
 Every workbook caliPr writes stamps the git commit it was generated from on its
 About sheet; cite that commit for reproducibility.
 
+## License
+
+MIT — see [LICENSE](LICENSE). Use it, change it, build on it; the only condition
+is that the copyright notice travels with it.
+
+The photographs and the specimens are the Cornell University Museum of
+Vertebrates'; the licence covers the code and the annotation schema, not the
+collection. No MorFishJ source is vendored here — the trait definitions are
+reimplemented from its published documentation — so nothing in this repository
+inherits that project's licence.
+
 ## Acknowledgements
 
 Built for the ichthyology collection of the Cornell University Museum of
