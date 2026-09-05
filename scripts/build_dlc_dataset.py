@@ -69,7 +69,7 @@ def find_image(images: Path, fid: str, recorded: str | None = None):
     return None
 
 
-def load_specimens(sidecars: Path, images: Path):
+def load_specimens(sidecars: Path, images: Path, group: str = ""):
     out = []
     for path in sorted(sidecars.glob("*.json")):
         data = json.loads(path.read_text())
@@ -83,11 +83,14 @@ def load_specimens(sidecars: Path, images: Path):
             print(f"  SKIP {fid}: no lateral keypoints")
             continue
         m = re.search(r"_([A-Z]{2,4})_\d+$", fid)
+        strain = m.group(1) if m else "UNK"
         out.append({
             "fish_id": fid,
             "image": img,
             "keypoints": kps,
-            "strain": m.group(1) if m else "UNK",
+            # Pooling two datasets must stratify on the dataset too, or a split
+            # can put every alewife in test and report a trout model's error.
+            "strain": f"{group}:{strain}" if group else strain,
             "compromised": bool((data.get("metadata") or {}).get("exclude_traits")),
         })
     return out
@@ -115,9 +118,22 @@ def stratified_split(specs, test_frac, seed):
     return train, test
 
 
-def build(out_dir: Path, sidecars: Path, images: Path, scale: float,
+def build(out_dir: Path, sources, scale: float,
           test_frac: float, seed: int) -> None:
-    specs = load_specimens(sidecars, images)
+    specs = []
+    seen: dict[str, str] = {}
+    for sidecars, images, group in sources:
+        if len(sources) > 1:
+            print(f"  {group}: {sidecars}")
+        for spec in load_specimens(sidecars, images, group if len(sources) > 1 else ""):
+            # Two datasets can hold the same fish_id; one would overwrite the
+            # other's frame and silently drop a specimen from training.
+            if spec["fish_id"] in seen:
+                print(f"  SKIP {spec['fish_id']}: id already taken by "
+                      f"{seen[spec['fish_id']]}")
+                continue
+            seen[spec["fish_id"]] = group
+            specs.append(spec)
     if not specs:
         raise SystemExit("No labeled specimens found.")
     train, test = stratified_split(specs, test_frac, seed)
@@ -174,13 +190,30 @@ def build(out_dir: Path, sidecars: Path, images: Path, scale: float,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="build_dlc_dataset")
     ap.add_argument("--out", type=Path, default=_ROOT / "dlc")
-    ap.add_argument("--sidecars", type=Path, default=_ROOT / "data/cornell/sidecars")
-    ap.add_argument("--images", type=Path, default=_ROOT / "data/cornell/lateral")
+    ap.add_argument("--sidecars", type=Path, default=None)
+    ap.add_argument("--images", type=Path, default=None)
+    ap.add_argument("--dataset", action="append", default=[], metavar="DIR",
+                    help="A dataset directory holding sidecars/ and lateral/. "
+                         "Repeatable: pooling every fish photographed the same "
+                         "way gives the shared anatomy more to learn from, and "
+                         "the split stratifies on dataset so one cannot end up "
+                         "entirely in test.")
     ap.add_argument("--scale", type=float, default=0.25)
     ap.add_argument("--test-frac", type=float, default=0.2)
     ap.add_argument("--seed", type=int, default=17)
     args = ap.parse_args(argv)
-    build(args.out, args.sidecars, args.images, args.scale, args.test_frac, args.seed)
+    if args.dataset:
+        sources = [(Path(d) / "sidecars", Path(d) / "lateral", Path(d).name)
+                   for d in args.dataset]
+    elif args.sidecars and args.images:
+        sources = [(args.sidecars, args.images, args.sidecars.parent.name)]
+    else:
+        sources = [(_ROOT / "data/cornell/sidecars",
+                    _ROOT / "data/cornell/lateral", "cornell")]
+    for sc, im, _ in sources:
+        if not sc.is_dir() or not im.is_dir():
+            raise SystemExit(f"missing {sc} or {im}")
+    build(args.out, sources, args.scale, args.test_frac, args.seed)
     return 0
 
 
