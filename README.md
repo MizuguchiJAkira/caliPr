@@ -206,7 +206,7 @@ heavy and pinned separately — install it into its own environment rather than
 alongside the pipeline.
 
 ```bash
-python -m pytest        # 134 passed
+python -m pytest        # 149 passed
 ```
 
 ## Usage
@@ -523,6 +523,46 @@ unreviewed, so the assist is auditable afterwards rather than invisible.
 On an unlabelled trout this places 19 landmarks in about a second, 11 of them
 confident, and names the 8 worth checking.
 
+### Locking the automation, and demoing it safely
+
+Automated landmarking can be gated behind a passphrase on the machine that holds
+the training data:
+
+```bash
+python scripts/label_server.py --set-password    # prompts; stores a hash
+python scripts/label_server.py --demo            # show it; saving refused
+```
+
+**What this is actually protecting.** The server binds to 127.0.0.1, so this is
+not about the network. The realistic failure is that during a demo, or on a
+shared machine, somebody clicks Auto-label and then Save, and a set of
+predictions enters `sidecars/` looking exactly like hand labels. Training on
+those teaches the model its own mistakes *while the error curve improves*,
+because the labels are moving toward the predictions. So the gate sits on the
+automation. Hand labelling never asks for a passphrase — a guard that got in the
+way of the actual work would be turned off within a week.
+
+`--demo` is the other half: the model runs and can be shown, and `/api/save`
+returns 403 regardless. There is no path from a demo to the training set.
+
+**Hashed, not encrypted.** Encryption is reversible, and the key would have to
+live on the same disk as the thing it protects. What is stored is an scrypt hash
+with a random 16-byte salt and a memory-hard work factor (~40 ms and 32 MiB per
+attempt): verification re-hashes the attempt and compares in constant time, and
+nothing can turn the stored value back into the passphrase. Forgetting it means
+`--clear-password` and setting a new one, not recovery.
+
+**It cannot reach GitHub.** The credential is written to `~/.calipr/auth.json`,
+in the home directory, outside the repository tree — not a gitignored file
+inside it. `.gitignore` is a rule that `git add -f` overrides and a merge can
+lose; a file git cannot see is a stronger guarantee than a file git has been
+asked to ignore. The file is `chmod 600`, and five wrong attempts trigger a
+five-minute lockout that the correct passphrase does not bypass.
+
+**What it is not.** Anyone who can run code as this user can read and edit the
+sidecars directly. This raises the cost of an accident, not of an attack, and
+should not be described as a security boundary.
+
 ### How training is structured
 
 Labels are the scarce resource here — every one is a person at a screen placing
@@ -730,6 +770,7 @@ src/fish_morpho/
   ruler_calibration.py    Manual span, mm-tick auto-scale, ruler detector.
   anatomy_constraints.py  Anatomical bounds that clip a predicted fin outline
                           where it has left the fin.
+  auth.py                 Passphrase gate for the automation (scrypt, local).
   validation.py           The eight pre-export checks.
   export.py               .xlsx writer: About, Measurements, Ratios, Shape,
                           QC, Validation.
@@ -771,8 +812,8 @@ scripts/
 data/<dataset>/sidecars/  Hand-labelled annotations (the valuable artifact).
 docs/                     Labeling guide, figures, and what-we-tried.md — a
                           ledger of every technique attempted, failures included.
-tests/                    134 tests: geometry, calibration, schema, validation,
-                          export, contributor round-trip, I/O.
+tests/                    149 tests: geometry, calibration, schema, validation,
+                          export, auth, contributor round-trip, I/O.
 ```
 
 ## Development status
