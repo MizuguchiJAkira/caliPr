@@ -78,6 +78,12 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
         if img is None:
             print(f"  SKIP {fid}: no image in {images}")
             continue
+        if (data.get("metadata") or {}).get("source") == "predicted":
+            # Training on the model's own output teaches it its own mistakes,
+            # and the error curve improves while it happens because the labels
+            # move toward the predictions. Never silently, never at all.
+            print(f"  SKIP {fid}: predicted sidecar, not a hand label")
+            continue
         kps = (data.get("lateral") or {}).get("keypoints") or {}
         if not kps:
             print(f"  SKIP {fid}: no lateral keypoints")

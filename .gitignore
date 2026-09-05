@@ -51,3 +51,5 @@ dlc_project/
 data/alewife/lateral/
 data/alewife/frontal/
 .tmptest/
+data/*/sidecars_auto/
+data/*/overlays_auto/
