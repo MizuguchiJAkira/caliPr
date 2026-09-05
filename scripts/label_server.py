@@ -31,7 +31,9 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
@@ -258,6 +260,77 @@ def build_schema(profile: dict | None = None) -> dict:
             ],
         },
     }
+
+
+class Predictor:
+    """A single long-lived predict_worker subprocess, started on first use.
+
+    The model costs ~4s to load and ~1s to run, so a process per request would
+    make Auto-label feel broken. It also lives in the training environment,
+    which this server's interpreter is not — hence a subprocess rather than an
+    import.
+
+    Started lazily: someone labelling by hand should not pay for a model they
+    never ask for, and the server must still start on a machine with no
+    training environment at all.
+    """
+
+    _proc = None
+    _info: dict = {}
+    _lock = threading.Lock()
+
+    #: Interpreters to try, most specific first. A machine without the training
+    #: environment simply reports Auto-label as unavailable.
+    _PYTHONS = (_ROOT / ".venv-train" / "bin" / "python",
+                _ROOT / ".venv" / "bin" / "python")
+
+    @classmethod
+    def _start(cls):
+        worker = _ROOT / "scripts" / "predict_worker.py"
+        exe = next((p for p in cls._PYTHONS if p.is_file()), None)
+        if exe is None or not worker.is_file():
+            return {"error": "no training environment found (.venv-train)"}
+        try:
+            proc = subprocess.Popen(
+                [str(exe), str(worker)], stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                text=True, bufsize=1, cwd=str(_ROOT))
+        except Exception as exc:
+            return {"error": f"could not start predictor: {exc}"}
+        hello = proc.stdout.readline()
+        try:
+            info = json.loads(hello)
+        except Exception:
+            proc.kill()
+            return {"error": "predictor did not start (is DeepLabCut installed "
+                             "in .venv-train?)"}
+        if not info.get("ready"):
+            proc.kill()
+            return {"error": info.get("error", "predictor failed to load")}
+        cls._proc, cls._info = proc, info
+        return info
+
+    @classmethod
+    def predict(cls, image: Path) -> dict:
+        with cls._lock:                      # one request at a time down one pipe
+            if cls._proc is None or cls._proc.poll() is not None:
+                started = cls._start()
+                if "error" in started:
+                    return {"ok": False, **started}
+            try:
+                cls._proc.stdin.write(json.dumps({"image": str(image)}) + "\n")
+                cls._proc.stdin.flush()
+                line = cls._proc.stdout.readline()
+            except Exception as exc:
+                cls._proc = None
+                return {"ok": False, "error": f"predictor died: {exc}"}
+            if not line:
+                cls._proc = None
+                return {"ok": False, "error": "predictor closed unexpectedly"}
+            try:
+                return json.loads(line)
+            except Exception as exc:
+                return {"ok": False, "error": f"bad predictor reply: {exc}"}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -497,6 +570,39 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
         return self._send(404, {"error": f"unknown export {kind!r}"})
 
+    def _predict(self, fid: str):
+        """Run the keypoint model on one specimen and return points + confidence.
+
+        Deliberately does not write anything. A prediction becomes data only
+        when a human has looked at it and pressed Save, at which point it is
+        saved as their sidecar — so nothing here can quietly manufacture labels.
+        """
+        lat = list_images(self.images_dir / "lateral")
+        match = None
+        for name, path in lat.items():
+            stem = Path(name).stem
+            if stem == fid or (stem.endswith("_L") and stem[:-2] == fid):
+                match = path
+                break
+        if match is None:
+            return self._send(404, {"ok": False, "error": f"no image for {fid}"})
+
+        res = Predictor.predict(match)
+        if not res.get("ok"):
+            return self._send(503, res)
+
+        # Never offer a point for a landmark this study has excluded.
+        prof = load_profile(self.images_dir)
+        drop = set(prof.get("exclude_keypoints") or ())
+        if drop:
+            res["keypoints"] = {k: v for k, v in res["keypoints"].items()
+                                if k not in drop}
+            res["confidence"] = {k: v for k, v in res["confidence"].items()
+                                 if k not in drop}
+            res["low_confidence"] = [k for k in res["low_confidence"]
+                                     if k not in drop]
+        return self._send(200, res)
+
     def _send_file(self, path: Path, filename: str):
         self._send_bytes(path.read_bytes(), filename,
                          "application/vnd.openxmlformats-officedocument."
@@ -568,6 +674,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, {"error": str(exc)})
         if route.startswith("/api/export/"):
             return self._export(route[len("/api/export/"):])
+
+        if route.startswith("/api/predict/"):
+            return self._predict(unquote(route[len("/api/predict/"):]))
 
         if route.startswith("/api/sidecar/"):
             fid = unquote(route[len("/api/sidecar/"):])

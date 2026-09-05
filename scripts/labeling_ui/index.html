@@ -126,6 +126,10 @@
   #imgpanel summary::before { content:'▸ '; }
   #imgpanel[open] summary::before { content:'▾ '; }
   #imgstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  #autostat { margin-top:6px; font-size:11px; color:var(--mut); line-height:1.4; }
+  #autostat b { color:var(--warn); }
+  .task .conf { font-size:10px; padding:0 4px; border-radius:3px; margin-left:4px;
+                background:#ffb45426; color:var(--warn); }
   #imgctrl { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
   #imgctrl label { display:flex; flex-direction:column; gap:2px; width:100%; }
   #imgctrl label b { color:var(--fg); font-weight:600; font-variant-numeric:tabular-nums; }
@@ -270,10 +274,16 @@
         <button id="finish" title="Close current polygon (Enter)">Finish poly</button>
         <button id="clear">Clear pt</button>
       </div>
-      <div class="row">
+      <div class="row" style="margin-bottom:6px">
+        <button id="autolabel" title="Run the trained model on this specimen and
+drop its landmarks in. Points it is unsure about come in orange — those are the
+ones to check.">Auto-label</button>
         <button id="fit">Fit</button>
+      </div>
+      <div class="row">
         <button id="save" class="primary">Save sidecar</button>
       </div>
+      <div id="autostat"></div>
     </div>
   </div>
   <div id="grip" title="Drag to resize"></div>
@@ -302,6 +312,13 @@
 const $ = s => document.querySelector(s);
 const api = async (u,o) => (await fetch(u,o)).json();
 let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=null, imgFilter='none';
+// Per-landmark model confidence for the points currently on screen, and the
+// name of the model that produced them. A landmark leaves `pred` the moment a
+// human moves it — that is what makes the colouring mean "not yet reviewed"
+// rather than "was once predicted".
+let pred={conf:{}, model:null, low:new Set()};
+function clearPred(){ pred={conf:{}, model:null, low:new Set()}; const e=$('#autostat'); if(e) e.textContent=''; }
+function unreviewed(){ return Object.keys(pred.conf).length; }
 let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
 let DATASETS=[], dataset='';        // which study's photographs are open
 const dsq = () => '?dataset=' + encodeURIComponent(dataset);
@@ -474,7 +491,7 @@ async function loadSpecs(){
   });
 }
 async function selectSpec(s){
-  cur=s; model=blankModel();
+  cur=s; model=blankModel(); clearPred();
   const draft=loadDraft(s.id);
   if(draft){ model=draft; }                 // unsaved in-progress work wins
   else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id)+dsq());
@@ -785,8 +802,20 @@ function draw(){
     const kpc=getComputedStyle(document.documentElement).getPropertyValue('--kp');
     for(const [nm,p] of Object.entries(m.keypoints)){
       if(!visibleKp(nm)) continue;
-      dot(p,kpc,3.5);
-      if(nm===(activeTask&&activeTask.name) || nm===hoverName) label(p,nm); }
+      // An unreviewed prediction is drawn by the model's own confidence: green
+      // where it is sure, orange where it is not. Touching the point returns it
+      // to the normal colour, so what stays coloured is what still needs a look.
+      const c = (view==='lateral') ? pred.conf[nm] : undefined;
+      const col = c===undefined ? kpc
+                : (c>=0.6 ? 'var(--good)' : 'var(--warn)');
+      dot(p, col==='var(--good)' ? '#37c871' : col==='var(--warn)' ? '#ffb454' : kpc,
+          c===undefined ? 3.5 : 4.5);
+      if(c!==undefined && c<0.6){            // ring the ones worth checking
+        const [sx,sy]=toScr(p[0],p[1]);
+        ctx.beginPath(); ctx.arc(sx,sy,8,0,7);
+        ctx.strokeStyle='#ffb454'; ctx.lineWidth=1.5; ctx.stroke(); }
+      if(nm===(activeTask&&activeTask.name) || nm===hoverName)
+        label(p, c===undefined ? nm : `${nm} ${c.toFixed(2)}`); }
     // ruler
     if(!only && m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
@@ -820,7 +849,8 @@ function place(ix,iy){
           `Scroll to zoom in for accurate placement.`);
   }
   const m=model[view], t=activeTask, pt=[Math.round(ix),Math.round(iy)];
-  if(t.kind==='keypoint'){ m.keypoints[t.name]=pt; warnOverlap(t.name,pt); advance(); }
+  if(t.kind==='keypoint'){ m.keypoints[t.name]=pt; reviewed(t.name);
+    warnOverlap(t.name,pt); advance(); }
   else if(t.kind==='ruler'){ const key=t.name==='ruler_point_a'?'a':'b'; m.ruler[key]=pt;
     if(t.name==='ruler_point_a'){activeTask=null;pickByName('ruler','ruler_point_b');} else advance(); }
   else if(t.kind==='polygon'){ const arr=m.polygons[t.name]||(m.polygons[t.name]=[]);
@@ -984,7 +1014,9 @@ cv.addEventListener('mousemove',e=>{
 });
 cv.addEventListener('mouseleave',()=>{ if(hoverName){hoverName=null;draw();} });
 window.addEventListener('mouseup',e=>{
-  if(dragTarget&&dragStarted){ persistDraft(); buildTasks(); draw(); toast('Moved '+dragName(dragTarget)); }
+  if(dragTarget&&dragStarted){
+    if(dragTarget.kind==='keypoint') reviewed(dragTarget.name);
+    persistDraft(); buildTasks(); draw(); toast('Moved '+dragName(dragTarget)); }
   else if(down&&moved<5){ const r=cv.getBoundingClientRect();      // plain click → place
     const [ix,iy]=toImg(e.clientX-r.left,e.clientY-r.top);
     if(ix>=0&&iy>=0&&ix<=imgW&&iy<=imgH) place(ix,iy); }
@@ -1314,6 +1346,49 @@ window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return;
   if(e.key==='r'||e.key==='R') toggleRefMin(); });
 setRefMin(localStorage.getItem('calipr_ref_min')==='1');
 
+function reviewed(name){
+  if(pred.conf[name]===undefined) return;
+  delete pred.conf[name]; pred.low.delete(name); renderAutoStat();
+}
+function renderAutoStat(){
+  const el=$('#autostat'); if(!el) return;
+  const n=unreviewed();
+  if(!n){ el.innerHTML = pred.model ? 'All predicted points reviewed.' : ''; return; }
+  const low=[...pred.low];
+  el.innerHTML = `${n} unreviewed from <code>${pred.model||'model'}</code>`
+    + (low.length ? `<br><b>check ${low.length}:</b> ${low.slice(0,4).join(', ')}`
+                    + (low.length>4?` +${low.length-4}`:'') : '');
+}
+$('#autolabel').onclick=async()=>{
+  if(!cur){ toast('Pick a specimen first'); return; }
+  if(view!=='lateral'){ toast('Auto-label works on the lateral view'); return; }
+  const placed=Object.keys(model.lateral.keypoints).length;
+  if(placed && !confirm(
+      `${placed} landmark(s) are already placed on this specimen.\n\n`+
+      `Auto-label will overwrite them with the model's. Continue?`)) return;
+  const btn=$('#autolabel'); const was=btn.textContent;
+  btn.disabled=true; btn.textContent='Predicting…';
+  $('#autostat').textContent='running the model (first run loads it, ~5s)…';
+  try{
+    const r=await api('/api/predict/'+encodeURIComponent(cur.id)+dsq());
+    if(!r.ok){ toast('Auto-label unavailable: '+(r.error||'?'));
+               $('#autostat').textContent=''; return; }
+    pred={conf:r.confidence||{}, model:r.model||null,
+          low:new Set(r.low_confidence||[])};
+    for(const [nm,pt] of Object.entries(r.keypoints||{}))
+      model.lateral.keypoints[nm]=[Math.round(pt[0]),Math.round(pt[1])];
+    persistDraft();
+    // Send the labeller straight to the least trustworthy point rather than
+    // making them hunt for it.
+    const first=(r.low_confidence||[])[0];
+    if(first) pickByName('keypoint',first);
+    buildTasks(); renderAutoStat(); draw();
+    const nlow=(r.low_confidence||[]).length;
+    toast(`${Object.keys(r.keypoints||{}).length} placed in ${r.elapsed||'?'}s — `
+          + (nlow?`${nlow} to check`:'all confident'));
+  }catch(e){ toast('Auto-label failed: '+e); $('#autostat').textContent=''; }
+  finally{ btn.disabled=false; btn.textContent=was; }
+};
 $('#save').onclick=async()=>{
   if(!cur){toast('No specimen');return;}
   // capture the "known span" field value even if it was left at its default
@@ -1322,6 +1397,19 @@ $('#save').onclick=async()=>{
   syncCompromise();
   const strain=(cur.id.match(/_([A-Z]{2,4})_\d+$/)||[])[1]||'';
   const out={fish_id:cur.id, metadata:{strain, source:'hand-labeled'}};
+  if(pred.model){
+    const n=unreviewed(), total=Object.keys(model.lateral.keypoints).length;
+    if(n>=total && total>0){
+      // Saving a prediction with nothing touched would launder model output
+      // into the training set, where it teaches the model its own mistakes.
+      if(!confirm(`Every landmark here is still exactly where the model put `+
+        `them — nothing has been checked.\n\nSaving now records this as a hand `+
+        `label and it WILL be used for training. Save anyway?`)) return;
+    }
+    // Traceable either way: which points a human moved, and which they accepted.
+    out.metadata.assisted_by=pred.model;
+    out.metadata.unreviewed_predictions=Object.keys(pred.conf).sort();
+  }
   if(model.data_note) out.metadata.data_note=model.data_note;
   if(model.exclude&&model.exclude.length) out.metadata.exclude_traits=model.exclude;
   for(const v of ['lateral','frontal']){

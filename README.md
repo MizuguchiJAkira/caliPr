@@ -495,6 +495,30 @@ still inside the lateral crop — the single worst error in the frame, and also 
 lowest-confidence point in it. **The uncertainty is the useful output**: it says
 which three points to check rather than which twenty-three.
 
+### Auto-label in the labeler
+
+The labeler has an **Auto-label** button. It runs the model on the open specimen
+and drops the landmarks in, coloured by the model's own confidence: green where
+it is sure, orange and ringed where it is not, and it jumps you straight to the
+least trustworthy point. Correcting a point returns it to the normal colour, so
+what stays coloured is what has not been looked at yet.
+
+The server keeps one predictor process alive rather than starting one per
+request — loading the model costs ~4s and running it ~1s, so a fresh process each
+time would make the button feel broken. The worker also runs under the training
+environment while the server does not, which is why they talk over a pipe instead
+of sharing an import.
+
+**Nothing here can manufacture a label.** The endpoint writes no files; a
+prediction becomes data only when a human presses Save. If every landmark is
+still exactly where the model put it, Save asks first, in those words — because a
+sidecar saved that way would be model output entering the training set as ground
+truth. Whatever is saved records `assisted_by` and the list of points left
+unreviewed, so the assist is auditable afterwards rather than invisible.
+
+On an unlabelled trout this places 19 landmarks in about a second, 11 of them
+confident, and names the 8 worth checking.
+
 ### How training is structured
 
 Labels are the scarce resource here — every one is a person at a screen placing
@@ -729,6 +753,8 @@ scripts/
   train_dlc.py            Train + evaluate. --resume warm-starts from a snapshot.
   predict_landmarks.py    Trained model → landmarks on unlabelled photographs,
                           with per-point confidence and optional overlays.
+  predict_worker.py       Long-lived predictor the labeler talks to, so
+                          Auto-label costs ~1s a click instead of ~7s.
   dlc_report.py           Per-landmark error in specimen millimetres.
   eval_sam_polygons.py    Zero-shot SAM vs the hand-traced polygons.
   eval_sam_zoom.py        SAM with cropping + negative prompts (fins).
