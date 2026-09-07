@@ -184,9 +184,9 @@ guarantee: the checks are there because these failures do happen.
 | collects | 5 polygons, 19 keypoints | 3 polygons, 23 keypoints |
 | scale reference | C-Thru ruler on the tray | ruler on the tank glass |
 
-The alewife study runs for BIOEE 4761 (Ichthyology, Cornell). Population
-assignment for its 27 lots is not yet made, and no comparison is meaningful until
-it is — see [Development status](#development-status).
+Population assignment for the alewife study's 27 lots is not yet made, and no
+comparison is meaningful until it is — see
+[Development status](#development-status).
 
 Each study declares its own landmark set, so one engine serves both without
 either being able to drift from it. The alewife study excludes the pelvic and
@@ -321,7 +321,7 @@ Bundles are smaller than they sound. Measured on the two datasets here:
 | trout (4237×4000) | 3.1 MB | 123 MB | 0.45 GB (131) |
 | alewife (6000×4000) | 2.1 MB | 84 MB | 0.34 GB (181) |
 
-A classmate's 40-specimen bundle is under 150 MB either way — a Drive or
+A collaborator's 40-specimen bundle is under 150 MB either way — a Drive or
 WeTransfer link, not an email attachment, and no reason to compromise on
 sending the originals. Downscaling to the 0.25 the model actually trains at
 would cut a 40-fish bundle to 8–11 MB, which is not worth giving up the
@@ -761,8 +761,8 @@ wash or worse (anal 18% → 27%), which is what you would expect — the asymmet
 a fact about pectoral geometry, not a general prompting trick.
 
 **Measured against dense re-tracings, SAM cannot do the fins.** The table above
-used the old sparse outlines as reference, so it was partly measuring our own
-tracing. Five specimens have now been re-traced at 38–86 vertices per fin;
+used the old sparse outlines as reference, so it was partly measuring the
+reference tracing rather than SAM. Five specimens have now been re-traced at 38–86 vertices per fin;
 against those:
 
 | polygon | ASN_24 | ASN_27 | ASN_30 | HRN_42 | HRN_5 | median \|err\| |

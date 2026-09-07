@@ -1,8 +1,8 @@
 """Build a single-file landmark labeler that needs no install.
 
 The server-backed labeler is the right tool for someone who already has the repo
-and a terminal. For classmates who do not, it is a harder sell than ImageJ, which
-defeats the point. This emits one .html file: open it, pick your photographs from
+and a terminal. For collaborators who do not, it is a harder sell than ImageJ,
+which defeats the point. This emits one .html file: open it, pick your photographs from
 a file dialog, click landmarks, export. No Python, no server, no repo.
 
 The schema is baked in at build time from ``landmark_config`` (minus any dataset
