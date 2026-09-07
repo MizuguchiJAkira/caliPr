@@ -259,9 +259,11 @@ and the files are copied into the open dataset — no terminal, no file manager.
 The **Add folder** and **Add photographs** buttons do the same thing for anyone
 who expects a dialog rather than a drag.
 
-**New study** creates one, or make the folder yourself — `data/<name>/lateral/`
-— and it appears in the dropdown without restarting the server. Everything after
-that happens in the browser.
+The dataset dropdown is where studies are managed. Hovering a study offers
+**+ photos**, which loads a folder into that one; **＋ Add folder** at the bottom
+creates a new study — an empty `data/<name>/lateral/` with its own landmarks and
+its own exports, sharing nothing with the others. A folder made by hand appears
+in the list without restarting the server.
 
 **Subfolder names are carried into the filename**, because a folder per site or
 per collection event is usually the only record of that grouping.
@@ -304,6 +306,10 @@ landmark, which is the wrong trade when the click is the whole job.
   decision, written to the dataset's `schema.json`, not a per-specimen one.
 - **Contrast and brightness** sliders for faint fins against shadow — display
   only; they never touch coordinates.
+- **Predicted points keep their colouring** across specimens. Leaving a fish and
+  coming back used to render every point the ordinary colour, so a review that
+  had not happened looked finished — the confidence colouring is what separates
+  "checked" from "merely present", and it is stored with the draft.
 - **Drafts** autosave to the browser and survive reload; **Save sidecar** writes
   the file the pipeline reads. A draft older than its sidecar on disk is
   discarded, so an edit made outside the browser cannot be silently overwritten

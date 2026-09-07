@@ -134,6 +134,40 @@
   #imgpanel summary::before { content:'▸ '; }
   #imgpanel[open] summary::before { content:'▾ '; }
   #imgstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  /* Dataset names are folder names on disk; the surrounding label styling
+     uppercases its contents, which would misrepresent them. */
+  #dsWrap, #dsWrap * { text-transform:none; letter-spacing:normal; }
+  #dsWrap { position:relative; }
+  #dsBtn { width:100%; display:flex; align-items:center; justify-content:space-between;
+    gap:6px; background:var(--panel2,#141a22); border:1px solid #2b3644;
+    border-radius:4px; color:inherit; padding:4px 8px; font:inherit; cursor:pointer; }
+  #dsBtn:hover { border-color:var(--accent); }
+  #dsBtn i { font-style:normal; color:var(--mut); font-size:10px; }
+  /* The menu is not bound to the button's width: a row carries a name, a count
+     and a hover button, and squeezing those into the picker truncated the name
+     to "al…". */
+  #dsMenu { display:none; position:absolute; left:0; min-width:max(100%, 230px);
+    top:calc(100% + 3px);
+    z-index:600; background:var(--panel2,#141a22); border:1px solid #2b3644;
+    border-radius:5px; box-shadow:0 8px 24px #0009; overflow:hidden; }
+  #dsMenu.on { display:block; }
+  .dsrow { display:flex; align-items:center; gap:6px; padding:6px 8px; cursor:pointer;
+    font-size:12px; }
+  .dsrow:hover { background:#1e2732; }
+  .dsrow .nm { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dsrow .ct { color:var(--mut); font-size:11px; }
+  .dsrow .tick { width:12px; color:var(--good); }
+  /* The per-dataset add button only appears on hover, so the menu stays a list
+     of studies at rest rather than a wall of buttons. */
+  .dsrow .add { display:none; border:1px solid #2b3644; border-radius:3px;
+    background:var(--btn,#1b222c); color:inherit; font:inherit; font-size:10px;
+    padding:2px 6px; cursor:pointer; white-space:nowrap; }
+  .dsrow:hover .add { display:inline-block; }
+  .dsrow .add:hover { border-color:var(--accent); color:var(--accent); }
+  #dsMenu .sep { border-top:1px solid #2b3644; }
+  #dsNew { display:flex; align-items:center; gap:6px; padding:7px 8px; cursor:pointer;
+    font-size:12px; color:var(--mut); }
+  #dsNew:hover { background:#1e2732; color:inherit; }
   .filebtn { flex:1; text-align:center; cursor:pointer; background:var(--btn,#1b222c);
     border:1px solid #2b3644; border-radius:4px; padding:5px 6px; font-size:11px; }
   .filebtn:hover { border-color:var(--accent); }
@@ -240,7 +274,10 @@
     <h1>caliPr <small>labeler</small></h1>
     <div class="sec">
       <div class="pickers">
-        <label>dataset<select id="dsPick"></select></label>
+        <label>dataset<div id="dsWrap">
+          <button id="dsBtn" type="button"><span id="dsLabel"></span><i>▾</i></button>
+          <div id="dsMenu"></div>
+        </div></label>
         <label>view<select id="viewPick">
           <option value="lateral">lateral</option>
           <option value="frontal">frontal</option>
@@ -288,14 +325,8 @@
     <div id="dropzone"><div><b>Drop photographs to add them</b>
   <div id="dropwhere"></div></div></div>
 <div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
-    <div class="row" style="padding:4px 6px 0">
-      <label class="filebtn" title="Add photographs to the open dataset. A whole
-folder works — subfolders are walked too.">Add photographs
-        <input id="addimgs" type="file" accept="image/*" multiple hidden></label>
-      <label class="filebtn" title="Pick an entire folder.">Add folder
-        <input id="addfolder" type="file" webkitdirectory directory multiple hidden></label>
-      <button id="newds" class="filebtn" title="Create an empty study.">New study</button>
-    </div>
+    <input id="addimgs" type="file" accept="image/*" multiple hidden>
+    <input id="addfolder" type="file" webkitdirectory directory multiple hidden>
     <div class="row" style="padding:4px 6px 0">
       <button id="autoall" style="flex:1" title="Run the model over every
 unlabelled specimen and cache the results, so reviewing them afterwards is
@@ -464,8 +495,26 @@ function syncCompromise(){
   }catch(e){}
 })();
 const draftKey=id=>'calipr_draft_'+id;
+// The prediction state travels with the draft. Without it, leaving a specimen
+// and coming back turned every predicted point the ordinary colour: the review
+// looked finished when nothing had been reviewed, which is worse than losing the
+// colouring — it loses the distinction between checked and merely present.
+function predToJSON(){
+  if(!pred.model) return null;
+  return {conf:pred.conf, orig:pred.orig, model:pred.model,
+          low:[...pred.low], accepted:[...pred.accepted],
+          corrected:pred.corrected};
+}
+function predFromJSON(d){
+  if(!d || !d.model){ clearPred(); return; }
+  pred={conf:d.conf||{}, orig:d.orig||{}, model:d.model,
+        low:new Set(d.low||[]), accepted:new Set(d.accepted||[]),
+        corrected:d.corrected||{}};
+}
+
 function persistDraft(){ if(!cur||!model)return; try{
   model._draft_at = Date.now();
+  model._pred = predToJSON();
   localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
   localStorage.setItem('calipr_last', cur.id);
 }catch(e){} }
@@ -492,10 +541,46 @@ async function refreshDatasets(){
   const info=await api('/api/datasets');
   DATASETS=info.datasets;
   if(!DATASETS.some(d=>d.name===dataset)) dataset = info.default;
-  $('#dsPick').innerHTML=DATASETS.map(d=>
-    `<option value="${d.name}"${d.name===dataset?' selected':''}>${d.name} (${d.images})</option>`).join('');
+  renderDsMenu();
   return info;
 }
+
+function renderDsMenu(){
+  const cur=DATASETS.find(d=>d.name===dataset);
+  $('#dsLabel').textContent = cur ? `${cur.name} (${cur.images})` : (dataset||'—');
+  $('#dsMenu').innerHTML =
+    DATASETS.map(d=>`<div class="dsrow" data-ds="${d.name}">`
+      + `<span class="tick">${d.name===dataset?'✓':''}</span>`
+      + `<span class="nm">${d.name}</span><span class="ct">${d.images}</span>`
+      + `<button class="add" data-add="${d.name}" title="Add photographs to ${d.name}"`
+      + `>+ photos</button></div>`).join('')
+    + `<div class="sep"></div><div id="dsNew">＋ Add folder — a new study</div>`;
+
+  $('#dsMenu').querySelectorAll('.dsrow').forEach(row=>{
+    row.onclick=e=>{
+      if(e.target.closest('.add')) return;      // the button has its own job
+      closeDsMenu();
+      pickDataset(row.dataset.ds);
+    };
+  });
+  $('#dsMenu').querySelectorAll('.add').forEach(b=>{
+    b.onclick=async e=>{
+      e.stopPropagation();
+      const name=b.dataset.add;
+      closeDsMenu();
+      // Photographs go into the study you pointed at, so switch to it first —
+      // otherwise "+ photos" on one row would load them into another.
+      if(name!==dataset) await pickDataset(name);
+      $('#addfolder').click();
+    };
+  });
+  $('#dsNew').onclick=async()=>{ closeDsMenu(); await newStudy(); };
+}
+
+function closeDsMenu(){ $('#dsMenu').classList.remove('on'); }
+$('#dsBtn').onclick=e=>{ e.stopPropagation(); $('#dsMenu').classList.toggle('on'); };
+document.addEventListener('click',()=>closeDsMenu());
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDsMenu(); });
 
 async function boot(){
   const saved=localStorage.getItem('calipr_dataset');
@@ -606,7 +691,7 @@ function renderSpecList(){
 async function selectSpec(s){
   cur=s; model=blankModel(); clearPred();
   const draft=loadDraft(s.id);
-  if(draft){ model=draft; }                 // unsaved in-progress work wins
+  if(draft){ model=draft; predFromJSON(draft._pred); }   // unsaved work wins
   else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id)+dsq());
     ingest(sc);}catch(e){} }               // else fall back to the committed sidecar
   localStorage.setItem('calipr_last', s.id);
@@ -616,7 +701,7 @@ async function selectSpec(s){
       .split(';').map(s=>s.trim())
       .filter(s=>s && !CLIP_FLAGS.some(fl=>fl.note===s))
       .join('; ');
-  renderClipFlags(); updateDcState();
+  renderClipFlags(); updateDcState(); renderAutoStat();
   await setView('lateral');
   loadAutoCal();
   await loadCalStats();      // the comparison median is per lot, so it moves with the specimen
@@ -1277,9 +1362,11 @@ $('#enhReset').onclick=()=>{
   gray=false;inv=false;updateImgFilter();};
 $('#datanote').oninput=()=>{ if(model){ syncCompromise(); updateDcState(); persistDraft(); } };
 $('#viewPick').onchange=e=>setView(e.target.value);
-$('#dsPick').onchange=async e=>{
-  dataset=e.target.value;
+async function pickDataset(name){
+  if(!name || name===dataset){ renderDsMenu(); return; }
+  dataset=name;
   localStorage.setItem('calipr_dataset', dataset);
+  renderDsMenu();
   // A different study means a different schema, specimen list and reference, so
   // clear the in-hand specimen rather than carry one across.
   cur=null; model=blankModel(); activeTask=null; imgW=imgH=0;
@@ -1289,7 +1376,7 @@ $('#dsPick').onchange=async e=>{
   buildTasks(); showHint(); draw();
   if(SPECS.length) await selectSpec(SPECS[0]);
   toast('Switched to '+dataset);
-};
+}
 $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownmm').value);persistDraft();updateCalRead();}};
 // Browsers restore <details> state across a reload on their own, which looks
 // like the panel reopening itself. Make it deliberate instead: remember the
@@ -1486,6 +1573,9 @@ function acceptPoint(name){       // the human LOOKED and agrees
   if(!name || pred.conf[name]===undefined) return false;
   pred.accepted.add(name);
   delete pred.conf[name]; pred.low.delete(name);
+  // Accepting changes no coordinate, so nothing else here would write the
+  // draft — and the confirmation would be lost on leaving the specimen.
+  persistDraft();
   renderAutoStat(); buildTasks(); draw();
   return true;
 }
@@ -1651,16 +1741,20 @@ async function uploadFiles(files){
     + (failed.length>12?`\n…and ${failed.length-12} more`:''));
 }
 
-$('#newds').onclick=async()=>{
-  const name=prompt('Name for the new study (becomes a folder under data/):');
+async function newStudy(){
+  const name=prompt('Name the new study.\n\n'
+    + 'This creates an empty folder under data/ — a separate set of photographs '
+    + 'with its own landmarks and its own exports. Nothing is shared with the '
+    + 'studies you already have.');
   if(!name) return;
   const r=await api('/api/dataset/new',{method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
   if(!r.ok){ toast(r.error||'could not create'); return; }
   await refreshDatasets();
-  $('#dsPick').value=r.name; $('#dsPick').dispatchEvent(new Event('change'));
+  await pickDataset(r.name);
   toast(`Created “${r.name}” — now add photographs`);
-};
+  $('#addfolder').click();
+}
 
 // Predict every unlabelled specimen up front. The results are cached server-side
 // in sidecars_auto/, so the review pass afterwards opens each fish instantly
