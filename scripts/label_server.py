@@ -312,14 +312,15 @@ class Predictor:
         return info
 
     @classmethod
-    def predict(cls, image: Path) -> dict:
+    def predict(cls, image: Path, polygons: bool = False) -> dict:
         with cls._lock:                      # one request at a time down one pipe
             if cls._proc is None or cls._proc.poll() is not None:
                 started = cls._start()
                 if "error" in started:
                     return {"ok": False, **started}
             try:
-                cls._proc.stdin.write(json.dumps({"image": str(image)}) + "\n")
+                cls._proc.stdin.write(json.dumps({"image": str(image),
+                                                  "polygons": polygons}) + "\n")
                 cls._proc.stdin.flush()
                 line = cls._proc.stdout.readline()
             except Exception as exc:
@@ -756,13 +757,20 @@ class Handler(BaseHTTPRequestHandler):
                         "ok": True, "fish_id": fid, "cached": True,
                         "model": meta.get("model"),
                         "keypoints": doc["lateral"]["keypoints"],
+                        "polygons": (doc["lateral"].get("polygons") or {}),
                         "confidence": meta.get("keypoint_confidence") or {},
                         "low_confidence": meta.get("low_confidence") or [],
                         "elapsed": 0.0})
             except Exception:
                 pass                       # a corrupt cache entry just re-predicts
 
-        res = Predictor.predict(match)
+        # Only the body outline is predicted, and only where the study collects
+        # it. The fins are not automatable at any useful accuracy, so offering
+        # them would spend review time to no end.
+        prof0 = load_profile(self.images_dir)
+        want_body = "body_plus_caudal" not in set(prof0.get("exclude_polygons") or ())
+
+        res = Predictor.predict(match, polygons=want_body)
         if not res.get("ok"):
             return self._send(503, res)
 
@@ -776,6 +784,7 @@ class Handler(BaseHTTPRequestHandler):
                                  "keypoint_confidence": res.get("confidence") or {},
                                  "low_confidence": res.get("low_confidence") or []},
                     "lateral": {"keypoints": res.get("keypoints") or {},
+                                "polygons": res.get("polygons") or {},
                                 "calibration": {"mode": "none",
                                                 "notes": "predicted; not a label"}},
                 }, indent=2))
@@ -785,6 +794,10 @@ class Handler(BaseHTTPRequestHandler):
         # Never offer a point for a landmark this study has excluded.
         prof = load_profile(self.images_dir)
         drop = set(prof.get("exclude_keypoints") or ())
+        drop_poly = set(prof.get("exclude_polygons") or ())
+        if drop_poly and res.get("polygons"):
+            res["polygons"] = {k: v for k, v in res["polygons"].items()
+                               if k not in drop_poly}
         if drop:
             res["keypoints"] = {k: v for k, v in res["keypoints"].items()
                                 if k not in drop}

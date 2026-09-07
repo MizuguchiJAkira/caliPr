@@ -400,10 +400,10 @@ let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=
 //   accepted   — explicitly confirmed by a keypress, never inferred from inaction
 //   corrected  — moved by hand; from/to/px recorded
 let pred={conf:{}, orig:{}, model:null, low:new Set(),
-          accepted:new Set(), corrected:{}};
+          accepted:new Set(), corrected:{}, polys:new Set()};
 function clearPred(){
   pred={conf:{}, orig:{}, model:null, low:new Set(),
-        accepted:new Set(), corrected:{}};
+        accepted:new Set(), corrected:{}, polys:new Set()};
   const e=$('#autostat'); if(e) e.textContent='';
 }
 function unreviewed(){ return Object.keys(pred.conf).length; }
@@ -503,13 +503,13 @@ function predToJSON(){
   if(!pred.model) return null;
   return {conf:pred.conf, orig:pred.orig, model:pred.model,
           low:[...pred.low], accepted:[...pred.accepted],
-          corrected:pred.corrected};
+          corrected:pred.corrected, polys:[...pred.polys]};
 }
 function predFromJSON(d){
   if(!d || !d.model){ clearPred(); return; }
   pred={conf:d.conf||{}, orig:d.orig||{}, model:d.model,
         low:new Set(d.low||[]), accepted:new Set(d.accepted||[]),
-        corrected:d.corrected||{}};
+        corrected:d.corrected||{}, polys:new Set(d.polys||[])};
 }
 
 function persistDraft(){ if(!cur||!model)return; try{
@@ -990,7 +990,12 @@ function draw(){
       const active=activeTask&&activeTask.kind==='polygon'&&activeTask.name===nm;
       if(!active||verts.length>=3) ctx.closePath();
       ctx.strokeStyle=active?'#7fd0ff':'#4aa3ff88'; ctx.lineWidth=active?2.5:1.5; ctx.stroke();
-      ctx.fillStyle=active?'#7fd0ff2e':'#4aa3ff1a'; if(verts.length>=3) ctx.fill();
+      // An outline the model drew is tinted green until it is edited, the same
+      // language the keypoints use for "placed by the model, not yet yours".
+      const fromModel = view==='lateral' && pred.polys.has(nm);
+      ctx.fillStyle = fromModel ? '#37c8711f'
+                    : (active?'#7fd0ff2e':'#4aa3ff1a');
+      if(verts.length>=3) ctx.fill();
       verts.forEach(p=>dot(p,active?'#7fd0ff':'#4aa3ff',active?3:2.5));
       if(active){ let cx=0,cy=0; verts.forEach(p=>{cx+=p[0];cy+=p[1];});
         label([cx/verts.length, cy/verts.length], nm); }   // name the selected polygon
@@ -1059,7 +1064,8 @@ function place(ix,iy){
     warnOverlap(t.name,pt); advance(); }
   else if(t.kind==='ruler'){ const key=t.name==='ruler_point_a'?'a':'b'; m.ruler[key]=pt;
     if(t.name==='ruler_point_a'){activeTask=null;pickByName('ruler','ruler_point_b');} else advance(); }
-  else if(t.kind==='polygon'){ const arr=m.polygons[t.name]||(m.polygons[t.name]=[]);
+  else if(t.kind==='polygon'){ pred.polys.delete(t.name);
+    const arr=m.polygons[t.name]||(m.polygons[t.name]=[]);
     const e = arr.length>=3 ? findEdgeAt(ix,iy,t.name) : null;
     if(e){ arr.splice(e.index,0,pt); toast('Inserted vertex — drag to adjust'); }  // click on outline
     else arr.push(pt); }                                                            // extend the trace
@@ -1585,7 +1591,9 @@ function renderAutoStat(){
   const n=unreviewed(), nc=Object.keys(pred.corrected).length, na=pred.accepted.size;
   const tally=`<span style="color:var(--good)">${na} accepted</span> · `
             + `<span style="color:var(--kp)">${nc} corrected</span>`
-            + (n?` · ${n} unreviewed`:'');
+            + (n?` · ${n} unreviewed`:'')
+            + (pred.polys.size?`<br><span style="color:var(--good)">`
+               + `${[...pred.polys].join(', ')}</span> outlined by the model`:'');
   if(!n){ el.innerHTML = tally + '<br>All points reviewed.'; return; }
   const low=[...pred.low];
   el.innerHTML = tally
@@ -1627,7 +1635,12 @@ $('#autolabel').onclick=async()=>{
                $('#autostat').textContent=''; return; }
     pred={conf:r.confidence||{}, orig:{}, model:r.model||null,
           low:new Set(r.low_confidence||[]),
-          accepted:new Set(), corrected:{}};
+          accepted:new Set(), corrected:{}, polys:new Set()};
+    for(const [nm,poly] of Object.entries(r.polygons||{})){
+      if(!Array.isArray(poly) || poly.length<3) continue;
+      model.lateral.polygons[nm]=poly.map(q=>[Math.round(q[0]),Math.round(q[1])]);
+      pred.polys.add(nm);
+    }
     for(const [nm,pt] of Object.entries(r.keypoints||{})){
       const q=[Math.round(pt[0]),Math.round(pt[1])];
       model.lateral.keypoints[nm]=q;
@@ -1863,6 +1876,9 @@ $('#save').onclick=async()=>{
       accepted: [...pred.accepted].sort(),
       corrected: pred.corrected,
       unreviewed: Object.keys(pred.conf).sort(),
+      // Outlines the model drew and the human left as-is. Same caveat as an
+      // accepted point: agreement with a suggestion, not an independent trace.
+      polygons_from_model: [...pred.polys].sort(),
       predicted_at: new Date().toISOString(),
     };
     out.metadata.unreviewed_predictions=Object.keys(pred.conf).sort();

@@ -542,7 +542,19 @@ which three points to check rather than which twenty-three.
 The labeler has an **Auto-label** button. It runs the model on the open specimen
 and drops the landmarks in, coloured by the model's own confidence: green where
 it is sure, orange and ringed where it is not, and it jumps you straight to the
-least trustworthy point. Correcting a point returns it to the normal colour, so
+least trustworthy point.
+
+It also draws the **body outline**. SAM is prompted with six of the predicted
+keypoints spread head to tail and its mask resampled to 52 vertices — the median
+of the hand tracings — so a predicted outline and a traced one carry the same
+detail and the sparse-outline check applies to both alike. Measured against dense
+hand tracings it lands within about 1.6% on area, and on some specimens at 0.0%.
+That is 52 of the 82 vertices traced per fish, done in about a second.
+
+The outline is tinted green until you edit it, the same language the keypoints
+use, and touching it makes it yours. **Only the body**: the four fins are not
+predicted at any accuracy worth reviewing (8–35% median area error with the sign
+changing between specimens), so offering them would spend attention to no end. Correcting a point returns it to the normal colour, so
 what stays coloured is what has not been looked at yet.
 
 The server keeps one predictor process alive rather than starting one per
@@ -820,7 +832,9 @@ it changes sign between fish.
 So the recommendation is unchanged from the original benchmark, for a better
 reason: **hand-trace all four fins, and let SAM take `body_plus_caudal` only.**
 That one holds up under a sharper reference — 0.7% median, 3.2% worst — and it is
-still 52 of the 82 vertices per fish.
+still 52 of the 82 vertices per fish. That is what Auto-label now does; SAM loads
+lazily on the first request that needs it, so a keypoints-only pass does not pay
+for it.
 
 Anatomical constraints (`anatomy_constraints.py`) clip a predicted outline where
 it has demonstrably left the fin: a pectoral bound at the posterior operculum, a
