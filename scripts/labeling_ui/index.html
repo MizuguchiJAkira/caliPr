@@ -564,17 +564,20 @@ function renderDsMenu(){
     };
   });
   $('#dsMenu').querySelectorAll('.add').forEach(b=>{
-    b.onclick=async e=>{
+    b.onclick=e=>{
       e.stopPropagation();
-      const name=b.dataset.add;
       closeDsMenu();
-      // Photographs go into the study you pointed at, so switch to it first —
-      // otherwise "+ photos" on one row would load them into another.
-      if(name!==dataset) await pickDataset(name);
-      $('#addfolder').click();
+      // Opening a file dialog needs a live user gesture, and any await spends
+      // it — the browser then silently refuses and nothing happens. So the
+      // picker opens in this tick and the dataset switch waits until files
+      // come back.
+      openFolderPicker({mode:'existing', dataset:b.dataset.add});
     };
   });
-  $('#dsNew').onclick=async()=>{ closeDsMenu(); await newStudy(); };
+  $('#dsNew').onclick=e=>{
+    e.stopPropagation(); closeDsMenu();
+    openFolderPicker({mode:'new'});
+  };
 }
 
 function closeDsMenu(){ $('#dsMenu').classList.remove('on'); }
@@ -1754,6 +1757,8 @@ async function uploadFiles(files){
     + (failed.length>12?`\n…and ${failed.length-12} more`:''));
 }
 
+// Retained for callers that already have a gesture to spend; the menu uses
+// openFolderPicker instead so the dialog is not blocked.
 async function newStudy(){
   const name=prompt('Name the new study.\n\n'
     + 'This creates an empty folder under data/ — a separate set of photographs '
@@ -1810,14 +1815,47 @@ $('#autoall').onclick=async()=>{
         : `Predicted ${done}${failed?`, ${failed} failed`:''} — open any of them`);
 };
 
-$('#addimgs').onchange=e=>{ uploadFiles(e.target.files); e.target.value=''; };
-$('#addfolder').onchange=e=>{
-  const files=[...e.target.files].map(f=>{
+// What to do with whatever the picker returns. Set synchronously, read when the
+// files arrive — the work between the two cannot happen before the dialog opens.
+let pendingUpload={mode:'existing', dataset:null};
+function openFolderPicker(intent){
+  pendingUpload=intent;
+  $('#addfolder').click();          // must stay in the click's own tick
+}
+
+$('#addimgs').onchange=e=>{
+  pendingUpload={mode:'existing', dataset:null};
+  uploadFiles(e.target.files); e.target.value='';
+};
+$('#addfolder').onchange=async e=>{
+  const picked=[...e.target.files];
+  e.target.value='';
+  const intent=pendingUpload;
+  pendingUpload={mode:'existing', dataset:null};
+  if(!picked.length) return;
+
+  const files=picked.map(f=>{
     const rel=(f.webkitRelativePath||'').split('/').slice(1,-1);  // drop top folder + file
     const nm=prefixed(f.name, rel);
     return nm===f.name ? f : new File([f], nm, {type:f.type});
   });
-  uploadFiles(files); e.target.value='';
+
+  if(intent.mode==='new'){
+    // The folder already has a name, so use it rather than asking twice. The
+    // prompt is pre-filled and editable, not a blank box.
+    const top=(picked[0].webkitRelativePath||'').split('/')[0] || '';
+    const name=prompt('Name for this study — a folder under data/ with its own '
+      + 'landmarks and its own exports, sharing nothing with the others.', top);
+    if(!name) return;
+    const r=await api('/api/dataset/new',{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    if(!r.ok){ toast(r.error||'could not create'); return; }
+    await refreshDatasets();
+    await pickDataset(r.name);
+  } else if(intent.dataset && intent.dataset!==dataset){
+    await pickDataset(intent.dataset);
+  }
+  uploadFiles(files);
 };
 
 (function wireDrop(){
