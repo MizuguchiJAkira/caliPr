@@ -547,9 +547,16 @@ least trustworthy point.
 It also draws the **body outline**. SAM is prompted with six of the predicted
 keypoints spread head to tail and its mask resampled to 52 vertices — the median
 of the hand tracings — so a predicted outline and a traced one carry the same
-detail and the sparse-outline check applies to both alike. Measured against dense
-hand tracings it lands within about 1.6% on area, and on some specimens at 0.0%.
-That is 52 of the 82 vertices traced per fish, done in about a second.
+detail and the sparse-outline check applies to both alike. That is 52 of the 82
+vertices traced per fish, done in about a second, at **IoU 0.937** against dense
+hand tracings (median of five, 1.000 being identical).
+
+Read IoU, not area error, for this outline. Area error reads 0.0–2.9%, and that
+number is misleading twice over: the polygon is split at line A into *two*
+traits, Bs and CFs, so a shape error moves area across that line while the total
+stays right — and the errors SAM makes, wrapping the dorsal and adipose fins and
+dipping under the pelvic, cancel each other. ASN_30 scores 0.0% area error at
+IoU 0.953.
 
 The outline is tinted green until you edit it, the same language the keypoints
 use, and touching it makes it yours — and on the fins it will need to be.
