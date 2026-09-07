@@ -552,7 +552,32 @@ hand tracings it lands within about 1.6% on area, and on some specimens at 0.0%.
 That is 52 of the 82 vertices traced per fish, done in about a second.
 
 The outline is tinted green until you edit it, the same language the keypoints
-use, and touching it makes it yours. **Only the body**: the four fins are not
+use, and touching it makes it yours — and on the fins it will need to be.
+
+**It follows the dorsal fin instead of crossing its base.** SAM segments the
+whole animal, so its outline climbs over the dorsal and adipose and around the
+anal, where a person tracing by hand cuts straight across each fin base. Two
+constraints are applied and neither fully fixes it. Local smoothing does not,
+because a fin excursion spans many vertices and no single one looks sharp against
+its neighbours — measured on 55 sidecars, hand-traced body vertices sit within
+2.08% of SL of their neighbours' chord at the 95th percentile, and SAM's fin
+excursions clear that test comfortably. Chords between margin landmarks do
+better, and bound the adipose and the pelvic notch, but on those spans SAM is
+already close to a hand tracing (3.25% vs 2.15% of SL on one specimen) so the
+gain is small.
+
+The dorsal fin itself is not fixable this way: its excursion is centred on
+`dorsal_base_center`, and there is no landmark forward of it to draw a chord
+from. **The four fin-base endpoints are the fix** — `dorsal_base_anterior`,
+`dorsal_base_posterior`, `anal_base_anterior`, `anal_base_posterior` are in the
+schema but not in the trained model, which covers 19 keypoints and predates
+them. With those the chord *is* the fin base and the cut is exact. They enter at
+the next training round; the constraint table already lists them and starts using
+them the moment they are predicted.
+
+Until then, treat the outline as a starting point that needs the fin regions
+dragged onto the body wall — still much faster than placing 52 vertices, but not
+finished work. **Only the body**: the four fins are not
 predicted at any accuracy worth reviewing (8–35% median area error with the sign
 changing between specimens), so offering them would spend attention to no end. Correcting a point returns it to the normal colour, so
 what stays coloured is what has not been looked at yet.

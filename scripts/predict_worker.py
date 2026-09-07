@@ -55,6 +55,52 @@ BODY_PROMPT = ("premaxilla_tip", "operculum_posterior", "pectoral_insertion_uppe
 #: the same amount of detail and the density check treats them alike.
 BODY_VERTICES = 52
 
+#: How far a body vertex may sit off the chord joining its neighbours, as a
+#: fraction of standard length. Fitted, not guessed: across 55 hand-traced
+#: sidecars the 95th percentile for vertices anterior to ``caudal_base`` is 2.08%
+#: of SL. SAM exceeds it where it has wrapped a fin — the adipose and anal push
+#: the outline out, the pelvic shadow pulls it in — and a fish's body wall does
+#: neither.
+MAX_BODY_SAGITTA_SL = 0.021
+
+#: The caudal fan is left alone. Its own 95th percentile is 3.07% and its fork is
+#: genuinely angular, so the same limit applied there would round off a real
+#: structure. The split is at ``caudal_base``, which is where the measurement
+#: engine already divides body from caudal.
+SMOOTH_ITERATIONS = 12
+
+#: Spans of the body margin between two landmarks that sit ON that margin, with
+#: how far a hand tracing is allowed to bulge past the straight chord joining
+#: them, as a fraction of SL. Fitted from the tracings that carry both the
+#: outline and the landmarks: the observed maxima are 2.77 / 5.33 / 2.47 / 3.27%,
+#: and these allowances sit just above each.
+#:
+#: This is what the local smoothing could not do. A fin excursion is broad, so no
+#: single vertex looks spiky against its neighbours, but the whole span sits far
+#: outside the chord — which is exactly how a person tracing by hand knows to cut
+#: across a fin base instead of following it.
+MARGIN_CHORDS = (
+    # The exact fin bases, once the model predicts them. These are the chords a
+    # person actually traces along, so they cut a fin off cleanly rather than
+    # bounding how far it may bulge.
+    ("dorsal_base_anterior", "dorsal_base_posterior", 0.004),
+    ("anal_base_anterior", "anal_base_posterior", 0.004),
+    # Available today. They bound the spans between landmarks the model does
+    # predict, which covers the adipose and the pelvic notch but NOT the dorsal
+    # fin itself: its excursion is centred on dorsal_base_center, and there is no
+    # anchor forward of it to draw a chord from. That gap closes when the four
+    # base endpoints above enter the model — see the README.
+    ("dorsal_base_center", "peduncle_narrowest_dorsal", 0.030),   # adipose
+    ("pectoral_insertion_upper", "pelvic_base_center", 0.058),    # convex belly
+    ("pelvic_base_center", "anal_base_center", 0.028),
+    ("anal_base_center", "peduncle_narrowest_ventral", 0.036),
+)
+
+#: How far inside a chord the margin may fall. The flank between two margin
+#: landmarks is convex, so a dip inside the chord is a shadow SAM followed, not
+#: anatomy — the pelvic notch in particular.
+INWARD_ALLOWANCE_SL = 0.012
+
 
 def mask_to_polygon(mask, n: int, scale: float):
     """Largest external contour, resampled to ``n`` points by arc length.
@@ -79,6 +125,130 @@ def mask_to_polygon(mask, n: int, scale: float):
     t = np.linspace(0, d[-1], n, endpoint=False)
     return [[round(float(np.interp(x, d, closed[:, 0])) / scale, 1),
              round(float(np.interp(x, d, closed[:, 1])) / scale, 1)] for x in t]
+
+
+def smooth_body(poly, kps, max_frac=MAX_BODY_SAGITTA_SL,
+                iters=SMOOTH_ITERATIONS):
+    """Pull body vertices back onto a smooth margin, leaving the caudal fan alone.
+
+    SAM segments the whole animal, so its outline wraps the adipose and anal fins
+    rather than crossing their bases, and dips into the shadow under the pelvic.
+    A fish's body wall does neither: it is smooth between the head and the
+    peduncle. This finds vertices sitting further off their neighbours' chord
+    than any hand tracing puts them and eases them back, repeatedly, until none
+    are left or the iteration budget runs out.
+
+    Only vertices anterior to ``caudal_base`` are touched. The caudal fan is
+    legitimately angular — it has a fork — and smoothing it would destroy a real
+    structure to fix a different problem.
+
+    Returns the polygon unchanged if the landmarks needed to orient the fish are
+    missing: a constraint that cannot be applied correctly should not be applied
+    approximately.
+    """
+    import numpy as np
+
+    a, b = kps.get("premaxilla_tip"), kps.get("caudal_base")
+    if not a or not b or len(poly) < 8:
+        return poly
+    P = np.array(poly, float)
+    axis = np.array(b, float) - np.array(a, float)
+    sl = float(np.hypot(*axis))
+    if sl < 1e-6:
+        return poly
+    u = axis / sl
+    # Position along the snout->caudal_base axis, so a specimen pinned at a
+    # slight angle is split in the same place as a level one.
+    t = (P - np.array(a, float)) @ u
+    is_body = t < sl                       # anterior of caudal_base
+    if is_body.sum() < 6:
+        return poly
+
+    # Cross the fin bases first — that is the large, structured error — then
+    # smooth what is left, which is sampling noise along the margin.
+    try:
+        clipped, _ = clip_to_margins(P.tolist(), kps, sl)
+        P = np.array(clipped, float)
+    except Exception:
+        pass
+
+    limit = max_frac * sl
+    for _ in range(iters):
+        prev, nxt = np.roll(P, 1, 0), np.roll(P, -1, 0)
+        chord = nxt - prev
+        L = np.hypot(chord[:, 0], chord[:, 1])
+        ap = P - prev
+        sag = np.abs(chord[:, 0] * ap[:, 1] - chord[:, 1] * ap[:, 0]) / np.maximum(L, 1e-9)
+        bad = is_body & (sag > limit)
+        if not bad.any():
+            break
+        # Halfway to the midpoint of the neighbours. Moving the whole way would
+        # overshoot into the body on a run of consecutive offenders; half
+        # converges without flattening the genuine curve of the flank.
+        P[bad] = P[bad] + 0.5 * ((prev[bad] + nxt[bad]) / 2.0 - P[bad])
+    return [[round(float(x), 1), round(float(y), 1)] for x, y in P]
+
+
+def clip_to_margins(poly, kps, sl):
+    """Hold the outline between the chords joining landmarks on the body margin.
+
+    SAM returns the whole animal, so its outline climbs over the dorsal and
+    adipose fins and around the anal rather than crossing their bases, and it
+    dips into the shadow beneath the pelvic. Both are excursions away from the
+    line between two points a person would trace through.
+
+    The span for each chord is taken as the run of vertices **along the outline**
+    between the two anchors, not the vertices that project onto the chord: a
+    dorsal chord is projected onto by the whole ventral margin too, and pulling
+    those to it folds the fish flat.
+
+    Each span is bounded on both sides — not further out than the chord plus the
+    allowance fitted from hand tracings, and not further in than a small slack,
+    because a flank between two margin landmarks is convex.
+    """
+    import numpy as np
+
+    P = np.array(poly, float)
+    n = len(P)
+    mid = np.array([(kps["premaxilla_tip"][0] + kps["caudal_base"][0]) / 2.0,
+                    (kps["premaxilla_tip"][1] + kps["caudal_base"][1]) / 2.0])
+    moved = 0
+
+    def nearest_index(pt):
+        return int(np.argmin(np.hypot(P[:, 0] - pt[0], P[:, 1] - pt[1])))
+
+    for a_name, b_name, out_frac in MARGIN_CHORDS:
+        a_pt, b_pt = kps.get(a_name), kps.get(b_name)
+        if not a_pt or not b_pt:
+            continue                      # landmark not collected or not predicted
+        ia, ib = nearest_index(a_pt), nearest_index(b_pt)
+        if ia == ib:
+            continue
+        # Two ways round the ring; the margin is the shorter one. A span over
+        # half the outline means an anchor was matched to the wrong side.
+        fwd = (ib - ia) % n
+        idx = ([(ia + k) % n for k in range(1, fwd)] if fwd <= n - fwd
+               else [(ib + k) % n for k in range(1, n - fwd)])
+        if not (2 <= len(idx) <= n // 2):
+            continue
+
+        a = np.array(a_pt, float); b = np.array(b_pt, float)
+        ab = b - a; L = float(np.hypot(*ab))
+        if L < 1e-6:
+            continue
+        nrm = np.array([-ab[1], ab[0]]) / L
+        apx = mid - a
+        if (ab[0] * apx[1] - ab[1] * apx[0]) / L > 0:
+            nrm = -nrm                    # point it away from the fish's axis
+
+        hi, lo = out_frac * sl, -INWARD_ALLOWANCE_SL * sl
+        for i in idx:
+            out = float((P[i] - a) @ nrm)
+            excess = out - hi if out > hi else (out - lo if out < lo else 0.0)
+            if excess:
+                P[i] -= excess * nrm
+                moved += 1
+    return P.tolist(), moved
 
 
 class _Sam:
@@ -202,6 +372,7 @@ def main(argv=None) -> int:
                     try:
                         rgb = cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
                         poly = _Sam.body_outline(rgb, prompt, args.device, scale)
+                        poly = smooth_body(poly, kps)
                         if len(poly) >= 3:
                             polys[BODY] = poly
                     except Exception as exc:
