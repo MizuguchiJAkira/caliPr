@@ -6,10 +6,24 @@ no training data — and the 35 hand-traced specimens are a ready-made benchmark
 
 What is measured
 ----------------
-Mask IoU is the obvious metric but not the decisive one: the pipeline never
-consumes a mask, it consumes an **area in mm²** (Bs, CFs, PFs, DFs, PlFs, AFs).
-A mask can score a mediocre IoU and still give the right area, or score well and
-be biased. So this reports both, and treats the **area error** as the verdict.
+Both IoU and area error are reported, and **which one is the verdict depends on
+the polygon**.
+
+For a fin, area error decides: the pipeline consumes one number from it (PFs,
+DFs, PlFs, AFs) and a mask can score a mediocre IoU while giving that number
+correctly.
+
+For ``body_plus_caudal`` area error is **not** sufficient, and reading it that way
+hid a real defect for months. Two things break it. The polygon is split at line A
+into *two* traits, Bs and CFs, so a shape error can move area across that line
+while the total stays right. And the outline is now shown to a person to review
+and correct, so its shape is the product, not just an input to an integral.
+
+The failure is not hypothetical: SAM wraps the dorsal and adipose fins instead of
+crossing their bases and dips into the shadow under the pelvic, and those two
+errors cancel. On ASN_30 that reads as 0.0% area error against an IoU of 0.953 —
+about 5% of the union disagreeing, all of it in places a morphometrician looks
+at first. Read IoU for the body.
 
 Prompting
 ---------
