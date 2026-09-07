@@ -1,4 +1,4 @@
-# Alewife (Alosa pseudoharengus) — BIOEE 4761
+# Alewife (*Alosa pseudoharengus*) — CUMV series
 
 Landlocked (Great Lakes) vs migratory populations, compared on **proportion**, so
 no absolute scale is needed. Kept separate from the CUMV brook trout study so
