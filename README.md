@@ -259,11 +259,18 @@ and the files are copied into the open dataset — no terminal, no file manager.
 The **Add folder** and **Add photographs** buttons do the same thing for anyone
 who expects a dialog rather than a drag.
 
-The dataset dropdown is where studies are managed. Hovering a study offers
-**+ photos**, which loads a folder into that one; **＋ Add folder** at the bottom
-creates a new study — an empty `data/<name>/lateral/` with its own landmarks and
-its own exports, sharing nothing with the others. A folder made by hand appears
-in the list without restarting the server.
+The dataset dropdown is where studies are managed. Both entries open the file
+picker straight away: hovering a study offers **+ photos**, which loads a folder
+into that one, and **＋ Add folder** at the bottom starts a new study named after
+whichever folder you choose — an own `data/<name>/lateral/` with its own
+landmarks and exports, sharing nothing with the others. A folder made by hand
+appears in the list without restarting the server.
+
+The picker has to open in the same tick as the click. A file dialog needs a live
+user gesture and any `await` spends it, after which the browser refuses silently
+— the button simply does nothing. So the dialog opens first and the work that
+depends on it, creating the study and switching to it, happens once the files
+come back.
 
 **Subfolder names are carried into the filename**, because a folder per site or
 per collection event is usually the only record of that grouping.
