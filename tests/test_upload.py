@@ -192,3 +192,99 @@ def test_demo_mode_refuses_uploads(server):
     assert code == 403
     assert body["error"].startswith("demo mode")
     assert not any(lateral.iterdir())
+
+
+# --------------------------------------------------------------------------
+# creating a study, and finding it without a restart
+# --------------------------------------------------------------------------
+
+def _post_json(url, path, payload):
+    req = urllib.request.Request(f"{url}{path}",
+                                 data=json.dumps(payload).encode(), method="POST",
+                                 headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req) as r:
+            return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read())
+
+
+def _datasets(url):
+    with urllib.request.urlopen(f"{url}/api/datasets") as r:
+        return [d["name"] for d in json.loads(r.read())["datasets"]]
+
+
+@pytest.fixture
+def rooted(tmp_path):
+    """A server that knows its data root, so datasets can be re-discovered."""
+    root = tmp_path / "data"
+    (root / "study" / "lateral").mkdir(parents=True)
+    ls.Handler.data_root = root
+    ls.Handler.datasets = ls.discover_datasets(root)
+    ls.Handler.default_dataset = "study"
+    ls.Handler.images_dir = root / "study"
+    ls.Handler.out_dir = root / "study" / "sidecars"
+    ls.Handler.out_override = None
+    ls.Handler.demo_mode = False
+    srv = ls.ThreadingHTTPServer(("127.0.0.1", 0), ls.Handler)
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{srv.server_address[1]}", root
+    srv.shutdown()
+    ls.Handler.data_root = None
+
+
+def test_a_new_study_is_created_and_seen_without_restart(rooted):
+    url, root = rooted
+    assert _datasets(url) == ["study"]
+
+    code, body = _post_json(url, "/api/dataset/new", {"name": "lake_survey"})
+
+    assert code == 200 and body["name"] == "lake_survey"
+    assert (root / "lake_survey" / "lateral").is_dir()
+    assert "lake_survey" in _datasets(url), "must appear without a restart"
+
+
+def test_a_folder_created_on_disk_is_seen_without_restart(rooted):
+    """The gap this closes: the dataset list used to be frozen at startup."""
+    url, root = rooted
+    (root / "made_by_hand" / "lateral").mkdir(parents=True)
+
+    assert "made_by_hand" in _datasets(url)
+
+
+def test_duplicate_study_name_is_refused(rooted):
+    url, root = rooted
+    _post_json(url, "/api/dataset/new", {"name": "dup"})
+
+    code, body = _post_json(url, "/api/dataset/new", {"name": "dup"})
+
+    assert code == 409 and "already exists" in body["error"]
+
+
+def test_a_study_name_cannot_be_a_path(rooted):
+    url, root = rooted
+    code, body = _post_json(url, "/api/dataset/new", {"name": "../../escaped"})
+
+    assert code == 200
+    assert body["name"] == "escaped"
+    assert (root / "escaped").is_dir()
+    assert not (root.parent.parent / "escaped").exists()
+
+
+def test_empty_study_name_is_refused(rooted):
+    url, _ = rooted
+    code, _ = _post_json(url, "/api/dataset/new", {"name": "  ../  "})
+
+    assert code == 400
+
+
+def test_demo_mode_refuses_study_creation(rooted):
+    url, root = rooted
+    ls.Handler.demo_mode = True
+    try:
+        code, _ = _post_json(url, "/api/dataset/new", {"name": "nope"})
+    finally:
+        ls.Handler.demo_mode = False
+
+    assert code == 403
+    assert not (root / "nope").exists()
