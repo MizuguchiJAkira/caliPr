@@ -206,7 +206,7 @@ heavy and pinned separately — install it into its own environment rather than
 alongside the pipeline.
 
 ```bash
-python -m pytest        # 168 passed
+python -m pytest        # 174 passed
 ```
 
 ## Usage
@@ -259,8 +259,15 @@ and the files are copied into the open dataset — no terminal, no file manager.
 The **Add folder** and **Add photographs** buttons do the same thing for anyone
 who expects a dialog rather than a drag.
 
-A new study is a new folder: `data/<name>/lateral/`, and the labeler offers it in
-the dropdown. Everything after that can be done from the browser.
+**New study** creates one, or make the folder yourself — `data/<name>/lateral/`
+— and it appears in the dropdown without restarting the server. Everything after
+that happens in the browser.
+
+**Subfolder names are carried into the filename**, because a folder per site or
+per collection event is usually the only record of that grouping.
+`Alewife2024/Site_A/IMG_0042.jpg` arrives as `Site_A_IMG_0042.jpg`. The
+top-level folder you dragged is skipped — it is the container you chose, so
+prefixing every file with `photos_` would be noise.
 
 Uploads are deliberately hard to do damage with. Each file is checked against its
 first bytes rather than trusting the extension, because a `.jpg` that is not a
@@ -305,6 +312,12 @@ landmark, which is the wrong trade when the click is the whole job.
   finds `TXD_4` and `TXD_40`–`49`; status words match whole-word, so `todo`,
   `labelled`, `heldout` and `fins` filter by state. Terms are ANDed
   (`todo txd` = unlabelled TXD only), Enter opens the top hit, Escape clears.
+- **Auto-label all unlabelled** predicts the whole backlog in one pass and caches
+  the results, so the review afterwards opens each specimen instantly rather than
+  waiting a second per fish. Stoppable mid-run. It writes no labels: the cache
+  lives in `sidecars_auto/`, every entry is marked `source: predicted`, and
+  `build_dlc_dataset.py` refuses those — a prediction still becomes data only
+  when a human saves it.
 - **Fin retrace mode** walks one fin at a time — base, tip, outline — framed and
   zoomed, hiding every other landmark so the specimen is actually visible (hold
   `H` to reveal them). The specimen list becomes a worklist of fish whose fin
@@ -858,6 +871,8 @@ scripts/
   morfishj_validation.py     Trait definitions against the MorFishJ paper.
 
   build_dlc_dataset.py    Sidecars → DeepLabCut project + stratified split.
+                          Deliberately not a button: assembling a training set
+                          is a decision, not an export.
                           --dataset is repeatable, to pool species. Refuses to
                           train on predicted sidecars.
   train_dlc.py            Train + evaluate. --resume warm-starts from a snapshot.
@@ -879,7 +894,7 @@ scripts/
 data/<dataset>/sidecars/  Hand-labelled annotations (the valuable artifact).
 docs/                     Labeling guide, figures, and what-we-tried.md — a
                           ledger of every technique attempted, failures included.
-tests/                    168 tests: geometry, calibration, schema, validation,
+tests/                    174 tests: geometry, calibration, schema, validation,
                           export, auth, contributor round-trip, I/O.
 ```
 

@@ -346,6 +346,10 @@ class Handler(BaseHTTPRequestHandler):
     #: switching datasets, and silently ignoring it sends writes to the real
     #: sidecar directory, which is the opposite of what anyone passing it wants.
     out_override: Path | None = None
+    #: Kept so the dataset list can be rebuilt on request. Without it the set of
+    #: studies is frozen at startup, and a folder created afterwards is invisible
+    #: until the server is restarted — which looks exactly like a bug.
+    data_root: Path | None = None
 
     def _use(self, query: str) -> None:
         """Point this request at the dataset named in the query string."""
@@ -588,6 +592,33 @@ class Handler(BaseHTTPRequestHandler):
     )
     MAX_UPLOAD = 300 * 1024 * 1024
 
+    def _new_dataset(self):
+        """Create an empty study directory so a folder of photographs has
+        somewhere to land without touching a terminal."""
+        if self.demo_mode:
+            return self._send(403, {"ok": False,
+                                    "error": "demo mode — nothing is written"})
+        if Handler.data_root is None:
+            return self._send(400, {"ok": False,
+                                    "error": "server was started for a single "
+                                             "dataset; restart without --images"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            raw = json.loads(self.rfile.read(n) or b"{}").get("name", "")
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        # A dataset name becomes a directory name, so it may not be a path.
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(str(raw)).name).strip("._-")
+        if not name:
+            return self._send(400, {"ok": False, "error": "give the study a name"})
+        base = Handler.data_root / name
+        if base.exists():
+            return self._send(409, {"ok": False, "name": name,
+                                    "error": f"“{name}” already exists"})
+        (base / "lateral").mkdir(parents=True)
+        Handler.datasets = discover_datasets(Handler.data_root)
+        return self._send(200, {"ok": True, "name": name})
+
     def _upload(self):
         """Accept one photograph into the current dataset's lateral/ folder.
 
@@ -710,9 +741,46 @@ class Handler(BaseHTTPRequestHandler):
         if match is None:
             return self._send(404, {"ok": False, "error": f"no image for {fid}"})
 
+        # A batch run writes its results here, so opening a specimen afterwards
+        # returns instantly instead of paying a second of inference again. The
+        # cache lives in sidecars_auto/, never beside the hand labels, and every
+        # entry is marked source=predicted.
+        cache = self.images_dir / "sidecars_auto" / f"{fid}.json"
+        want_cache = parse_qs(urlparse(self.path).query).get("cache", ["1"])[0] != "0"
+        if want_cache and cache.is_file():
+            try:
+                doc = json.loads(cache.read_text())
+                meta = doc.get("metadata") or {}
+                if meta.get("source") == "predicted":
+                    return self._send(200, {
+                        "ok": True, "fish_id": fid, "cached": True,
+                        "model": meta.get("model"),
+                        "keypoints": doc["lateral"]["keypoints"],
+                        "confidence": meta.get("keypoint_confidence") or {},
+                        "low_confidence": meta.get("low_confidence") or [],
+                        "elapsed": 0.0})
+            except Exception:
+                pass                       # a corrupt cache entry just re-predicts
+
         res = Predictor.predict(match)
         if not res.get("ok"):
             return self._send(503, res)
+
+        if want_cache and not self.demo_mode:
+            try:
+                cache.parent.mkdir(parents=True, exist_ok=True)
+                cache.write_text(json.dumps({
+                    "fish_id": fid,
+                    "metadata": {"source": "predicted", "model": res.get("model"),
+                                 "image": match.name,
+                                 "keypoint_confidence": res.get("confidence") or {},
+                                 "low_confidence": res.get("low_confidence") or []},
+                    "lateral": {"keypoints": res.get("keypoints") or {},
+                                "calibration": {"mode": "none",
+                                                "notes": "predicted; not a label"}},
+                }, indent=2))
+            except Exception:
+                pass                       # caching is an optimisation, not a duty
 
         # Never offer a point for a landmark this study has excluded.
         prof = load_profile(self.images_dir)
@@ -748,6 +816,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._authstate()
 
         if route == "/api/datasets":
+            if Handler.data_root is not None:
+                found = discover_datasets(Handler.data_root)
+                if found:
+                    Handler.datasets = found
             names = sorted(Handler.datasets)
             return self._send(200, {
                 "datasets": [
@@ -838,6 +910,9 @@ class Handler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path
         self._use(urlparse(self.path).query)
 
+        if route == "/api/dataset/new":
+            return self._new_dataset()
+
         if route == "/api/upload":
             return self._upload()
 
@@ -927,7 +1002,8 @@ def main(argv=None) -> int:
         if args.out:
             Handler.datasets[base.name] = base
     else:
-        Handler.datasets = discover_datasets(args.data_root.resolve())
+        Handler.data_root = args.data_root.resolve()
+        Handler.datasets = discover_datasets(Handler.data_root)
         if not Handler.datasets:
             print(f"No datasets under {args.data_root} (need a lateral/ subfolder)")
             return 1

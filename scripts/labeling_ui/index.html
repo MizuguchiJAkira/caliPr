@@ -294,6 +294,12 @@ folder works — subfolders are walked too.">Add photographs
         <input id="addimgs" type="file" accept="image/*" multiple hidden></label>
       <label class="filebtn" title="Pick an entire folder.">Add folder
         <input id="addfolder" type="file" webkitdirectory directory multiple hidden></label>
+      <button id="newds" class="filebtn" title="Create an empty study.">New study</button>
+    </div>
+    <div class="row" style="padding:4px 6px 0">
+      <button id="autoall" style="flex:1" title="Run the model over every
+unlabelled specimen and cache the results, so reviewing them afterwards is
+instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
     </div>
     <div id="uprog"></div>
     <div id="specsearchrow">
@@ -1544,7 +1550,10 @@ $('#autolabel').onclick=async()=>{
     if(first) pickByName('keypoint',first);
     buildTasks(); renderAutoStat(); draw();
     const nlow=(r.low_confidence||[]).length;
-    toast(`${Object.keys(r.keypoints||{}).length} placed in ${r.elapsed||'?'}s — `
+    // A cached result reports 0.0s, which is falsy — say "cached" rather than "?".
+    const when = r.cached ? 'from cache' : `in ${(r.elapsed ?? 0).toFixed
+      ? (r.elapsed ?? 0).toFixed(1) : r.elapsed}s`;
+    toast(`${Object.keys(r.keypoints||{}).length} placed ${when} — `
           + (nlow?`${nlow} to check`:'all confident'));
   }catch(e){ toast('Auto-label failed: '+e); $('#autostat').textContent=''; }
   finally{ btn.disabled=false; btn.textContent=was; }
@@ -1575,11 +1584,25 @@ $('#autolabel').onclick=async()=>{
 // not have to select them all in a list box.
 const IMG_RE=/\.(jpe?g|png|tiff?)$/i;
 
-async function walkEntry(entry, out, depth=0){
+// Subfolder names are meaningful — a folder per site or per collection event —
+// so they are carried into the filename rather than dropped. The top-level
+// folder the user dragged is skipped: it is the container they chose, the
+// analogue of the dataset, and prefixing every file with "photos_" is noise.
+function prefixed(name, parts){
+  const p=parts.filter(Boolean);
+  return p.length ? p.join("_") + "_" + name : name;
+}
+
+async function walkEntry(entry, out, depth=0, parts=[]){
   if(!entry || depth>8) return;                 // depth cap: symlink loops
   if(entry.isFile){
-    await new Promise(res=>entry.file(f=>{ if(IMG_RE.test(f.name)) out.push(f); res(); },
-                                      ()=>res()));
+    await new Promise(res=>entry.file(f=>{
+      if(IMG_RE.test(f.name)){
+        const nm=prefixed(f.name, parts);
+        out.push(nm===f.name ? f : new File([f], nm, {type:f.type}));
+      }
+      res();
+    }, ()=>res()));
     return;
   }
   if(entry.isDirectory){
@@ -1589,7 +1612,9 @@ async function walkEntry(entry, out, depth=0){
     for(;;){
       const batch=await new Promise(res=>reader.readEntries(res,()=>res([])));
       if(!batch.length) break;
-      for(const e of batch) await walkEntry(e, out, depth+1);
+      // depth 0 is the folder that was dropped; its name is not carried.
+      const next = depth===0 ? parts : [...parts, entry.name];
+      for(const e of batch) await walkEntry(e, out, depth+1, next);
     }
   }
 }
@@ -1626,8 +1651,67 @@ async function uploadFiles(files){
     + (failed.length>12?`\n…and ${failed.length-12} more`:''));
 }
 
+$('#newds').onclick=async()=>{
+  const name=prompt('Name for the new study (becomes a folder under data/):');
+  if(!name) return;
+  const r=await api('/api/dataset/new',{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+  if(!r.ok){ toast(r.error||'could not create'); return; }
+  await refreshDatasets();
+  $('#dsPick').value=r.name; $('#dsPick').dispatchEvent(new Event('change'));
+  toast(`Created “${r.name}” — now add photographs`);
+};
+
+// Predict every unlabelled specimen up front. The results are cached server-side
+// in sidecars_auto/, so the review pass afterwards opens each fish instantly
+// instead of waiting a second per specimen. Nothing here writes a label: a
+// prediction still only becomes data when a human saves it.
+let batchRunning=false, batchCancel=false;
+
+$('#autoall').onclick=async()=>{
+  const btn=$('#autoall'), bar=$('#uprog');
+  if(batchRunning){ batchCancel=true; btn.textContent='Stopping…'; return; }
+
+  await refreshAuth();
+  if(AUTH.required && !AUTH.unlocked){ if(!await unlock()) return; }
+  const todo=SPECS.filter(s=>!s.lateral_done);
+  if(!todo.length){ toast('Every specimen is already labelled'); return; }
+  if(!confirm(`Run the model over ${todo.length} unlabelled specimen(s)?\n\n`+
+              `Results are cached so reviewing them is instant. Nothing is saved `+
+              `as a label — you still review and save each one.`)) return;
+
+  batchRunning=true; batchCancel=false;
+  const label=btn.textContent;
+  btn.textContent='Stop'; bar.classList.add('on');
+  let done=0, failed=0;
+  try{
+    for(const sp of todo){
+      if(batchCancel) break;
+      bar.textContent=`predicting ${done+failed+1}/${todo.length} — ${shortId(sp.id)}`;
+      try{
+        const r=await api('/api/predict/'+encodeURIComponent(sp.id)+dsq());
+        if(r.ok) done++;
+        else { failed++; if(r.locked){ toast('Locked — stopping'); break; } }
+      }catch(e){ failed++; }
+    }
+  } finally {
+    batchRunning=false;
+    btn.textContent=label;
+    bar.classList.remove('on'); bar.textContent='';
+  }
+  toast(batchCancel ? `Stopped after ${done}`
+        : `Predicted ${done}${failed?`, ${failed} failed`:''} — open any of them`);
+};
+
 $('#addimgs').onchange=e=>{ uploadFiles(e.target.files); e.target.value=''; };
-$('#addfolder').onchange=e=>{ uploadFiles(e.target.files); e.target.value=''; };
+$('#addfolder').onchange=e=>{
+  const files=[...e.target.files].map(f=>{
+    const rel=(f.webkitRelativePath||'').split('/').slice(1,-1);  // drop top folder + file
+    const nm=prefixed(f.name, rel);
+    return nm===f.name ? f : new File([f], nm, {type:f.type});
+  });
+  uploadFiles(files); e.target.value='';
+};
 
 (function wireDrop(){
   const zone=$('#dropzone'), where=$('#dropwhere');
