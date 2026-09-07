@@ -206,7 +206,7 @@ heavy and pinned separately — install it into its own environment rather than
 alongside the pipeline.
 
 ```bash
-python -m pytest        # 157 passed
+python -m pytest        # 168 passed
 ```
 
 ## Usage
@@ -251,6 +251,25 @@ the lateral view, a mirrored head shot and a ruler, and has to be split:
 python scripts/preprocess_jonah.py --raw-dir data/cornell_raw/jonah \
     --out-dir data/cornell --lateral-margin 450
 ```
+
+### Adding photographs
+
+**Drag a folder onto the window.** Subfolders are walked, non-images are ignored,
+and the files are copied into the open dataset — no terminal, no file manager.
+The **Add folder** and **Add photographs** buttons do the same thing for anyone
+who expects a dialog rather than a drag.
+
+A new study is a new folder: `data/<name>/lateral/`, and the labeler offers it in
+the dropdown. Everything after that can be done from the browser.
+
+Uploads are deliberately hard to do damage with. Each file is checked against its
+first bytes rather than trusting the extension, because a `.jpg` that is not a
+JPEG becomes a specimen that silently fails to load much later. A filename is
+reduced to a basename and a conservative character set, so it cannot be a path. A
+re-dropped folder reports duplicates instead of rewriting anything, and a
+*different* file arriving under a name already in use is **refused** — overwriting
+would replace a photograph that existing sidecars point at. `--demo` refuses
+uploads outright.
 
 ### Labelling
 
@@ -860,7 +879,7 @@ scripts/
 data/<dataset>/sidecars/  Hand-labelled annotations (the valuable artifact).
 docs/                     Labeling guide, figures, and what-we-tried.md — a
                           ledger of every technique attempted, failures included.
-tests/                    157 tests: geometry, calibration, schema, validation,
+tests/                    168 tests: geometry, calibration, schema, validation,
                           export, auth, contributor round-trip, I/O.
 ```
 

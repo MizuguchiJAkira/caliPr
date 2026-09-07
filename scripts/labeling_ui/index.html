@@ -134,6 +134,17 @@
   #imgpanel summary::before { content:'▸ '; }
   #imgpanel[open] summary::before { content:'▾ '; }
   #imgstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  .filebtn { flex:1; text-align:center; cursor:pointer; background:var(--btn,#1b222c);
+    border:1px solid #2b3644; border-radius:4px; padding:5px 6px; font-size:11px; }
+  .filebtn:hover { border-color:var(--accent); }
+  #uprog { padding:0 6px; font-size:11px; color:var(--mut); }
+  #uprog.on { padding:4px 6px; }
+  #dropzone { position:fixed; inset:0; z-index:9999; display:none;
+    align-items:center; justify-content:center; text-align:center;
+    background:#04121fdd; border:3px dashed var(--accent); color:#fff;
+    font-size:20px; pointer-events:none; }
+  #dropzone.on { display:flex; }
+  #dropwhere { font-size:13px; color:var(--mut); margin-top:8px; }
   #demobar { display:none; background:#ffb454; color:#2a1a00; font-weight:600;
     text-align:center; padding:4px 8px; font-size:12px; }
   #demobar.on { display:block; }
@@ -274,7 +285,17 @@
         <span>each photo with its annotation drawn on</span></div>
     </details>
     <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
-    <div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
+    <div id="dropzone"><div><b>Drop photographs to add them</b>
+  <div id="dropwhere"></div></div></div>
+<div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
+    <div class="row" style="padding:4px 6px 0">
+      <label class="filebtn" title="Add photographs to the open dataset. A whole
+folder works — subfolders are walked too.">Add photographs
+        <input id="addimgs" type="file" accept="image/*" multiple hidden></label>
+      <label class="filebtn" title="Pick an entire folder.">Add folder
+        <input id="addfolder" type="file" webkitdirectory directory multiple hidden></label>
+    </div>
+    <div id="uprog"></div>
     <div id="specsearchrow">
       <input id="specsearch" type="search" placeholder="find specimen  (/)"
              autocomplete="off" spellcheck="false">
@@ -461,13 +482,21 @@ function loadDraft(id){
 }
 function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){} }
 
-async function boot(){
+async function refreshDatasets(){
   const info=await api('/api/datasets');
   DATASETS=info.datasets;
-  const saved=localStorage.getItem('calipr_dataset');
-  dataset = DATASETS.some(d=>d.name===saved) ? saved : info.default;
+  if(!DATASETS.some(d=>d.name===dataset)) dataset = info.default;
   $('#dsPick').innerHTML=DATASETS.map(d=>
     `<option value="${d.name}"${d.name===dataset?' selected':''}>${d.name} (${d.images})</option>`).join('');
+  return info;
+}
+
+async function boot(){
+  const saved=localStorage.getItem('calipr_dataset');
+  const info=await api('/api/datasets');
+  DATASETS=info.datasets;
+  dataset = DATASETS.some(d=>d.name===saved) ? saved : info.default;
+  await refreshDatasets();
   SCHEMA=await api('/api/schema'+dsq());
   restoreRetrace();
   await loadSpecs();
@@ -1537,6 +1566,95 @@ $('#autolabel').onclick=async()=>{
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     if(e.key==='/'){ e.preventDefault(); box.focus(); box.select(); }
+  });
+})();
+// ---- adding photographs ----------------------------------------------------
+// Two ways in, because neither covers everyone: a folder picker for people who
+// expect a dialog, and drag-and-drop for people who expect to drag. Dropping a
+// FOLDER is the case that matters — a collaborator with 200 photographs should
+// not have to select them all in a list box.
+const IMG_RE=/\.(jpe?g|png|tiff?)$/i;
+
+async function walkEntry(entry, out, depth=0){
+  if(!entry || depth>8) return;                 // depth cap: symlink loops
+  if(entry.isFile){
+    await new Promise(res=>entry.file(f=>{ if(IMG_RE.test(f.name)) out.push(f); res(); },
+                                      ()=>res()));
+    return;
+  }
+  if(entry.isDirectory){
+    const reader=entry.createReader();
+    // readEntries returns at most ~100 per call; a folder of 200 photographs
+    // silently truncates unless it is drained in a loop.
+    for(;;){
+      const batch=await new Promise(res=>reader.readEntries(res,()=>res([])));
+      if(!batch.length) break;
+      for(const e of batch) await walkEntry(e, out, depth+1);
+    }
+  }
+}
+
+async function uploadFiles(files){
+  files=[...files].filter(f=>IMG_RE.test(f.name));
+  if(!files.length){ toast('No images in that selection'); return; }
+  const view=$('#viewPick').value==='frontal'?'frontal':'lateral';
+  if(!confirm(`Add ${files.length} photograph(s) to “${dataset}” (${view})?\n\n`+
+              `They are copied into the dataset. Nothing is overwritten.`)) return;
+  const bar=$('#uprog'); bar.classList.add('on');
+  let added=0, dup=0, failed=[];
+  for(let i=0;i<files.length;i++){
+    const f=files[i];
+    bar.textContent=`adding ${i+1}/${files.length} — ${f.name}`;
+    try{
+      const r=await fetch('/api/upload'+dsq(), {method:'POST',
+        headers:{'X-Filename':encodeURIComponent(f.name), 'X-View':view},
+        body:f});
+      const j=await r.json().catch(()=>({}));
+      if(j.ok) (j.status==='duplicate'?dup++:added++);
+      else failed.push(`${f.name}: ${j.error||r.status}`);
+    }catch(e){ failed.push(`${f.name}: ${e}`); }
+  }
+  bar.classList.remove('on');
+  bar.textContent = failed.length ? `${failed.length} could not be added` : '';
+  await refreshDatasets();     // the dropdown's image count is now wrong otherwise
+  await loadSpecs();
+  let msg=`Added ${added}`;
+  if(dup) msg+=`, ${dup} already present`;
+  if(failed.length) msg+=`, ${failed.length} failed`;
+  toast(msg);
+  if(failed.length) alert('These were not added:\n\n'+failed.slice(0,12).join('\n')
+    + (failed.length>12?`\n…and ${failed.length-12} more`:''));
+}
+
+$('#addimgs').onchange=e=>{ uploadFiles(e.target.files); e.target.value=''; };
+$('#addfolder').onchange=e=>{ uploadFiles(e.target.files); e.target.value=''; };
+
+(function wireDrop(){
+  const zone=$('#dropzone'), where=$('#dropwhere');
+  let depth=0;                       // dragenter/leave fire per child element
+  window.addEventListener('dragenter',e=>{
+    if(!e.dataTransfer || ![...e.dataTransfer.types].includes('Files')) return;
+    e.preventDefault(); depth++;
+    where.textContent=`into “${dataset}” · ${$('#viewPick').value}`;
+    zone.classList.add('on');
+  });
+  window.addEventListener('dragover',e=>{
+    if(e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault();
+  });
+  window.addEventListener('dragleave',e=>{
+    if(--depth<=0){ depth=0; zone.classList.remove('on'); }
+  });
+  window.addEventListener('drop',async e=>{
+    if(!e.dataTransfer) return;
+    e.preventDefault(); depth=0; zone.classList.remove('on');
+    const items=[...(e.dataTransfer.items||[])];
+    const entries=items.map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry()).filter(Boolean);
+    if(entries.length){
+      const out=[];
+      for(const en of entries) await walkEntry(en, out);
+      return uploadFiles(out);
+    }
+    uploadFiles(e.dataTransfer.files||[]);   // browsers without the entry API
   });
 })();
 $('#save').onclick=async()=>{

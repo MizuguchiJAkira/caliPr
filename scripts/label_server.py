@@ -578,6 +578,72 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(exc)})
         return self._send(404, {"error": f"unknown export {kind!r}"})
 
+    #: What a photograph may be. Extension alone is not enough — a .jpg that is
+    #: not a JPEG produces a specimen that silently fails to load later, so the
+    #: first bytes are checked too.
+    IMAGE_MAGIC = (
+        (b"\xff\xd8\xff", ".jpg"),          # JPEG
+        (b"\x89PNG\r\n\x1a\n", ".png"),     # PNG
+        (b"II*\x00", ".tif"), (b"MM\x00*", ".tif"),   # TIFF, both byte orders
+    )
+    MAX_UPLOAD = 300 * 1024 * 1024
+
+    def _upload(self):
+        """Accept one photograph into the current dataset's lateral/ folder.
+
+        One file per request rather than a single multipart batch: it keeps the
+        parsing trivial, lets the browser show real progress across a folder of
+        200, and means one bad file fails on its own instead of taking the batch
+        with it.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False,
+                                    "error": "demo mode — nothing is written"})
+        raw_name = self.headers.get("X-Filename", "")
+        view = (self.headers.get("X-View") or "lateral").lower()
+        if view not in ("lateral", "frontal"):
+            return self._send(400, {"ok": False, "error": "bad view"})
+
+        # Basename only, and a conservative character set: an uploaded name is
+        # attacker-controlled in principle and a path is the one thing it must
+        # never be able to be.
+        name = Path(unquote(raw_name)).name
+        name = re.sub(r"[^A-Za-z0-9._-]", "_", name).lstrip(".")
+        if not name:
+            return self._send(400, {"ok": False, "error": "no filename"})
+        ext = Path(name).suffix.lower()
+        if ext not in (".jpg", ".jpeg", ".png", ".tif", ".tiff"):
+            return self._send(415, {"ok": False, "name": name,
+                                    "error": f"not an image extension ({ext})"})
+
+        n = int(self.headers.get("Content-Length", 0))
+        if n <= 0:
+            return self._send(400, {"ok": False, "name": name, "error": "empty"})
+        if n > self.MAX_UPLOAD:
+            return self._send(413, {"ok": False, "name": name,
+                                    "error": f"{n/1e6:.0f} MB exceeds the limit"})
+        data = self.rfile.read(n)
+        if not any(data.startswith(sig) for sig, _ in self.IMAGE_MAGIC):
+            return self._send(415, {"ok": False, "name": name,
+                                    "error": "contents are not a JPEG, PNG or TIFF"})
+
+        dest_dir = self.images_dir / view
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / name
+        if dest.is_file():
+            # Same bytes is a re-drop of a folder already added, which is
+            # ordinary; different bytes under a name already in use is not, and
+            # overwriting it would replace a photograph other sidecars point at.
+            if dest.read_bytes() == data:
+                return self._send(200, {"ok": True, "name": name,
+                                        "status": "duplicate"})
+            return self._send(409, {"ok": False, "name": name,
+                                    "error": "a DIFFERENT file of this name is "
+                                             "already here; rename before adding"})
+        dest.write_bytes(data)
+        return self._send(200, {"ok": True, "name": name, "status": "added",
+                                "bytes": len(data)})
+
     def _token(self):
         raw = self.headers.get("Cookie") or ""
         for part in raw.split(";"):
@@ -771,6 +837,9 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         route = urlparse(self.path).path
         self._use(urlparse(self.path).query)
+
+        if route == "/api/upload":
+            return self._upload()
 
         if route == "/api/unlock":
             return self._unlock()
