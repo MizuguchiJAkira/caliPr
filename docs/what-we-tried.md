@@ -341,3 +341,47 @@ predicted perimeter × 0.5 px almost exactly.
   It would raise every counter to target and turn the QC flags green while the
   area stayed exactly as biased — a midpoint on a chord carries no information
   about where the margin actually is.
+
+---
+
+## Predicted body outline
+
+Measured against dense hand tracings on five specimens, prompting SAM with six
+predicted keypoints along the body axis.
+
+- **Read IoU, not area error, for `body_plus_caudal`.** Area error is the right
+  verdict for a fin, where the pipeline consumes one number. It is not for the
+  body, and reading it that way hid a real defect for months. SAM wraps the
+  dorsal and adipose fins instead of crossing their bases and dips into the
+  shadow under the pelvic; those two errors cancel. ASN_30 scores **0.0% area
+  error at IoU 0.953**. The polygon is also split at line A into *two* traits, so
+  a shape error moves area between Bs and CFs while the total stays right.
+  Baseline to beat: **IoU 0.937 median, 0.902 worst**.
+- **Local smoothing does not remove a fin excursion.** A fin spans many vertices,
+  so no single one is sharp against its neighbours. Across 55 sidecars,
+  hand-traced body vertices sit within 2.08% of SL of their neighbours' chord at
+  the 95th percentile, and SAM's fin excursions pass that test. Turn angle is
+  worse still: hand tracings reach 91° at the 95th percentile, because a
+  52-vertex polygon around a snout is genuinely angular.
+- **Chords between margin landmarks help only where a landmark brackets the
+  fin.** They bound the adipose and the pelvic notch, but on those spans SAM is
+  already close to a hand tracing (3.25% vs 2.15% of SL on HRN_42), so the gain
+  is small. The dorsal fin cannot be bounded at all this way: its excursion is
+  centred on `dorsal_base_center` and there is no landmark forward of it.
+- **Select chord spans along the outline, never by projection onto the chord.** A
+  dorsal chord is projected onto by the entire ventral margin; pulling those
+  vertices to it folds the outline flat, −70% area.
+- **Negative point prompts at the predicted fin tips make it worse.** The
+  technique that rescues the pectoral (48% → 29%) costs the body 0.937 → 0.934
+  median IoU, on all five specimens. Rejected.
+- **SAM vit-large is not worth it on this hardware.** IoU 0.937 → 0.946 for
+  **1.67 s → 102.75 s per specimen** on MPS, a 61× cost for a 1% gain. It would
+  turn a two-minute batch over 76 fish into two and a half hours.
+
+What remains is the one that addresses the mechanism: **the four fin-base
+endpoints**. `dorsal_base_anterior`, `dorsal_base_posterior`,
+`anal_base_anterior`, `anal_base_posterior` are in the schema but in only 1–2 of
+46 sidecars, and the trained model covers the 19 keypoints that predate them.
+With those predicted the chord *is* the fin base and the cut is exact, which is
+what a person does by hand. `MARGIN_CHORDS` in `predict_worker.py` already lists
+them first and starts using them the moment they are predicted.
