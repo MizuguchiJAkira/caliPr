@@ -57,3 +57,4 @@ data/*/overlays_auto/
 # credential for the automated-landmarking gate, if ever pointed inside the repo
 .calipr/
 *auth.json
+
