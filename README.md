@@ -194,6 +194,12 @@ anal fin outlines: on those specimens there is too little fin-to-body contrast
 and too much fraying to trace them honestly, so the study drops them rather than
 recording guesses.
 
+## Tutorial
+
+**New here? [docs/TUTORIAL.md](docs/TUTORIAL.md)** walks from a folder of
+photographs to a spreadsheet of measurements in four steps, with screenshots and
+arrows pointing at the buttons. The rest of this file is reference.
+
 ## Installation
 
 ```bash
