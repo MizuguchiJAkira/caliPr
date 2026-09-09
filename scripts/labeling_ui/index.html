@@ -586,10 +586,16 @@ document.addEventListener('click',()=>closeDsMenu());
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDsMenu(); });
 
 async function boot(){
+  // ?dataset= wins over the remembered one, so a link to a particular study
+  // opens it. The server already honoured the parameter per request while the
+  // page ignored it, which meant a shared link landed on whatever the reader
+  // last had open.
+  const asked=new URLSearchParams(location.search).get('dataset');
   const saved=localStorage.getItem('calipr_dataset');
   const info=await api('/api/datasets');
   DATASETS=info.datasets;
-  dataset = DATASETS.some(d=>d.name===saved) ? saved : info.default;
+  dataset = DATASETS.some(d=>d.name===asked) ? asked
+          : (DATASETS.some(d=>d.name===saved) ? saved : info.default);
   await refreshDatasets();
   SCHEMA=await api('/api/schema'+dsq());
   restoreRetrace();
