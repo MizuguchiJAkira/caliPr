@@ -115,6 +115,12 @@ def export_to_xlsx(
     return output_path
 
 
+def _unit_of(rec) -> str | None:
+    """"mm", "px", or None when the specimen carries no calibration at all."""
+    lat = rec.calibrations.get("lateral")
+    return None if lat is None else ("px" if lat.method == "none" else "mm")
+
+
 def _write_measurements_sheet(
     sheet: Worksheet,
     records: Sequence[ExportRecord],
@@ -125,10 +131,26 @@ def _write_measurements_sheet(
     labels = measurement_labels()
 
     # A workbook can hold both scaled and scale-free specimens -- a series shot
-    # without a usable ruler measures in PIXELS, and putting those under an "(mm)"
-    # header beside real millimetres is the kind of mistake nothing downstream can
-    # catch. The units of each row travel with the row.
-    header = [*metadata_columns, "units", *(labels[k] for k in measurement_keys)]
+    # without a usable ruler measures in PIXELS -- so the units of each row travel
+    # with the row, in a column of their own.
+    #
+    # The header has to agree with them. Where every row shares one unit the
+    # header states it; where they differ no single unit is true of the column,
+    # so the header carries none and the row's own value is the only answer. What
+    # it must never do is say "(mm)" over a column of pixels, which is what a
+    # fixed header did.
+    units_present = {_unit_of(r) for r in records} - {None}
+    only = units_present.pop() if len(units_present) == 1 else None
+
+    def head(key: str) -> str:
+        label = labels[key]
+        if only == "mm":
+            return label
+        return (label.replace("(mm^2)", "(px^2)").replace("(mm)", "(px)")
+                if only == "px"
+                else label.replace(" (mm^2)", "").replace(" (mm)", ""))
+
+    header = [*metadata_columns, "units", *(head(k) for k in measurement_keys)]
     sheet.append(header)
 
     header_font = Font(bold=True)

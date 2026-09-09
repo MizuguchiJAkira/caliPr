@@ -531,11 +531,18 @@ class Handler(BaseHTTPRequestHandler):
 
         ds = self.images_dir.name
         root = _ROOT / "results" / ds
+        # Pass the paths, never just the dataset name. The scripts default to
+        # the repository's own data/, so a server started with --data-root or
+        # --images elsewhere produced exports that looked for a directory that
+        # does not exist — or worse, found a same-named study in the repo.
         try:
             if kind == "measurements":
                 r = subprocess.run(
                     [sys.executable, str(_ROOT / "scripts/export_measurements.py"),
-                     "--dataset", ds],
+                     "--dataset", ds,
+                     "--images", str(self.images_dir / "lateral"),
+                     "--labels", str(self.out_dir),
+                     "--out", str(root / "measurements.xlsx")],
                     capture_output=True, text=True, timeout=600, cwd=_ROOT)
                 out = root / "measurements.xlsx"
                 if r.returncode != 0 or not out.is_file():
@@ -563,7 +570,10 @@ class Handler(BaseHTTPRequestHandler):
             if kind == "overlays":
                 r = subprocess.run(
                     [sys.executable, str(_ROOT / "scripts/render_overlays.py"),
-                     "--dataset", ds],
+                     "--dataset", ds,
+                     "--images", str(self.images_dir / "lateral"),
+                     "--sidecars", str(self.out_dir),
+                     "--out", str(root / "overlays")],
                     capture_output=True, text=True, timeout=1800, cwd=_ROOT)
                 if r.returncode != 0:
                     return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
@@ -618,6 +628,8 @@ class Handler(BaseHTTPRequestHandler):
                                     "error": f"“{name}” already exists"})
         (base / "lateral").mkdir(parents=True)
         Handler.datasets = discover_datasets(Handler.data_root)
+        if Handler.default_dataset not in Handler.datasets:
+            Handler.default_dataset = name
         return self._send(200, {"ok": True, "name": name})
 
     def _upload(self):
@@ -833,6 +845,12 @@ class Handler(BaseHTTPRequestHandler):
                 found = discover_datasets(Handler.data_root)
                 if found:
                     Handler.datasets = found
+            # A server started against an empty data/ has no default. Without
+            # this it keeps reporting none after the first study is created, and
+            # the page opens to a blank list having just been told it succeeded.
+            if Handler.default_dataset not in Handler.datasets:
+                Handler.default_dataset = (sorted(Handler.datasets)[0]
+                                           if Handler.datasets else "")
             names = sorted(Handler.datasets)
             return self._send(200, {
                 "datasets": [
@@ -1016,16 +1034,19 @@ def main(argv=None) -> int:
             Handler.datasets[base.name] = base
     else:
         Handler.data_root = args.data_root.resolve()
+        Handler.data_root.mkdir(parents=True, exist_ok=True)
         Handler.datasets = discover_datasets(Handler.data_root)
-        if not Handler.datasets:
-            print(f"No datasets under {args.data_root} (need a lateral/ subfolder)")
-            return 1
+        # An empty data/ is a first run, not an error. Refusing to start here
+        # left a new user with no way in at all: the button that creates the
+        # first study is inside the page the server would not serve.
         Handler.default_dataset = (args.dataset if args.dataset in Handler.datasets
-                                   else sorted(Handler.datasets)[0])
-    base = Handler.datasets[Handler.default_dataset]
-    Handler.images_dir = base
+                                   else (sorted(Handler.datasets)[0]
+                                         if Handler.datasets else ""))
+    base = Handler.datasets.get(Handler.default_dataset)
+    Handler.images_dir = base if base is not None else Handler.data_root
     Handler.out_override = args.out.resolve() if args.out else None
-    Handler.out_dir = Handler.out_override or (base / "sidecars")
+    Handler.out_dir = Handler.out_override or (
+        (base / "sidecars") if base is not None else Handler.data_root / "sidecars")
     Handler.out_dir.mkdir(parents=True, exist_ok=True)
     if Handler.out_override:
         print(f"--out is set: EVERY dataset writes sidecars to "
@@ -1044,20 +1065,20 @@ def main(argv=None) -> int:
         mark = "*" if n == Handler.default_dataset else " "
         print(f"  {mark} {n:12} {len(list_images(Handler.datasets[n] / 'lateral')):4d} images")
 
-    # The specimen list is built by globbing the image directories, and a missing
-    # or empty one globs to nothing -- so the UI would open to a blank list with
-    # no clue why. The photographs are not in the repository (they are large, and
-    # they are the museum's), so this is the normal state of a fresh clone.
-    n_lat = len(list_images(Handler.images_dir / "lateral"))
-    if n_lat == 0:
+    # An empty list is the normal first run: photographs are not in the
+    # repository, they are large and they belong to the collection. Say what to
+    # do about it rather than leaving a blank page unexplained.
+    if not Handler.datasets:
         print()
-        print(f"  WARNING: no lateral images under {Handler.images_dir}/lateral —")
-        print("  the specimen list will be empty. Photographs are not tracked in")
-        print("  git; produce the crops first, e.g.")
-        print("      python scripts/preprocess_jonah.py --raw-dir <raw photos> \\")
-        print(f"          --out-dir {Handler.images_dir} --lateral-margin 450")
-        print(f"  or point elsewhere with --images. "
-              f"{len(list(Handler.out_dir.glob('*.json')))} sidecars are present.")
+        print("  No studies yet. Open the page and use the dataset menu:")
+        print("      Add folder  →  choose a folder of photographs")
+        print("  It becomes a study named after that folder. Nothing else to set up.")
+        print()
+    elif len(list_images(Handler.images_dir / "lateral")) == 0:
+        print()
+        print(f"  {Handler.default_dataset} has no photographs yet. Hover it in the")
+        print("  dataset menu and choose \"+ photos\", or drag a folder onto the page.")
+        print(f"  ({len(list(Handler.out_dir.glob('*.json')))} sidecars are present.)")
         print()
     srv.serve_forever()
     return 0
