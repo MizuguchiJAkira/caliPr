@@ -31,6 +31,10 @@ from .ruler_calibration import CalibrationResult
 
 DEFAULT_METADATA_COLUMNS: tuple[str, ...] = (
     "fish_id",
+    # Second, not last: morphometrics is comparative, and the column a reader
+    # sorts and filters by should sit beside the identifier rather than after
+    # three fields they rarely use.
+    "group",
     "locality",
     "collection_date",
     "image_filename",
@@ -121,6 +125,19 @@ def _unit_of(rec) -> str | None:
     return None if lat is None else ("px" if lat.method == "none" else "mm")
 
 
+def _ordered(records):
+    """Records sorted by group, then by fish_id.
+
+    Grouping a spreadsheet is most of what makes it usable for a comparison, and
+    a reader should not have to sort it themselves. Ungrouped specimens sort last
+    rather than first, where an empty string would otherwise put them.
+    """
+    def key(rec):
+        g = str(rec.measurements.metadata.get("group", "") or "")
+        return (g == "", g, rec.measurements.fish_id)
+    return sorted(records, key=key)
+
+
 def _write_measurements_sheet(
     sheet: Worksheet,
     records: Sequence[ExportRecord],
@@ -161,7 +178,7 @@ def _write_measurements_sheet(
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
 
-    for rec in records:
+    for rec in _ordered(records):
         row: list[float | str] = []
         for col in metadata_columns:
             if col == "image_filename":
@@ -221,7 +238,7 @@ def _write_ratios_sheet(
         cell.fill = header_fill
         cell.alignment = Alignment(horizontal="center")
 
-    for rec in records:
+    for rec in _ordered(records):
         sl_val = rec.measurements.values.get("SL")
         sl = sl_val.value if sl_val is not None else float("nan")
         row: list[float | str] = []
@@ -376,7 +393,7 @@ def _write_shape_sheet(
         c.fill = header_fill
         c.alignment = Alignment(horizontal="center")
 
-    for rec in records:
+    for rec in _ordered(records):
         vals = {}
         for k in keys:
             mv = rec.measurements.values.get(k)
@@ -435,7 +452,7 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
         cell.font = header_font
         cell.fill = header_fill
 
-    for rec in records:
+    for rec in _ordered(records):
         missing = sorted(
             {
                 lm
