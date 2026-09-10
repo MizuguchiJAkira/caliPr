@@ -207,9 +207,14 @@ pip install -e ".[dev]"
 ```
 
 Python 3.11+ (NumPy ≥1.26, OpenCV ≥4.9, openpyxl ≥3.1, Pillow ≥10). Editable
-installs need pip ≥21.3. The DeepLabCut stack used for automated landmarking is
-heavy and pinned separately — install it into its own environment rather than
-alongside the pipeline.
+installs need pip ≥21.3. Four dependencies, about seven seconds. The DeepLabCut
+stack used for automated landmarking is heavy and pinned separately — install it
+into its own environment rather than alongside the pipeline.
+
+**On macOS**, note that the system Python is still 3.9: `pip install` refuses
+with a `requires-python` error rather than anything more helpful. Development and
+all timings here are on Apple Silicon (M3, 8 GB), with PyTorch on the MPS
+backend; there is no CUDA path on these machines and none is needed.
 
 ```bash
 python -m pytest        # 174 passed
@@ -757,11 +762,12 @@ are not re-attempted:
   could pretrain a fish-aware backbone; it cannot supply landmark supervision.
 
 **Keep `--batch-size` small.** The default batch of 8 at 0.25 scale exhausts
-memory on a 16 GB machine once the crops carry the lateral margin: training
-wedges at epoch 3 with the process in uninterruptible disk wait and swap
-effectively full. Batch 2 at 0.25 scale completes 300 epochs in ~37 min on Apple
-MPS with room to spare. Dropping to `--scale 0.15` also works (~25 min) but costs
-accuracy.
+memory on the 8 GB MacBook Air M3 this was developed on, once the crops carry the
+lateral margin: training wedges at epoch 3 with the process in uninterruptible
+disk wait and swap effectively full. Batch 2 at 0.25 scale completes 300 epochs
+in ~37 min on Apple MPS with room to spare. Dropping to `--scale 0.15` also works
+(~25 min) but costs accuracy. A machine with more memory can raise the batch;
+the wall is RAM, not the GPU.
 
 Absent landmarks are written as NaN rather than a placeholder, so a clipped snout
 never teaches the model to predict the frame edge.
