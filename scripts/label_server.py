@@ -307,7 +307,19 @@ class Predictor:
                              "in .venv-train?)"}
         if not info.get("ready"):
             proc.kill()
-            return {"error": info.get("error", "predictor failed to load")}
+            err = info.get("error", "predictor failed to load")
+            # A fresh install has the labelling stack and not the training one,
+            # so a missing import here is the ordinary case rather than a fault.
+            # Saying which package is absent helps nobody; saying what to install
+            # does.
+            if "ModuleNotFoundError" in err or "ImportError" in err:
+                return {"error":
+                        "automated landmarking needs the training stack, which "
+                        "is installed separately from the labeler:  python -m "
+                        "venv .venv-train && .venv-train/bin/pip install "
+                        "'deeplabcut[tf]' transformers torch  — hand labelling "
+                        "works without it."}
+            return {"error": err}
         cls._proc, cls._info = proc, info
         return info
 

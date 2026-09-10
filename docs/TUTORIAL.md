@@ -4,11 +4,31 @@ Getting from a folder of photographs to a spreadsheet of measurements. No
 terminal beyond the two lines below, and nothing to configure.
 
 ```bash
-pip install -e .
-python scripts/label_server.py
+git clone https://github.com/MizuguchiJAkira/caliPr.git
+cd caliPr
+python3.11 -m venv .venv          # 3.11 or newer
+./.venv/bin/pip install -e .
+./.venv/bin/python scripts/label_server.py
 ```
 
 Open <http://localhost:8765>. Everything after this happens in the browser.
+
+Four packages come down — NumPy, OpenCV, openpyxl, Pillow — and it takes about
+ten seconds. **Check your Python first:** macOS still ships 3.9, which is too
+old, and `pip install` will refuse with a `requires-python` error rather than
+anything more helpful. `python3 --version` tells you; Homebrew or python.org
+gets you a newer one.
+
+Automated landmarking is a separate, much heavier install (PyTorch, DeepLabCut,
+Segment Anything) and is **not needed to label by hand or to export**. Skip it
+until you want it:
+
+```bash
+python3.11 -m venv .venv-train
+./.venv-train/bin/pip install "deeplabcut[tf]" transformers torch
+```
+
+Without it the labeler runs normally and the Auto-label button says so.
 
 ---
 
