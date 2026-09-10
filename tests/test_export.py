@@ -122,11 +122,13 @@ def test_export_writes_its_three_sheets(tmp_path: Path):
     header = rows[0]
 
     # Metadata columns at the front, then the per-row units flag.
-    assert header[:4] == ("fish_id", "locality", "collection_date", "image_filename")
-    assert header[4] == "units"
+    # group sits second: it is what a comparative study sorts and filters by.
+    assert header[:5] == ("fish_id", "group", "locality", "collection_date",
+                          "image_filename")
+    assert header[5] == "units"
     # One column per trait after those.
     from fish_morpho.landmark_config import TRAITS
-    assert len(header) == 5 + len(TRAITS)
+    assert len(header) == 6 + len(TRAITS)   # 5 metadata + units
 
     # Every row states its own units. A workbook can hold both a specimen shot
     # with a ruler and one shot without, and pixels sitting silently under an
