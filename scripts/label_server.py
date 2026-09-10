@@ -579,6 +579,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send_bytes(buf.getvalue(), f"{ds}_tps.zip",
                                         "application/zip")
 
+            if kind == "sidecars":
+                # The annotations themselves, which is what training consumes and
+                # what a correction lives inside. Every other export is derived
+                # and cannot be trained on; without this a collaborator's
+                # corrections stay on their machine.
+                files = sorted(self.out_dir.glob("*.json"))
+                if not files:
+                    return self._send(500, {"error": "nothing labelled yet"})
+                buf = io.BytesIO()
+                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+                    for f in files:
+                        z.write(f, f"{ds}/sidecars/{f.name}")
+                return self._send_bytes(buf.getvalue(), f"{ds}_sidecars.zip",
+                                        "application/zip")
+
             if kind == "overlays":
                 r = subprocess.run(
                     [sys.executable, str(_ROOT / "scripts/render_overlays.py"),

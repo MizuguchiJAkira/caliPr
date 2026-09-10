@@ -1,5 +1,6 @@
 {
   "note": "Brook trout: the dorsal and anal fin outlines ARE traced, so the fin-base endpoint keypoints are redundant here and are not asked for. DFbl and CPl derive those points from the polygons.",
   "exclude_keypoints": [],
-  "exclude_polygons": []
+  "exclude_polygons": [],
+  "group_from_filename": "_([A-Z]{2,4})_\\d+$"
 }

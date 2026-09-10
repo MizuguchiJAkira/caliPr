@@ -112,6 +112,11 @@
   .task .cnt { font-size:10px; font-variant-numeric:tabular-nums; color:var(--mut);
                background:#232a35; border-radius:3px; padding:1px 5px; flex:none; }
   .task.thin .dot { background:var(--warn); }
+  /* The list mirrors the canvas: a point the model is unsure of reads the same
+     in both places, and correcting it turns both green. Without this the list
+     showed every predicted point as done while the canvas said otherwise. */
+  .task.unsure .dot { background:var(--warn); box-shadow:0 0 0 2px #ffb45455; }
+  .task.reviewed .dot { background:var(--good); }
   .task.thin .cnt { color:#2a1a00; background:var(--warn); font-weight:600; }
   .task.set .cnt { color:#052; background:var(--good); font-weight:600; }
   #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
@@ -318,6 +323,8 @@
         <span>traits per specimen, ratios, QC</span></div>
       <div class="exprow"><button data-exp="tps">Landmarks for R (.tps)</button>
         <span>geomorph-ready, with landmark names</span></div>
+      <div class="exprow"><button data-exp="sidecars">Annotations (.zip)</button>
+        <span>the labels themselves — send these back for training</span></div>
       <div class="exprow"><button data-exp="overlays">Labelled images (.zip)</button>
         <span>each photo with its annotation drawn on</span></div>
     </details>
@@ -786,9 +793,18 @@ function buildTasks(){
               : kind==='ruler'   ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
               : !!m.keypoints[it.name];
     const el=document.createElement('div');
+    // Predicted keypoints carry the model's confidence into the list. A point
+    // that has been corrected or explicitly accepted leaves pred.conf and reads
+    // as reviewed.
+    const pc = (kind==='keypoint' && view==='lateral') ? pred.conf[it.name] : undefined;
+    const unsure   = pc!==undefined && pc < 0.6;
+    const reviewed = set && pred.model && pc===undefined
+                     && (pred.accepted.has(it.name) || pred.corrected[it.name]!==undefined);
     el.className='task'+(set?' set':'')+(target&&n&&n<target?' thin':'')
+      +(unsure?' unsure':'')+(reviewed?' reviewed':'')
       +(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
-    const count = target ? `<span class="cnt">${n}/${target}</span>` : '';
+    const count = target ? `<span class="cnt">${n}/${target}</span>`
+                : (pc!==undefined ? `<span class="cnt">${pc.toFixed(2)}</span>` : '');
     if(it.excluded) el.classList.add('excluded');
     el.innerHTML=`<span class="dot"></span><span class="nm">${extra||it.name}</span>`+
                  `${count}<span class="kind">${kind[0]}</span>`+

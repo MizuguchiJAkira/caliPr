@@ -87,6 +87,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from . import grouping
 from .export import ExportRecord, export_to_xlsx
 from .validation import summarise, validate
 from .landmark_config import (
@@ -343,8 +344,14 @@ def _calibration_from_block(
     raise ValueError(f"Unknown calibration mode {mode!r} in sidecar")
 
 
-def process_specimen(spec: SpecimenInput) -> ExportRecord:
-    """Turn one SpecimenInput into a fully computed ExportRecord."""
+def process_specimen(spec: SpecimenInput,
+                     group_table: dict[str, str] | None = None,
+                     group_pattern: str | None = None) -> ExportRecord:
+    """Turn one SpecimenInput into a fully computed ExportRecord.
+
+    ``group_table`` and ``group_pattern`` come from the dataset and are read once
+    per run by :func:`run`; passing them per specimen keeps this function pure.
+    """
     annotation = Annotation()
 
     lateral_block = spec.sidecar.get("lateral")
@@ -390,6 +397,10 @@ def process_specimen(spec: SpecimenInput) -> ExportRecord:
 
     metadata = dict(spec.sidecar.get("metadata", {}))
     metadata.setdefault("image_filename", spec.image_path.name)
+    # The comparison group, from the sidecar or the dataset's own table. Resolved
+    # here rather than at export so every consumer sees the same answer.
+    metadata["group"] = grouping.resolve(
+        spec.fish_id, metadata, group_table, group_pattern)
 
     # Under-traced fins read small (see FIN_POLYGON_TARGET_VERTICES). The areas
     # are still computed — the bias is systematic, not random, so the numbers
@@ -507,11 +518,17 @@ def run(
         # One unusable sidecar must not cost the whole batch. A specimen that
         # cannot be processed is reported by name and skipped, so an export of 45
         # good fish still happens instead of aborting on the 46th.
+        # The dataset directory is the parent of lateral/; its groups.csv and
+        # schema.json describe the comparison groups for every specimen in it.
+        dataset_dir = images_dir.parent
+        group_table = grouping.load_group_table(dataset_dir)
+        group_pattern = grouping.filename_pattern(dataset_dir)
+
         records = []
         failed: list[tuple[str, str]] = []
         for spec in specimens:
             try:
-                records.append(process_specimen(spec))
+                records.append(process_specimen(spec, group_table, group_pattern))
             except Exception as exc:
                 failed.append((spec.fish_id, str(exc)))
                 log.warning("skipped %s: %s", spec.fish_id, exc)
