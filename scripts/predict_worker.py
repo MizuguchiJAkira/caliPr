@@ -414,9 +414,19 @@ def main(argv=None) -> int:
             bad = plausibility.check(kps, polys.get(BODY), _bands_for(src))
             frame_warning = bad.pop("_frame", None)
             for name in bad:
+                # Keep what the model thought of a point it does not get to
+                # place: "dropped, and it was 0.91 sure" and "dropped, and it
+                # knew" are different facts about the model.
+                bad[name] = {"why": bad[name], "confidence": confs.get(name)}
                 kps.pop(name, None)
                 confs.pop(name, None)
             low = [n for n in low if n not in bad]
+
+            # The outline may be wanted only as the axis the check above needs.
+            # It is computed either way; this decides whether it comes back as
+            # something the labeller is offered and can save.
+            if not req.get("emit_polygons", True):
+                polys = {}
 
             _emit({"ok": True, "fish_id": pl.stem_of(src), "image": src.name,
                    "keypoints": kps, "confidence": confs,
