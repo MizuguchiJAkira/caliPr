@@ -58,3 +58,6 @@ data/*/overlays_auto/
 .calipr/
 *auth.json
 
+
+# Editor/agent launch config, not part of the published tool
+.claude/

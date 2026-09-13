@@ -211,6 +211,21 @@ tracings. It follows the dorsal and adipose fins rather than crossing their
 bases; correcting this requires the four fin-base endpoint landmarks, which are
 in the schema but not in the trained model.
 
+Predicted landmarks are checked against where each one falls on the fish's own
+body, as a fraction of the span from snout to caudal tip, measured from the
+dataset's hand labels by `scripts/fit_plausibility.py`. A landmark outside the
+range every labelled specimen occupies is withheld rather than placed, with the
+reason given. This catches errors confidence does not: one prediction placed a
+dorsal fin base half a fin out of position at 0.914 likelihood. Against the hand
+labels the check rejects 0.7% of correct landmarks (4 of 553, leave-one-out). A
+dataset without fitted bands is not checked, which is the correct default for a
+taxon whose proportions have not been measured.
+
+Accuracy is bounded by labelling coverage rather than by the model. The head and
+peduncle landmarks carry 46 labelled examples each and predict to 0.002-0.008 of
+standard length; every fin landmark carries six or seven, and those are the ones
+that fail.
+
 Predictions are marked `source: predicted` and are refused by
 `build_dlc_dataset.py`. Saved sidecars record which points a human corrected,
 which were confirmed, and which were left unreviewed; these are not equivalent
