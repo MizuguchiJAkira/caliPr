@@ -438,3 +438,28 @@ that pair reports a 100% violation rate and is measuring its own assumption.
 examples each and predict at 0.002–0.008 SL. Every fin landmark carries **6 or 7**
 (13–15% of the set), and those are precisely the ones that fail. The bands are a
 backstop; labelling the fin landmarks on the remaining 39 fish is the fix.
+
+## Predicted body outline withdrawn from Auto-label
+
+SAM matches a dense hand tracing at IoU 0.937 overall, and the disagreement is
+concentrated exactly where it matters: it wraps the adipose and anal fins rather
+than crossing their bases. Reviewing that costs more than tracing the outline
+fresh, so `data/cornell/schema.json` now carries
+`exclude_predicted_polygons: ["body_plus_caudal"]` and Auto-label does not offer
+one. The polygon stays in the labelling contract and is still traced by hand.
+
+This is a different setting from `exclude_polygons`, deliberately. The outline is
+still computed on every prediction, because its anterior and posterior extremes
+are the axis the plausibility check measures every landmark against — and those
+two extremes are the reliable part of it. The unreliable part is the middle.
+
+Measured on TXD_18, warm:
+
+| | time | result |
+|---|---|---|
+| outline computed, not offered | 2.29 s | 18/19 placed, `anal_tip` dropped |
+| SAM skipped entirely | 0.84 s | 19/19 placed, `anal_tip` on the caudal tip |
+
+So the check costs about 1.45 s per specimen, and without it the constraint layer
+is inert rather than absent — it returns nothing to complain about because it has
+no axis to measure against. Turning SAM off entirely means turning the check off.

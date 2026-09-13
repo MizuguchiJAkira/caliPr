@@ -173,6 +173,12 @@ def load_profile(images_dir: Path) -> dict:
     return {
         "exclude_polygons": set(prof.get("exclude_polygons") or []),
         "exclude_keypoints": set(prof.get("exclude_keypoints") or []),
+        # Narrower than exclude_polygons: the structure stays in the labelling
+        # contract and is still traced by hand, but Auto-label does not offer a
+        # predicted one. For the body outline that is the difference between
+        # "we do not collect this" and "the model is not good enough at it yet".
+        "exclude_predicted_polygons": set(
+            prof.get("exclude_predicted_polygons") or []),
         "note": prof.get("note", ""),
     }
 
@@ -324,7 +330,8 @@ class Predictor:
         return info
 
     @classmethod
-    def predict(cls, image: Path, polygons: bool = False) -> dict:
+    def predict(cls, image: Path, polygons: bool = False,
+                emit_polygons: bool = True) -> dict:
         with cls._lock:                      # one request at a time down one pipe
             if cls._proc is None or cls._proc.poll() is not None:
                 started = cls._start()
@@ -332,7 +339,9 @@ class Predictor:
                     return {"ok": False, **started}
             try:
                 cls._proc.stdin.write(json.dumps({"image": str(image),
-                                                  "polygons": polygons}) + "\n")
+                                                  "polygons": polygons,
+                                                  "emit_polygons": emit_polygons})
+                                      + "\n")
                 cls._proc.stdin.flush()
                 line = cls._proc.stdout.readline()
             except Exception as exc:
@@ -815,7 +824,16 @@ class Handler(BaseHTTPRequestHandler):
         prof0 = load_profile(self.images_dir)
         want_body = "body_plus_caudal" not in set(prof0.get("exclude_polygons") or ())
 
-        res = Predictor.predict(match, polygons=want_body)
+        # A study may want the outline computed but not offered. The plausibility
+        # check measures each landmark against the span from snout to caudal tip,
+        # which the segmentation supplies -- those two extremes are the part of
+        # the outline that is reliable even where the middle of it wraps a fin.
+        # So "stop giving me the outline" and "stop checking the landmarks" stay
+        # separate decisions.
+        emit_body = "body_plus_caudal" not in set(
+            prof0.get("exclude_predicted_polygons") or ())
+
+        res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body)
         if not res.get("ok"):
             return self._send(503, res)
 
