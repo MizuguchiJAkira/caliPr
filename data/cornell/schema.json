@@ -1,6 +1,9 @@
 {
-  "note": "Brook trout: the dorsal and anal fin outlines ARE traced, so the fin-base endpoint keypoints are redundant here and are not asked for. DFbl and CPl derive those points from the polygons.",
+  "note": "Brook trout: the dorsal and anal fin outlines ARE traced, so the fin-base endpoint keypoints are redundant here and are not asked for. DFbl and CPl derive those points from the polygons.  Auto-label does NOT offer the body+caudal outline: SAM wraps the adipose and anal fins instead of crossing their bases. It is still traced by hand, and still computed internally as the axis the plausibility check measures landmarks against.",
   "exclude_keypoints": [],
   "exclude_polygons": [],
-  "group_from_filename": "_([A-Z]{2,4})_\\d+$"
+  "group_from_filename": "_([A-Z]{2,4})_\\d+$",
+  "exclude_predicted_polygons": [
+    "body_plus_caudal"
+  ]
 }

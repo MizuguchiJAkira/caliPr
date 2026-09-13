@@ -1628,8 +1628,14 @@ function renderAutoStat(){
   const why = (pred.frameWarning
       ? `<br><b style="color:var(--kp)">${pred.frameWarning}</b>` : '')
     + (dropped.length ? `<br><b>${dropped.length} dropped as impossible:</b><br>`
-        + dropped.map(([nm,r])=>`<span style="color:var(--mut)">${nm} — ${r}</span>`)
-                 .join('<br>') : '');
+        + dropped.map(([nm,r])=>{
+            // Entries cached before the reason carried a confidence are plain
+            // strings; both shapes have to render.
+            const why = (r && r.why) || r;
+            const c = r && r.confidence;
+            const sure = (c==null) ? '' : ` — the model was ${c.toFixed(2)} sure`;
+            return `<span style="color:var(--mut)">${nm} — ${why}${sure}</span>`;
+          }).join('<br>') : '');
   if(!n){ el.innerHTML = tally + why + '<br>All points reviewed.'; return; }
   const low=[...pred.low];
   el.innerHTML = tally
