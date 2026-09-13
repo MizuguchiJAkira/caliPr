@@ -1,0 +1,227 @@
+{
+  "fish": 46,
+  "margin": 0.5,
+  "landmarks": {
+    "anal_base_anterior": {
+      "n": 1
+    },
+    "anal_base_center": {
+      "n": 6,
+      "axial": [
+        0.6368,
+        0.7379
+      ],
+      "axial_observed": [
+        0.662,
+        0.7126
+      ]
+    },
+    "anal_base_posterior": {
+      "n": 1
+    },
+    "anal_tip": {
+      "n": 6,
+      "axial": [
+        0.7021,
+        0.817
+      ],
+      "axial_observed": [
+        0.7308,
+        0.7882
+      ]
+    },
+    "caudal_base": {
+      "n": 46,
+      "axial": [
+        0.773,
+        0.9672
+      ],
+      "axial_observed": [
+        0.8215,
+        0.9186
+      ]
+    },
+    "dorsal_base_anterior": {
+      "n": 2
+    },
+    "dorsal_base_center": {
+      "n": 7,
+      "axial": [
+        0.426,
+        0.5042
+      ],
+      "axial_observed": [
+        0.446,
+        0.4842
+      ]
+    },
+    "dorsal_base_posterior": {
+      "n": 2
+    },
+    "dorsal_tip": {
+      "n": 7,
+      "axial": [
+        0.4298,
+        0.5544
+      ],
+      "axial_observed": [
+        0.461,
+        0.5232
+      ]
+    },
+    "eye_anterior": {
+      "n": 46,
+      "axial": [
+        -0.0024,
+        0.1048
+      ],
+      "axial_observed": [
+        0.0244,
+        0.078
+      ]
+    },
+    "eye_dorsal": {
+      "n": 46,
+      "axial": [
+        0.0205,
+        0.1222
+      ],
+      "axial_observed": [
+        0.046,
+        0.0968
+      ]
+    },
+    "eye_posterior": {
+      "n": 46,
+      "axial": [
+        -0.0157,
+        0.1686
+      ],
+      "axial_observed": [
+        0.0303,
+        0.1225
+      ]
+    },
+    "eye_ventral": {
+      "n": 46,
+      "axial": [
+        0.0323,
+        0.1149
+      ],
+      "axial_observed": [
+        0.0529,
+        0.0942
+      ]
+    },
+    "lower_jaw_tip": {
+      "n": 43,
+      "axial": [
+        -0.0224,
+        0.028
+      ],
+      "axial_observed": [
+        -0.0024,
+        0.008
+      ]
+    },
+    "maxilla_mandible_intersection": {
+      "n": 46,
+      "axial": [
+        -0.0021,
+        0.0995
+      ],
+      "axial_observed": [
+        0.0233,
+        0.0741
+      ]
+    },
+    "operculum_posterior": {
+      "n": 46,
+      "axial": [
+        0.1309,
+        0.2691
+      ],
+      "axial_observed": [
+        0.1655,
+        0.2345
+      ]
+    },
+    "pectoral_insertion_upper": {
+      "n": 7,
+      "axial": [
+        0.126,
+        0.2362
+      ],
+      "axial_observed": [
+        0.1536,
+        0.2086
+      ]
+    },
+    "pectoral_ray_tip": {
+      "n": 7,
+      "axial": [
+        0.2474,
+        0.3357
+      ],
+      "axial_observed": [
+        0.2695,
+        0.3137
+      ]
+    },
+    "peduncle_narrowest_dorsal": {
+      "n": 46,
+      "axial": [
+        0.7608,
+        0.9486
+      ],
+      "axial_observed": [
+        0.8078,
+        0.9017
+      ]
+    },
+    "peduncle_narrowest_ventral": {
+      "n": 46,
+      "axial": [
+        0.7487,
+        0.9683
+      ],
+      "axial_observed": [
+        0.8036,
+        0.9134
+      ]
+    },
+    "pelvic_base_center": {
+      "n": 6,
+      "axial": [
+        0.4028,
+        0.4905
+      ],
+      "axial_observed": [
+        0.4247,
+        0.4686
+      ]
+    },
+    "pelvic_tip": {
+      "n": 6,
+      "axial": [
+        0.3528,
+        0.6064
+      ],
+      "axial_observed": [
+        0.4162,
+        0.543
+      ]
+    },
+    "premaxilla_tip": {
+      "n": 44,
+      "axial": [
+        -0.0207,
+        0.044
+      ],
+      "axial_observed": [
+        -0.0007,
+        0.024
+      ]
+    }
+  }
+}

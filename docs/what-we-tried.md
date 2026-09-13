@@ -385,3 +385,56 @@ endpoints**. `dorsal_base_anterior`, `dorsal_base_posterior`,
 With those predicted the chord *is* the fin base and the cut is exact, which is
 what a person does by hand. `MARGIN_CHORDS` in `predict_worker.py` already lists
 them first and starts using them the moment they are predicted.
+
+## Landmark plausibility bands
+
+Confidence does not catch every bad landmark. `ASN_42` returned
+`dorsal_base_center` half a fin base out of position at **0.914**, and `ASN_12`
+put `anal_tip` on the caudal peduncle at **0.87**. Both would have entered a
+workbook unchallenged.
+
+**What works: axial position, measured per landmark.** The anterior and posterior
+extremes of the `body_plus_caudal` outline give an axis the segmentation finds
+even when every fin landmark fails. Each landmark occupies a narrow, repeatable
+fraction of it across the 46 hand-labelled fish — `pelvic_base_center` 0.425–0.469,
+`anal_base_center` 0.662–0.713. A prediction outside that range is a different
+structure, not a near miss. Fitted by `scripts/fit_plausibility.py` into
+`plausibility.json`; a dataset without one is not checked.
+
+Validated leave-one-out against the hand labels: **4 of 553 hand-placed landmarks
+(0.72%)** fall outside their own band. Across the batch predictions it drops 12
+landmarks, 2 of which the model was confident about.
+
+**Margin: half the observed spread, floored at 0.02 of body length — not a flat
+allowance.** A landmark whose labelled positions span 0.04 is measured far more
+precisely than one spanning 0.13. At a flat 0.05 the `ASN_42` dorsal base lands
+exactly on the boundary and survives. Widening to the proportional rule raised
+false positives from 1 to 4 in 553 and caught two confident errors instead of one.
+The costs are not symmetric: a correct landmark wrongly dropped costs the seconds
+it takes to place by hand, which is the no-automation baseline; a wrong landmark
+wrongly kept can become data.
+
+**Tried and rejected: which side of its base a fin tip falls on.** The most
+obvious rule available, and the labels do not support it — `pelvic_tip` sits
+*above* `pelvic_base_center` in 5 of the 6 fish carrying both. Either preserved
+pelvics fold up against the flank more often than not, or those six labels
+disagree. Six examples cannot tell the difference and a rule fitted to them would
+reject correct predictions.
+
+**Tried and rejected: distance from the body outline.** Fitted on hand tracings,
+applied to SAM's outline — not the same curve. It wraps the fins a tracing cuts
+across and is resampled to 52 even vertices. The rule flagged `premaxilla_tip` at
+1.00 confidence and `operculum_posterior` at 0.87 where both were correct, because
+the reference distribution was never the one being tested. Fitting it on predicted
+outlines would mean fitting on the model's own output.
+
+**Not a rule, a finding.** `operculum_posterior` sits posterior to
+`pectoral_insertion_upper` in 17 of 17 predictions with both confident, and in the
+hand labels (0.193 vs 0.182). That is the opercular flap trailing back over the
+pectoral base, not an error. An anterior-to-posterior ordering check that includes
+that pair reports a 100% violation rate and is measuring its own assumption.
+
+**The real fix is labels, not rules.** Head and peduncle landmarks carry 46
+examples each and predict at 0.002–0.008 SL. Every fin landmark carries **6 or 7**
+(13–15% of the set), and those are precisely the ones that fail. The bands are a
+backstop; labelling the fin landmarks on the remaining 39 fish is the fix.

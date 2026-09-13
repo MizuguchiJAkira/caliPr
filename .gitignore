@@ -60,3 +60,6 @@ data/*/overlays_auto/
 
 # unsent correspondence — keep local, not on a public repo
 data/fishphenokey_request.md
+
+# Editor/agent launch config, not part of the published tool
+.claude/

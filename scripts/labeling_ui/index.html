@@ -410,7 +410,8 @@ let pred={conf:{}, orig:{}, model:null, low:new Set(),
           accepted:new Set(), corrected:{}, polys:new Set()};
 function clearPred(){
   pred={conf:{}, orig:{}, model:null, low:new Set(),
-        accepted:new Set(), corrected:{}, polys:new Set()};
+        accepted:new Set(), corrected:{}, polys:new Set(),
+        dropped:{}, frameWarning:null};
   const e=$('#autostat'); if(e) e.textContent='';
 }
 function unreviewed(){ return Object.keys(pred.conf).length; }
@@ -510,13 +511,15 @@ function predToJSON(){
   if(!pred.model) return null;
   return {conf:pred.conf, orig:pred.orig, model:pred.model,
           low:[...pred.low], accepted:[...pred.accepted],
-          corrected:pred.corrected, polys:[...pred.polys]};
+          corrected:pred.corrected, polys:[...pred.polys],
+          dropped:pred.dropped, frameWarning:pred.frameWarning};
 }
 function predFromJSON(d){
   if(!d || !d.model){ clearPred(); return; }
   pred={conf:d.conf||{}, orig:d.orig||{}, model:d.model,
         low:new Set(d.low||[]), accepted:new Set(d.accepted||[]),
-        corrected:d.corrected||{}, polys:new Set(d.polys||[])};
+        corrected:d.corrected||{}, polys:new Set(d.polys||[]),
+        dropped:d.dropped||{}, frameWarning:d.frameWarning||null};
 }
 
 function persistDraft(){ if(!cur||!model)return; try{
@@ -1619,11 +1622,20 @@ function renderAutoStat(){
             + (n?` · ${n} unreviewed`:'')
             + (pred.polys.size?`<br><span style="color:var(--good)">`
                + `${[...pred.polys].join(', ')}</span> outlined by the model`:'');
-  if(!n){ el.innerHTML = tally + '<br>All points reviewed.'; return; }
+  const dropped=Object.entries(pred.dropped||{});
+  // A landmark the model placed somewhere a fish cannot have it is not shown at
+  // all, so without this the labeller sees a gap and no reason for it.
+  const why = (pred.frameWarning
+      ? `<br><b style="color:var(--kp)">${pred.frameWarning}</b>` : '')
+    + (dropped.length ? `<br><b>${dropped.length} dropped as impossible:</b><br>`
+        + dropped.map(([nm,r])=>`<span style="color:var(--mut)">${nm} — ${r}</span>`)
+                 .join('<br>') : '');
+  if(!n){ el.innerHTML = tally + why + '<br>All points reviewed.'; return; }
   const low=[...pred.low];
   el.innerHTML = tally
     + (low.length ? `<br><b>check ${low.length}:</b> ${low.slice(0,4).join(', ')}`
                     + (low.length>4?` +${low.length-4}`:'') : '')
+    + why
     + `<br><span style="color:var(--mut)">A = accept · drag = correct</span>`;
 }
 let AUTH={required:false, unlocked:false, demo:false};
@@ -1660,6 +1672,7 @@ $('#autolabel').onclick=async()=>{
                $('#autostat').textContent=''; return; }
     pred={conf:r.confidence||{}, orig:{}, model:r.model||null,
           low:new Set(r.low_confidence||[]),
+          dropped:r.implausible||{}, frameWarning:r.frame_warning||null,
           accepted:new Set(), corrected:{}, polys:new Set()};
     for(const [nm,poly] of Object.entries(r.polygons||{})){
       if(!Array.isArray(poly) || poly.length<3) continue;
@@ -1681,8 +1694,10 @@ $('#autolabel').onclick=async()=>{
     // A cached result reports 0.0s, which is falsy — say "cached" rather than "?".
     const when = r.cached ? 'from cache' : `in ${(r.elapsed ?? 0).toFixed
       ? (r.elapsed ?? 0).toFixed(1) : r.elapsed}s`;
+    const ndrop=Object.keys(r.implausible||{}).length;
     toast(`${Object.keys(r.keypoints||{}).length} placed ${when} — `
-          + (nlow?`${nlow} to check`:'all confident'));
+          + (nlow?`${nlow} to check`:'all confident')
+          + (ndrop?` · ${ndrop} dropped as impossible`:''));
   }catch(e){ toast('Auto-label failed: '+e); $('#autostat').textContent=''; }
   finally{ btn.disabled=false; btn.textContent=was; }
 };

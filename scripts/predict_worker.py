@@ -15,7 +15,14 @@ Protocol — one JSON object per line, in and out::
     {"image": "/abs/path/to/fish.JPEG", "polygons": true}
     {"ok": true, "fish_id": "...", "keypoints": {...}, "confidence": {...},
      "low_confidence": [...], "polygons": {"body_plus_caudal": [[x, y], ...]},
-     "elapsed": 0.21}
+     "implausible": {"pelvic_tip": "why it cannot be there"},
+     "frame_warning": null, "elapsed": 0.21}
+
+``implausible`` names landmarks the model placed somewhere a fish cannot have
+them, checked against the dataset's own measured bands (see
+:mod:`fish_morpho.plausibility`). Those are absent from ``keypoints`` — a point
+the anatomy rules out is not offered, because a labeller can accept a flagged
+point but cannot un-see a confident one in the wrong place.
 
 Segment Anything is loaded lazily, on the first request that asks for polygons,
 because it costs several seconds and a keypoints-only pass should not pay for it.
@@ -37,6 +44,8 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
+
+from fish_morpho import plausibility  # noqa: E402  (needs the path above)
 
 #: The one polygon worth predicting. SAM matches a dense hand tracing on the body
 #: outline (~1.6% median area error here, and it is 52 of the 82 vertices traced
@@ -287,6 +296,24 @@ class _Sam:
         return mask_to_polygon(masks[best].numpy(), BODY_VERTICES, scale)
 
 
+#: Plausibility bands, keyed by dataset directory. Read once per dataset: the
+#: worker is long-lived and the file only changes when someone refits it.
+_BANDS_CACHE: dict[str, dict | None] = {}
+
+
+def _bands_for(image: Path) -> dict | None:
+    """The dataset's bands for the image being predicted, if it has been fitted.
+
+    Images live at ``<dataset>/lateral/<stem>_L.JPEG``, so the dataset directory
+    is two levels up. A dataset nobody has fitted returns None and is not checked
+    — the right default for a taxon whose landmarks sit nowhere near a trout's.
+    """
+    key = str(image.parent.parent)
+    if key not in _BANDS_CACHE:
+        _BANDS_CACHE[key] = plausibility.load(image.parent.parent)
+    return _BANDS_CACHE[key]
+
+
 def _emit(obj) -> None:
     sys.stdout.write(json.dumps(obj) + "\n")
     sys.stdout.flush()
@@ -379,9 +406,22 @@ def main(argv=None) -> int:
                         polys = {}
                         print(f"SAM failed: {exc}", file=sys.stderr)
 
+            # Anatomy has the last word. A landmark outside the range every
+            # labelled fish occupies is wrong however confident the heatmap was,
+            # and dropping it is honest where placing it is not: ASN_42 returned a
+            # dorsal base half a fin out of position at 0.914. Needs the outline
+            # for its axis, so a keypoints-only request is simply not checked.
+            bad = plausibility.check(kps, polys.get(BODY), _bands_for(src))
+            frame_warning = bad.pop("_frame", None)
+            for name in bad:
+                kps.pop(name, None)
+                confs.pop(name, None)
+            low = [n for n in low if n not in bad]
+
             _emit({"ok": True, "fish_id": pl.stem_of(src), "image": src.name,
                    "keypoints": kps, "confidence": confs,
                    "low_confidence": sorted(low), "polygons": polys,
+                   "implausible": bad, "frame_warning": frame_warning,
                    "model": snapshot.name,
                    "elapsed": round(time.time() - t0, 2)})
         except Exception as exc:
