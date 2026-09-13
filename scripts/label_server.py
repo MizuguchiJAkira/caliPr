@@ -791,7 +791,11 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 doc = json.loads(cache.read_text())
                 meta = doc.get("metadata") or {}
-                if meta.get("source") == "predicted":
+                # An entry written before the plausibility check existed holds
+                # points that were never tested against the animal. Serving it
+                # would quietly reinstate exactly what the check removes, so it
+                # is treated as a miss and predicted again.
+                if meta.get("source") == "predicted" and "implausible" in meta:
                     return self._send(200, {
                         "ok": True, "fish_id": fid, "cached": True,
                         "model": meta.get("model"),
@@ -799,6 +803,8 @@ class Handler(BaseHTTPRequestHandler):
                         "polygons": (doc["lateral"].get("polygons") or {}),
                         "confidence": meta.get("keypoint_confidence") or {},
                         "low_confidence": meta.get("low_confidence") or [],
+                        "implausible": meta.get("implausible") or {},
+                        "frame_warning": meta.get("frame_warning"),
                         "elapsed": 0.0})
             except Exception:
                 pass                       # a corrupt cache entry just re-predicts
@@ -821,7 +827,9 @@ class Handler(BaseHTTPRequestHandler):
                     "metadata": {"source": "predicted", "model": res.get("model"),
                                  "image": match.name,
                                  "keypoint_confidence": res.get("confidence") or {},
-                                 "low_confidence": res.get("low_confidence") or []},
+                                 "low_confidence": res.get("low_confidence") or [],
+                                 "implausible": res.get("implausible") or {},
+                                 "frame_warning": res.get("frame_warning")},
                     "lateral": {"keypoints": res.get("keypoints") or {},
                                 "polygons": res.get("polygons") or {},
                                 "calibration": {"mode": "none",
