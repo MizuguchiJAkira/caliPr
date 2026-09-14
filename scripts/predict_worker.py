@@ -412,7 +412,9 @@ def main(argv=None) -> int:
             # dorsal base half a fin out of position at 0.914. Needs the outline
             # for its axis, so a keypoints-only request is simply not checked.
             bad = plausibility.check(kps, polys.get(BODY), _bands_for(src))
-            frame_warning = bad.pop("_frame", None)
+            # Both are conditions of the whole prediction, not of one landmark:
+            # nothing is dropped, the labeller is told why nothing was checked.
+            frame_warning = bad.pop("_frame", None) or bad.pop("_axis", None)
             for name in bad:
                 # Keep what the model thought of a point it does not get to
                 # place: "dropped, and it was 0.91 sure" and "dropped, and it

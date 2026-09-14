@@ -463,3 +463,28 @@ Measured on TXD_18, warm:
 So the check costs about 1.45 s per specimen, and without it the constraint layer
 is inert rather than absent — it returns nothing to complain about because it has
 no axis to measure against. Turning SAM off entirely means turning the check off.
+
+## The check has to vet its own axis
+
+Every landmark position is a fraction of the predicted outline, so an outline
+that is not a fish rescales all nineteen at once. `ASN_48` — a small, curved
+specimen filling 40% of the frame — segmented a lobe of foam above the animal,
+and eight landmarks were rejected against an axis that was itself wrong.
+`operculum_posterior` and `peduncle_narrowest_ventral` were among them, and those
+carry 46 training examples each.
+
+Two numbers separate a fish silhouette from a segmentation that has wandered:
+what fraction of its bounding box the outline fills, and how many times longer
+than deep it is. Across 46 hand tracings: **fill 0.497–0.724, aspect 3.33–5.49**.
+
+| | fill | aspect | |
+|---|---|---|---|
+| ASN_48 | 0.54 | **2.01** | refused |
+| ASN_51 | **0.44** | **3.03** | refused |
+| ASN_45 | 0.70 | 5.00 | used |
+| ASN_47 | 0.59 | 4.09 | used |
+| TXD_18 | 0.65 | 4.06 | used |
+
+An outline outside either range is refused and nothing is checked on that
+specimen, reported as a warning rather than as a drop. Withholding the check is
+the honest failure; rejecting correct landmarks on a bad axis is not.
