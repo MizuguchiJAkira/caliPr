@@ -109,3 +109,37 @@ def test_describe_names_what_is_not_measurable():
     text = " ".join(P.describe(bands))
     assert "dorsal_tip" in text and "head-left" in text
     assert "no plausibility bands" in " ".join(P.describe(None))
+
+
+# A long fat blob is fish-shaped; these are not.
+TALL = [[0, 0], [400, 0], [400, 300], [0, 300]]          # aspect 1.3
+SPIKY = [[0, 0], [1000, 0], [1000, 200], [500, 40], [0, 200]]   # fill ~0.6, but thin
+
+
+def test_fit_records_what_a_fish_outline_looks_like():
+    bands = P.fit(_spread("pelvic_base_center", 400, 460))
+    assert bands["outline"]["n"] == 6
+    assert bands["outline"]["aspect"][0] > 0
+
+
+def test_outline_that_is_not_fish_shaped_stops_the_check():
+    """A wrong axis rescales every landmark, so check nothing instead."""
+    bands = P.fit(_spread("pelvic_base_center", 400, 460))
+    kps = {"pelvic_base_center": [20, 100], "premaxilla_tip": [5, 100],
+           "caudal_base": [380, 100]}
+    bad = P.check(kps, TALL, bands)
+    assert list(bad) == ["_axis"]
+    assert "not fish-shaped" in bad["_axis"]
+
+
+def test_a_fish_shaped_outline_still_checks_normally():
+    bands = P.fit(_spread("pelvic_base_center", 400, 460))
+    kps = {"pelvic_base_center": [20, 100], "premaxilla_tip": [5, 100],
+           "caudal_base": [900, 100]}
+    assert "pelvic_base_center" in P.check(kps, BODY, bands)
+
+
+def test_outline_shape_rejects_degenerate_input():
+    assert P.outline_shape(None) is None
+    assert P.outline_shape([[0, 0], [1, 1]]) is None
+    assert P.outline_shape([[0, 0], [10, 0], [20, 0]]) is None   # zero height
