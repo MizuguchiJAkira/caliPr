@@ -43,6 +43,15 @@ specimens where both were correct, because the reference distribution was never
 the one being tested against. Fitting it on predicted outlines instead would mean
 fitting on the model's own output, which is what this module exists to avoid.
 
+**The axis is checked before it is used.** Every position is a fraction of the
+predicted outline, so an outline that is not a fish silently rescales all nineteen
+of them. ``ASN_48`` segmented a lobe of foam above a small, curved specimen --
+aspect 2.01 against a hand-traced 3.33-5.49 -- and eight landmarks were rejected
+against an axis that was itself wrong. An outline whose bounding-box fill or
+aspect falls outside what hand tracings do is refused, and nothing is checked on
+that specimen. Withholding the check is the honest failure; rejecting good
+landmarks on a bad axis is not.
+
 The bands are measured, never hand-written -- ``scripts/fit_plausibility.py``
 regenerates them from a dataset's own sidecars into ``plausibility.json``. A
 dataset without that file is not checked, which is the right default for a taxon
@@ -91,6 +100,28 @@ def _axis(polygon) -> tuple[float, float] | None:
     return (lo, hi - lo) if hi - lo > 0 else None
 
 
+def outline_shape(polygon) -> tuple[float, float] | None:
+    """``(bbox_fill, aspect)`` for an outline -- how fish-shaped it is.
+
+    A trout silhouette is a long, fat, smooth blob: it fills most of its bounding
+    box and is several times longer than it is deep. A segmentation that has
+    wandered off the animal is neither. These two numbers are enough to tell the
+    difference and cost nothing to compute.
+    """
+    if not polygon or len(polygon) < 3:
+        return None
+    xs = [float(p[0]) for p in polygon]
+    ys = [float(p[1]) for p in polygon]
+    w, h = max(xs) - min(xs), max(ys) - min(ys)
+    if w <= 0 or h <= 0:
+        return None
+    n = len(polygon)
+    area = abs(sum(polygon[i][0] * polygon[(i + 1) % n][1]
+                   - polygon[(i + 1) % n][0] * polygon[i][1]
+                   for i in range(n))) / 2
+    return area / (w * h), w / h
+
+
 def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
     """Measure bands from ``records``, an iterable of sidecar ``lateral`` blocks.
 
@@ -99,6 +130,8 @@ def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
     the file shows what is not yet measurable rather than silently omitting it.
     """
     axial: dict[str, list[float]] = {}
+    fills: list[float] = []
+    aspects: list[float] = []
     used = 0
     for lat in records:
         kps = (lat or {}).get("keypoints") or {}
@@ -108,6 +141,10 @@ def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
             continue
         x0, length = axis
         used += 1
+        shape = outline_shape(poly)
+        if shape:
+            fills.append(shape[0])
+            aspects.append(shape[1])
         for name, pt in kps.items():
             if not pt:
                 continue
@@ -122,7 +159,14 @@ def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
             entry["axial"] = [round(lo - slack, 4), round(hi + slack, 4)]
             entry["axial_observed"] = [round(lo, 4), round(hi, 4)]
         bands[name] = entry
-    return {"fish": used, "margin": margin, "landmarks": bands}
+    out: dict = {"fish": used, "margin": margin, "landmarks": bands}
+    if len(fills) >= MIN_SAMPLES:
+        # What a hand-traced fish silhouette looks like. An outline outside this
+        # is not a fish and must not be used as the axis -- see check().
+        out["outline"] = {"n": len(fills),
+                          "fill": [round(min(fills), 3), round(max(fills), 3)],
+                          "aspect": [round(min(aspects), 2), round(max(aspects), 2)]}
+    return out
 
 
 def load(dataset_dir) -> dict | None:
@@ -154,6 +198,23 @@ def check(keypoints: dict, polygon, bands: dict | None) -> dict[str, str]:
     if not axis:
         return {}
     x0, length = axis
+
+    # Every position below is a fraction of this outline, so an outline that is
+    # not a fish silently rescales all nineteen of them. ASN_48 segmented a lobe
+    # of foam above the specimen -- aspect 2.01 against a hand-traced 3.33-5.49 --
+    # and eight landmarks were rejected on an axis that was itself wrong. Better
+    # to check nothing than to check against that.
+    limits = bands.get("outline")
+    shape = outline_shape(polygon)
+    if limits and shape:
+        fill, aspect = shape
+        flo, fhi = limits["fill"]
+        alo, ahi = limits["aspect"]
+        if not (flo <= fill <= fhi) or not (alo <= aspect <= ahi):
+            return {"_axis": f"the predicted outline is not fish-shaped "
+                             f"(fills {fill:.2f} of its box at {aspect:.1f}:1; "
+                             f"hand tracings are {flo:.2f}-{fhi:.2f} at "
+                             f"{alo:.1f}-{ahi:.1f}:1) — landmarks were not checked"}
 
     # Head-left is the lab standard and every hand-labelled specimen obeys it. A
     # mirrored frame makes every axial position below meaningless, so say that
