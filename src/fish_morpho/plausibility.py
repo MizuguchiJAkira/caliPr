@@ -83,12 +83,31 @@ MIN_MARGIN = 0.02
 #: caudal peduncle. That trade is worth making again.
 DEFAULT_MARGIN = MARGIN_FRACTION_OF_SPREAD
 
+#: Slack for the fin tip-to-base bands, which rest on the six or seven fish that
+#: carry a fin landmark at all rather than the forty-six that carry a head one.
+#: Leave-one-out removes a sixth of the evidence, so these bands need more room
+#: than the axial ones to avoid rejecting the fish they were not fitted on.
+RELATIVE_MARGIN = 1.5
+
 #: Smallest number of labelled examples a landmark needs before its band is
 #: trusted. Below this the range says more about who labelled it than about the
 #: animal.
 MIN_SAMPLES = 5
 
 BODY = "body_plus_caudal"
+
+#: Fin tip and the base it belongs to. A tip's offset from its own base is a fact
+#: about one fin, independent of where the ends of the fish are, so it survives
+#: the outline being wrong -- which is exactly when the axial check cannot run.
+FIN_PAIRS = (("dorsal", "dorsal_base_center", "dorsal_tip"),
+             ("anal", "anal_base_center", "anal_tip"),
+             ("pelvic", "pelvic_base_center", "pelvic_tip"),
+             ("pectoral", "pectoral_insertion_upper", "pectoral_ray_tip"))
+
+#: Scale for those offsets. The two eye points carry 46 labelled examples each and
+#: come back at 0.76-0.95 confidence on specimens where every fin landmark fails,
+#: so they are available precisely when the rest is not.
+SCALE_POINTS = ("eye_anterior", "eye_posterior")
 
 
 def _axis(polygon) -> tuple[float, float] | None:
@@ -98,6 +117,15 @@ def _axis(polygon) -> tuple[float, float] | None:
     xs = [float(p[0]) for p in polygon]
     lo, hi = min(xs), max(xs)
     return (lo, hi - lo) if hi - lo > 0 else None
+
+
+def _scale(keypoints) -> float | None:
+    """Eye diameter, the one length available on a fish whose fins are invisible."""
+    a, b = (keypoints.get(n) for n in SCALE_POINTS)
+    if not a or not b:
+        return None
+    d = ((float(a[0]) - float(b[0])) ** 2 + (float(a[1]) - float(b[1])) ** 2) ** 0.5
+    return d if d > 0 else None
 
 
 def outline_shape(polygon) -> tuple[float, float] | None:
@@ -130,6 +158,7 @@ def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
     the file shows what is not yet measurable rather than silently omitting it.
     """
     axial: dict[str, list[float]] = {}
+    rel: dict[str, list[tuple[float, float]]] = {}
     fills: list[float] = []
     aspects: list[float] = []
     used = 0
@@ -149,6 +178,14 @@ def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
             if not pt:
                 continue
             axial.setdefault(name, []).append((float(pt[0]) - x0) / length)
+        eye = _scale(kps)
+        if eye:
+            for fin, base, tip in FIN_PAIRS:
+                a, b = kps.get(base), kps.get(tip)
+                if a and b:
+                    rel.setdefault(fin, []).append(
+                        ((float(b[0]) - float(a[0])) / eye,
+                         (float(b[1]) - float(a[1])) / eye))
 
     bands: dict[str, dict] = {}
     for name, vals in sorted(axial.items()):
@@ -159,7 +196,21 @@ def fit(records, margin: float = DEFAULT_MARGIN) -> dict:
             entry["axial"] = [round(lo - slack, 4), round(hi + slack, 4)]
             entry["axial_observed"] = [round(lo, 4), round(hi, 4)]
         bands[name] = entry
-    out: dict = {"fish": used, "margin": margin, "landmarks": bands}
+    relative: dict[str, dict] = {}
+    for fin, base, tip in FIN_PAIRS:
+        vals = rel.get(fin) or []
+        entry: dict = {"n": len(vals), "base": base, "tip": tip}
+        if len(vals) >= MIN_SAMPLES:
+            for key, idx in (("dx", 0), ("dy", 1)):
+                col = [v[idx] for v in vals]
+                lo, hi = min(col), max(col)
+                slack = max(MIN_MARGIN, RELATIVE_MARGIN * (hi - lo))
+                entry[key] = [round(lo - slack, 3), round(hi + slack, 3)]
+                entry[key + "_observed"] = [round(lo, 3), round(hi, 3)]
+        relative[fin] = entry
+
+    out: dict = {"fish": used, "margin": margin, "landmarks": bands,
+                 "relative": relative}
     if len(fills) >= MIN_SAMPLES:
         # What a hand-traced fish silhouette looks like. An outline outside this
         # is not a fish and must not be used as the axis -- see check().
@@ -194,9 +245,36 @@ def check(keypoints: dict, polygon, bands: dict | None) -> dict[str, str]:
     if not bands or not keypoints:
         return {}
     lm = bands.get("landmarks") or {}
+
+    # Done first and unconditionally. A fin tip's offset from its own base needs
+    # only the two eye points, so it still works on a specimen whose outline was
+    # refused -- which is when the model is most likely to be wrong and least
+    # likely to be checked. HRN_15 put dorsal_tip on the adipose at +4.87 eye
+    # diameters against a labelled -0.44 to 1.06, on a fish the axial test could
+    # not look at.
+    bad: dict[str, str] = {}
+    eye = _scale(keypoints)
+    rel = bands.get("relative") or {}
+    if eye:
+        for fin, base, tip in FIN_PAIRS:
+            entry = rel.get(fin) or {}
+            a, b = keypoints.get(base), keypoints.get(tip)
+            if not a or not b or "dx" not in entry:
+                continue
+            got = ((float(b[0]) - float(a[0])) / eye, (float(b[1]) - float(a[1])) / eye)
+            for key, val, word in (("dx", got[0], "along the body"),
+                                   ("dy", got[1], "above/below")):
+                lo, hi = entry[key]
+                if not (lo <= val <= hi):
+                    seen = entry[key + "_observed"]
+                    bad[tip] = (f"{val:+.1f} eye diameters {word} from {base}; "
+                                f"labelled fish are {seen[0]:+.1f} to {seen[1]:+.1f} "
+                                f"(n={entry['n']})")
+                    break
+
     axis = _axis(polygon)
     if not axis:
-        return {}
+        return bad
     x0, length = axis
 
     # Every position below is a fraction of this outline, so an outline that is
@@ -211,22 +289,26 @@ def check(keypoints: dict, polygon, bands: dict | None) -> dict[str, str]:
         flo, fhi = limits["fill"]
         alo, ahi = limits["aspect"]
         if not (flo <= fill <= fhi) or not (alo <= aspect <= ahi):
-            return {"_axis": f"the predicted outline is not fish-shaped "
+            # The relative findings stand -- they never used the outline.
+            return {**bad,
+                    "_axis": f"the predicted outline is not fish-shaped "
                              f"(fills {fill:.2f} of its box at {aspect:.1f}:1; "
                              f"hand tracings are {flo:.2f}-{fhi:.2f} at "
-                             f"{alo:.1f}-{ahi:.1f}:1) — landmarks were not checked"}
+                             f"{alo:.1f}-{ahi:.1f}:1) — only the fin checks ran"}
 
     # Head-left is the lab standard and every hand-labelled specimen obeys it. A
     # mirrored frame makes every axial position below meaningless, so say that
     # once instead of reporting nineteen consequences of it.
     head, tail = keypoints.get("premaxilla_tip"), keypoints.get("caudal_base")
     if head and tail and float(head[0]) > float(tail[0]):
-        return {"_frame": "snout is behind the caudal base — the frame is mirrored "
+        return {**bad,
+                "_frame": "snout is behind the caudal base — the frame is mirrored "
                           "or the subject was not found; specimens are photographed "
                           "head-left"}
 
-    bad: dict[str, str] = {}
     for name, pt in keypoints.items():
+        if name in bad:
+            continue
         entry = lm.get(name)
         if not pt or not entry:
             continue

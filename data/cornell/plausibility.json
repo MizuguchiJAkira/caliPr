@@ -224,6 +224,92 @@
       ]
     }
   },
+  "relative": {
+    "dorsal": {
+      "n": 7,
+      "base": "dorsal_base_center",
+      "tip": "dorsal_tip",
+      "dx": [
+        -2.699,
+        3.319
+      ],
+      "dx_observed": [
+        -0.442,
+        1.062
+      ],
+      "dy": [
+        -2.525,
+        2.174
+      ],
+      "dy_observed": [
+        -0.763,
+        0.412
+      ]
+    },
+    "anal": {
+      "n": 6,
+      "base": "anal_base_center",
+      "tip": "anal_tip",
+      "dx": [
+        0.382,
+        2.582
+      ],
+      "dx_observed": [
+        1.207,
+        1.757
+      ],
+      "dy": [
+        -0.847,
+        1.066
+      ],
+      "dy_observed": [
+        -0.13,
+        0.348
+      ]
+    },
+    "pelvic": {
+      "n": 6,
+      "base": "pelvic_base_center",
+      "tip": "pelvic_tip",
+      "dx": [
+        -3.712,
+        5.625
+      ],
+      "dx_observed": [
+        -0.21,
+        2.124
+      ],
+      "dy": [
+        -4.403,
+        3.977
+      ],
+      "dy_observed": [
+        -1.261,
+        0.835
+      ]
+    },
+    "pectoral": {
+      "n": 7,
+      "base": "pectoral_insertion_upper",
+      "tip": "pectoral_ray_tip",
+      "dx": [
+        -0.609,
+        5.287
+      ],
+      "dx_observed": [
+        1.602,
+        3.076
+      ],
+      "dy": [
+        -1.135,
+        2.458
+      ],
+      "dy_observed": [
+        0.213,
+        1.111
+      ]
+    }
+  },
   "outline": {
     "n": 46,
     "fill": [
