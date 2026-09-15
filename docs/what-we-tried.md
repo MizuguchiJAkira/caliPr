@@ -488,3 +488,45 @@ than deep it is. Across 46 hand tracings: **fill 0.497–0.724, aspect 3.33–5.
 An outline outside either range is refused and nothing is checked on that
 specimen, reported as a warning rather than as a drop. Withholding the check is
 the honest failure; rejecting correct landmarks on a bad axis is not.
+
+## A fin tip against its own base, with no axis at all
+
+Refusing a bad outline left a hole: on `HRN_15` the outline failed the shape test
+(aspect 3.1), so nothing was checked, and `dorsal_tip` sat on the **adipose fin**
+unchallenged — 935 px behind its own base at the same height.
+
+A fin tip's offset from its own base does not need to know where the ends of the
+fish are. Scaled by eye diameter — the two eye points carry 46 labelled examples
+each and come back at 0.76–0.95 on specimens where every fin landmark fails —
+it is available exactly when the axial check is not.
+
+| fin | n | tip minus base, along the body (eye diameters) |
+|---|---|---|
+| dorsal | 7 | −0.44 to +1.06 |
+| anal | 6 | +1.21 to +1.76 |
+| pelvic | 6 | −0.21 to +2.12 |
+| pectoral | 7 | +1.60 to +3.08 |
+
+`HRN_15` predicted **+4.87**. More than four times outside the widest labelled
+dorsal, and the adipose is the only structure there.
+
+These bands rest on six or seven fish rather than forty-six, so leave-one-out
+removes a sixth of the evidence and they need more slack than the axial ones.
+Sweeping the margin:
+
+| margin | false positives | HRN_15 |
+|---|---|---|
+| 0.5× spread | 8/559 | caught |
+| 1.0× | 5/559 | caught |
+| **1.5×** | **4/559** | **caught** |
+| 3.0× | 4/559 | missed |
+
+1.5 restores the false-positive rate to exactly what it was before this layer
+existed (0.72%) while catching the adipose error with room to spare. On `ASN_48`,
+whose outline is refused outright, the fin checks still drop three tips where the
+broken axis had previously rejected eight landmarks including two with 46
+training examples.
+
+Jonah's observation that started this — *the dorsal doesn't extend past two
+thirds of the fish* — is right and conservative: on a snout-to-caudal-base axis
+the labelled `dorsal_tip` runs 0.529–0.616.
