@@ -47,6 +47,44 @@ LATERAL_KP = [k.name for k in KEYPOINTS if k.view == View.LATERAL]
 SCORER = "jcalipr"
 VIDEO = "cornell_lateral"
 
+#: Per view: the landmarks, the image folder and its filename suffix, the DLC frame
+#: folder, and where the dataset and project live by default. The frontal model
+#: gets its own directories so that building or training it can never touch the
+#: lateral model's.
+VIEWS = {
+    "lateral": {"keypoints": LATERAL_KP, "folder": "lateral", "suffix": "_L",
+                "video": "cornell_lateral", "out": "dlc", "project": "dlc_project"},
+    "frontal": {"keypoints": [k.name for k in KEYPOINTS if k.view == View.FRONTAL],
+                "folder": "frontal", "suffix": "_F", "video": "cornell_frontal",
+                "out": "dlc_frontal", "project": "dlc_project_frontal"},
+}
+
+
+def use_view(view: str) -> dict:
+    """Point the module's landmark list and frame folder at ``view``."""
+    global LATERAL_KP, VIDEO, _VIEW
+    cfg = VIEWS[view]
+    LATERAL_KP, VIDEO, _VIEW = list(cfg["keypoints"]), cfg["video"], view
+    return cfg
+
+
+_VIEW = "lateral"
+
+
+def mouth_corners_in_image_order(kps: dict) -> tuple[dict, bool]:
+    """``mouth_left`` is the corner further left in the image; swap if not.
+
+    That is how 35 of the first 36 frontal labels were placed. A heatmap model
+    learns one channel per landmark, so a single fish labelled the other way round
+    teaches it that each corner looks like both. Mouth width is the distance
+    between them, so the swap changes no measurement.
+    """
+    a, b = kps.get("mouth_left"), kps.get("mouth_right")
+    if a and b and float(a[0]) > float(b[0]):
+        kps = dict(kps, mouth_left=b, mouth_right=a)
+        return kps, True
+    return kps, False
+
 
 def find_image(images: Path, fid: str, recorded: str | None = None):
     """Locate a specimen's photograph without assuming one naming convention.
@@ -61,7 +99,7 @@ def find_image(images: Path, fid: str, recorded: str | None = None):
         if p.is_file():
             return p
     lookup = {p.name.lower(): p for p in images.iterdir() if p.is_file()}
-    for stem in (fid, f"{fid}_L"):
+    for stem in (fid, f"{fid}{VIEWS[_VIEW]['suffix']}"):
         for ext in (".jpeg", ".jpg", ".png", ".tif", ".tiff"):
             hit = lookup.get(f"{stem}{ext}".lower())
             if hit is not None:
@@ -105,13 +143,18 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
         # Coordinates placed on a different crop of the photograph point at the
         # wrong pixels. Trained on, they teach the model that a ruler is a snout:
         # HRN_4 did exactly that, one of 37 training fish, for over a month.
-        rec = image_identity.recorded_for(data, manifest, fid, "lateral")
+        rec = image_identity.recorded_for(data, manifest, fid, _VIEW)
         status = image_identity.compare(rec, image_identity.fingerprint(img))
         if status == image_identity.SIZE_CHANGED:
             print(f"  SKIP {fid}: its labels were placed on a different crop of this "
                   f"photograph — repair with scripts/realign_labels.py --fish {fid}")
             continue
-        kps = dict((data.get("lateral") or {}).get("keypoints") or {})
+        kps = dict((data.get(_VIEW) or {}).get("keypoints") or {})
+        if _VIEW == "frontal":
+            kps, swapped = mouth_corners_in_image_order(kps)
+            if swapped:
+                print(f"  {fid}: mouth corners were labelled right-to-left; "
+                      f"trained in image order (the sidecar is not changed)")
         # Same principle as skipping a predicted sidecar, one landmark at a time:
         # a point nobody accepted or moved is the model's guess, and training on
         # it teaches the model to agree with itself. It becomes absent -- NaN in
@@ -125,7 +168,7 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
             print(f"  {fid}: {len(stale)} unreviewed landmark(s) left out — "
                   f"{', '.join(sorted(stale))}")
         if not kps:
-            print(f"  SKIP {fid}: no lateral keypoints")
+            print(f"  SKIP {fid}: no {_VIEW} keypoints")
             continue
         m = re.search(r"_([A-Z]{2,4})_\d+$", fid)
         strain = m.group(1) if m else "UNK"
@@ -261,6 +304,8 @@ def build(out_dir: Path, sources, scale: float,
         "test": sorted(s["fish_id"] for s in test),
         "scale": scale,
         "seed": seed,
+        "view": _VIEW,
+        "keypoints": list(LATERAL_KP),
     }
     (out_dir / "split.json").write_text(json.dumps(split, indent=2))
 
@@ -277,7 +322,10 @@ def build(out_dir: Path, sources, scale: float,
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="build_dlc_dataset")
-    ap.add_argument("--out", type=Path, default=_ROOT / "dlc")
+    ap.add_argument("--view", choices=sorted(VIEWS), default="lateral",
+                    help="which landmarks to build for; frontal defaults to its own "
+                         "--out so the lateral dataset is never overwritten")
+    ap.add_argument("--out", type=Path, default=None)
     ap.add_argument("--sidecars", type=Path, default=None)
     ap.add_argument("--images", type=Path, default=None)
     ap.add_argument("--dataset", action="append", default=[], metavar="DIR",
@@ -293,18 +341,24 @@ def main(argv=None) -> int:
                     help="use only N training fish, held-out set unchanged "
                          "(for learning curves; 0 = all)")
     args = ap.parse_args(argv)
+    cfg = use_view(args.view)
+    folder = cfg["folder"]
+    out = args.out or (_ROOT / cfg["out"])
+    if args.view != "lateral" and out.resolve() == (_ROOT / "dlc").resolve():
+        raise SystemExit("refusing to build a frontal dataset into dlc/, which holds the "
+                         "lateral one")
     if args.dataset:
-        sources = [(Path(d) / "sidecars", Path(d) / "lateral", Path(d).name)
+        sources = [(Path(d) / "sidecars", Path(d) / folder, Path(d).name)
                    for d in args.dataset]
     elif args.sidecars and args.images:
         sources = [(args.sidecars, args.images, args.sidecars.parent.name)]
     else:
         sources = [(_ROOT / "data/cornell/sidecars",
-                    _ROOT / "data/cornell/lateral", "cornell")]
+                    _ROOT / "data/cornell" / folder, "cornell")]
     for sc, im, _ in sources:
         if not sc.is_dir() or not im.is_dir():
             raise SystemExit(f"missing {sc} or {im}")
-    build(args.out, sources, args.scale, args.test_frac, args.seed,
+    build(out, sources, args.scale, args.test_frac, args.seed,
           args.train_limit)
     return 0
 
