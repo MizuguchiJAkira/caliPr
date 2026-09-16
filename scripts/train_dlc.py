@@ -124,6 +124,10 @@ def setup_project(built: Path, project_dir: Path) -> Path:
     shutil.copytree(src, dst)
     print(f"  labeled-data -> {dst.relative_to(cfg_path.parent)}"
           f" ({len(list(dst.glob('*.png')))} frames)")
+    # The project carries its own record of scale and landmarks, so prediction
+    # never has to infer them from a dataset directory that may since have been
+    # rebuilt for a different model.
+    shutil.copy2(built / "split.json", cfg_path.parent / "split.json")
     return cfg_path
 
 

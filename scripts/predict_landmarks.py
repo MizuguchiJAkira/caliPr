@@ -76,25 +76,52 @@ def find_config_and_snapshot(project: Path, snapshot: Path | None):
     raise SystemExit(f"no snapshot .pt under {cfg.parent}")
 
 
+def _bodyparts(project: Path) -> list[str]:
+    try:
+        import ruamel.yaml
+        with open(project / "config.yaml") as fh:
+            return list(ruamel.yaml.YAML().load(fh).get("bodyparts") or [])
+    except Exception:
+        return []
+
+
 def training_scale(project: Path, override: float | None) -> float:
     """The scale the model was trained at, which its outputs are in.
 
     Getting this wrong scales every coordinate uniformly and the landmarks still
     look plausibly fish-shaped, just in the wrong place — so it is read from the
     dataset that produced the model rather than assumed.
+
+    That dataset is the one whose landmarks match this model's. This used to read
+    ``dlc/split.json`` first, whichever model was being loaded -- harmless with
+    one model, but with a frontal model trained at 0.3 beside a lateral one at
+    0.25 it would have put every mouth corner at the lateral scale. A project's
+    own ``split.json`` wins; otherwise a built dataset recording the same
+    landmarks; otherwise ``dlc/split.json`` if it predates datasets recording
+    their landmarks and this model's landmarks are all lateral.
     """
     if override is not None:
         return override
-    for cand in (_ROOT / "dlc" / "split.json", project / "split.json"):
-        if cand.is_file():
-            try:
-                s = json.loads(cand.read_text()).get("scale")
-                if s:
-                    return float(s)
-            except Exception:
-                pass
-    print("  WARNING: no split.json found; assuming the 0.25 default. "
-          "Pass --scale if the model was trained at another resolution.")
+    parts = _bodyparts(project)
+    from fish_morpho.landmark_config import KEYPOINTS, View
+    lateral = {k.name for k in KEYPOINTS if k.view == View.LATERAL}
+
+    def matches(split: dict) -> bool:
+        if split.get("keypoints") is not None:
+            return list(split["keypoints"]) == parts
+        return bool(parts) and set(parts) <= lateral
+
+    for cand in [project / "split.json", *sorted(_ROOT.glob("dlc*/split.json"))]:
+        if not cand.is_file():
+            continue
+        try:
+            split = json.loads(cand.read_text())
+        except Exception:
+            continue
+        if split.get("scale") and (cand.parent == project or matches(split)):
+            return float(split["scale"])
+    print("  WARNING: no training dataset matches this model's landmarks; assuming "
+          "the 0.25 default. Pass --scale if it was trained at another resolution.")
     return 0.25
 
 
