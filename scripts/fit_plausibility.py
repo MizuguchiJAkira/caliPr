@@ -31,12 +31,27 @@ def hand_labelled(sidecar_dir: Path):
             doc = json.loads(path.read_text())
         except Exception:
             continue
-        source = (doc.get("metadata") or {}).get("source", "")
-        if source == "predicted":
+        meta = doc.get("metadata") or {}
+        if meta.get("source", "") == "predicted":
             continue
         lat = doc.get("lateral")
-        if lat:
-            yield lat
+        if not lat:
+            continue
+        # The bands define what the model is allowed to output, so they cannot be
+        # fitted on what the model output. Drop points nobody reviewed, and an
+        # outline the model drew and nobody edited -- the outline-shape guard in
+        # particular would otherwise learn SAM's failure modes as normal.
+        assist = meta.get("assist") or {}
+        stale = set(assist.get("unreviewed") or []) | set(meta.get("unreviewed_predictions") or [])
+        model_polys = set(assist.get("polygons_from_model") or [])
+        lat = dict(lat)
+        if stale:
+            lat["keypoints"] = {k: v for k, v in (lat.get("keypoints") or {}).items()
+                                if k not in stale}
+        if model_polys:
+            lat["polygons"] = {k: v for k, v in (lat.get("polygons") or {}).items()
+                               if k not in model_polys}
+        yield lat
 
 
 def main(argv=None) -> int:

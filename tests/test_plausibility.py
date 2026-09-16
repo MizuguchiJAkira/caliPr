@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import pathlib
 
 import pytest
 
@@ -143,3 +144,21 @@ def test_outline_shape_rejects_degenerate_input():
     assert P.outline_shape(None) is None
     assert P.outline_shape([[0, 0], [1, 1]]) is None
     assert P.outline_shape([[0, 0], [10, 0], [20, 0]]) is None   # zero height
+
+
+def test_fit_script_ignores_unreviewed_points_and_model_outlines(tmp_path):
+    """Bands are what the model is allowed to output; they cannot come from it."""
+    import importlib.util, sys
+    spec = importlib.util.spec_from_file_location(
+        "fit_plausibility", pathlib.Path(__file__).parent.parent / "scripts/fit_plausibility.py")
+    mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
+    (tmp_path / "a.json").write_text(json.dumps({
+        "fish_id": "a",
+        "metadata": {"assist": {"unreviewed": ["dorsal_tip"],
+                                "polygons_from_model": ["body_plus_caudal"]}},
+        "lateral": {"keypoints": {"dorsal_tip": [1, 1], "eye_dorsal": [2, 2]},
+                    "polygons": {"body_plus_caudal": BODY}}}))
+    [lat] = list(mod.hand_labelled(tmp_path))
+    assert "dorsal_tip" not in lat["keypoints"]
+    assert "eye_dorsal" in lat["keypoints"]
+    assert "body_plus_caudal" not in lat["polygons"]
