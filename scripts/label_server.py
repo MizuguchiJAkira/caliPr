@@ -29,6 +29,7 @@ Endpoints
 from __future__ import annotations
 
 import argparse
+import datetime
 import json
 import re
 import subprocess
@@ -783,6 +784,12 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(415, {"ok": False, "name": name,
                                     "error": "contents are not a JPEG, PNG or TIFF"})
 
+        if (self.headers.get("X-Split") or "").lower() == "mirror":
+            if view != "lateral":
+                return self._send(400, {"ok": False, "name": name,
+                                        "error": "a mirror split applies to lateral photographs"})
+            return self._upload_split(name, data)
+
         dest_dir = self.images_dir / view
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest = dest_dir / name
@@ -799,6 +806,88 @@ class Handler(BaseHTTPRequestHandler):
         dest.write_bytes(data)
         return self._send(200, {"ok": True, "name": name, "status": "added",
                                 "bytes": len(data)})
+
+    _SPLIT_LOCK = threading.Lock()
+
+    def _upload_split(self, name: str, data: bytes):
+        """One photograph holding both views -- the fish, and its head-on view in a
+        mirror on the left -- split into a lateral and a frontal image.
+
+        The mirror detector cannot tell when it is wrong: on the 131 lab photos, the
+        six cuts it made into the fish's head scored no differently from good cuts.
+        So the original is always kept under ``originals/``, where the split was made
+        is recorded in ``splits.json``, and a boundary where no mirror has ever been
+        is not used at all -- that photo is stored whole and reported, rather than
+        given a frontal view with no mouth in it.
+        """
+        sys.path.insert(0, str(_ROOT / "scripts"))
+        import cv2
+        import preprocess_cornell as pc
+
+        stem = re.sub(r"_[LF]$", "", Path(name).stem)
+        lat_dir, fro_dir = self.images_dir / "lateral", self.images_dir / "frontal"
+        orig_dir = self.images_dir / "originals"
+        orig = orig_dir / name
+        lat_path, fro_path = lat_dir / f"{stem}_L.JPEG", fro_dir / f"{stem}_F.JPEG"
+
+        with self._SPLIT_LOCK:
+            if orig.is_file():
+                if orig.read_bytes() == data:
+                    return self._send(200, {"ok": True, "name": name, "status": "duplicate"})
+                return self._send(409, {"ok": False, "name": name,
+                                        "error": "a DIFFERENT photograph of this name was "
+                                                 "already added; rename before adding"})
+            sidecar = self.out_dir / f"{stem}.json"
+            if sidecar.is_file():
+                try:
+                    doc = json.loads(sidecar.read_text())
+                except Exception:
+                    doc = {"lateral": {"keypoints": {"_": [0, 0]}}}
+                if image_identity.has_labels(doc, "lateral") or image_identity.has_labels(doc, "frontal"):
+                    return self._send(409, {"ok": False, "name": name,
+                                            "error": f"{stem} already has labels; its images "
+                                                     f"are not replaced"})
+            for p in (lat_path, fro_path):
+                if p.is_file():
+                    return self._send(409, {"ok": False, "name": name,
+                                            "error": f"{p.name} already exists from another "
+                                                     f"source; not overwritten"})
+
+            orig_dir.mkdir(parents=True, exist_ok=True)
+            orig.write_bytes(data)
+            try:
+                image = pc.normalize_orientation(orig)
+            except Exception as exc:
+                orig.unlink(missing_ok=True)
+                return self._send(415, {"ok": False, "name": name,
+                                        "error": f"could not read the photograph: {exc}"})
+            h, w = image.shape[:2]
+            res = pc.split_composite(image)
+
+            lat_dir.mkdir(parents=True, exist_ok=True)
+            cv2.imwrite(str(lat_path), res["lateral"], [cv2.IMWRITE_JPEG_QUALITY, 95])
+            if res["ok"]:
+                fro_dir.mkdir(parents=True, exist_ok=True)
+                cv2.imwrite(str(fro_path), res["frontal"], [cv2.IMWRITE_JPEG_QUALITY, 95])
+
+            record = self.images_dir / "splits.json"
+            try:
+                splits = json.loads(record.read_text()) if record.is_file() else {}
+            except Exception:
+                splits = {}
+            splits[stem] = {"original": f"originals/{name}", "width": w, "height": h,
+                            "boundary": res["boundary"], "lateral_start": res["lateral_start"],
+                            "frontal_end": res["frontal_end"], "split": res["ok"],
+                            "reason": res["reason"],
+                            "at": datetime.datetime.now().isoformat(timespec="seconds")}
+            record.write_text(json.dumps(splits, indent=2, sort_keys=True))
+
+        body = {"ok": True, "name": name, "stem": stem, "bytes": len(data),
+                "status": "split" if res["ok"] else "stored_whole",
+                "boundary_fraction": round(res["boundary"] / w, 3)}
+        if not res["ok"]:
+            body["reason"] = res["reason"]
+        return self._send(200, body)
 
     def _token(self):
         raw = self.headers.get("Cookie") or ""

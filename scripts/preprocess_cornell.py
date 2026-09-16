@@ -261,6 +261,50 @@ def detect_mirror_boundary(gray: np.ndarray, search_frac: float = 0.35) -> int:
 # ---------------------------------------------------------------------------
 
 
+#: Mirror boundaries, as a fraction of photo width, below which the detector has
+#: not found the mirror at all. Measured on the 131 trout photographs: the 112 good
+#: splits sit at 0.20-0.35 of the width, the 13 that left the frontal crop too
+#: small at 0.016-0.085. Nothing lies between, so the threshold sits in the gap.
+MIN_BOUNDARY_FRACTION = 0.12
+
+#: Overlap given to each crop past the boundary, as a fraction of photo width,
+#: matching the crops the lab's photographs were already cut into -- measured on
+#: them, not assumed: laterals start 450 px left of the boundary and frontals end
+#: 520 px right of it, on 6000 px frames. The frontal model was trained on those
+#: frontals, so uploads are cut the same way.
+#:
+#: The lateral overlap is what guards the snout. The detector's worst failures put
+#: the boundary 160-739 px too far RIGHT, into the head; 450 px keeps the snout in
+#: the lateral crop for 5 of the 6 cases on record. A boundary wrong by more cannot
+#: be told from a good one by any signal measured, which is why the original
+#: photograph is kept.
+LATERAL_MARGIN_FRACTION = 450 / 6000
+FRONTAL_MARGIN_FRACTION = 520 / 6000
+
+
+def split_composite(image: np.ndarray, boundary: int | None = None) -> dict:
+    """Split one canonical-orientation photo into lateral and frontal views.
+
+    Returns ``{"ok", "boundary", "lateral_start", "frontal_end", "lateral",
+    "frontal", "reason"}``. When the mirror cannot be located plausibly, ``ok`` is
+    False, ``lateral`` is the whole image and ``frontal`` is None: better an
+    unsplit photograph than a frontal crop without a mouth in it.
+    """
+    h, w = image.shape[:2]
+    if boundary is None:
+        boundary = detect_mirror_boundary(cv2.cvtColor(image, cv2.COLOR_BGR2GRAY))
+    if boundary < MIN_BOUNDARY_FRACTION * w:
+        return {"ok": False, "boundary": int(boundary), "lateral_start": 0,
+                "frontal_end": None, "lateral": image, "frontal": None,
+                "reason": (f"mirror edge found at {boundary / w:.0%} of the width, where "
+                           f"no mirror has been; stored whole")}
+    lat_start = max(0, boundary - int(round(LATERAL_MARGIN_FRACTION * w)))
+    fro_end = min(w, boundary + int(round(FRONTAL_MARGIN_FRACTION * w)))
+    return {"ok": True, "boundary": int(boundary), "lateral_start": int(lat_start),
+            "frontal_end": int(fro_end), "lateral": image[:, lat_start:],
+            "frontal": image[:, :fro_end], "reason": None}
+
+
 def process_one(
     raw_path: Path,
     out_dir: Path,
