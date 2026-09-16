@@ -117,6 +117,20 @@
      showed every predicted point as done while the canvas said otherwise. */
   .task.unsure .dot { background:var(--warn); box-shadow:0 0 0 2px #ffb45455; }
   .task.reviewed .dot { background:var(--good); }
+  /* In-page dialog. Native confirm()/prompt()/alert() are suppressed in some
+     embedded browsers -- confirm() returns false in ~7ms with no one clicking --
+     so every button guarded by one silently did nothing. */
+  #dlg { position:fixed; inset:0; background:#0009; display:none;
+         align-items:center; justify-content:center; z-index:9999; }
+  #dlg.on { display:flex; }
+  #dlg .box { background:var(--panel,#1c1f24); color:var(--fg,#e8e8e8);
+              border:1px solid #fff2; border-radius:10px; padding:18px 20px;
+              width:min(460px,92vw); box-shadow:0 12px 40px #000a; }
+  #dlg .msg { white-space:pre-wrap; line-height:1.45; margin-bottom:14px; }
+  #dlg input { width:100%; box-sizing:border-box; margin-bottom:14px;
+               padding:7px 9px; border-radius:6px; border:1px solid #fff3;
+               background:#0003; color:inherit; font:inherit; }
+  #dlg .btns { display:flex; gap:8px; justify-content:flex-end; }
   .task.thin .cnt { color:#2a1a00; background:var(--warn); font-weight:600; }
   .task.set .cnt { color:#052; background:var(--good); font-weight:600; }
   #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
@@ -352,9 +366,10 @@ instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
     </details>
     <div class="sec">
       <div class="row" style="margin-bottom:6px">
-        <button id="undo" title="Undo the SELECTED landmark's point (Z or ⌘/Ctrl+Z)">↶ Undo</button>
+        <button id="undo" title="Undo the last change — a placed point, a drag, a vertex, a clear (Z or ⌘/Ctrl+Z). Redo: ⇧⌘Z">↶ Undo</button>
         <button id="finish" title="Close current polygon (Enter)">Finish poly</button>
-        <button id="clear">Clear pt</button>
+        <button id="clear" title="Clear the selected landmark or outline (undoable)">Clear pt</button>
+        <button id="clearall" title="Clear every point and outline on this view (undoable — Z)">Clear all</button>
       </div>
       <div class="row" style="margin-bottom:6px">
         <button id="autolabel" title="Run the trained model on this specimen and
@@ -442,6 +457,97 @@ let imgToken=0;
 let vs={scale:1, ox:0, oy:0};       // view transform (image px -> screen)
 // model[view] = {keypoints:{name:[x,y]}, polygons:{name:[[x,y]..]}, ruler:{a:[x,y],b:[x,y]}, known_mm}
 let model=null;
+
+// ---- in-page dialog ---------------------------------------------------------
+// Replaces confirm()/prompt()/alert(). Each resolves a Promise, so call sites
+// read the same with an await in front. Enter confirms, Escape cancels.
+function _dialog(message, {input=null, ok='OK', cancel='Cancel'}={}){
+  return new Promise(resolve=>{
+    let root=document.getElementById('dlg');
+    if(!root){ root=document.createElement('div'); root.id='dlg';
+      document.body.appendChild(root); }
+    root.innerHTML='<div class="box"><div class="msg"></div>'
+      + (input!==null ? '<input type="text">' : '')
+      + '<div class="btns">'
+      + (cancel ? '<button class="cancel"></button>' : '')
+      + '<button class="ok"></button></div></div>';
+    root.querySelector('.msg').textContent=message;
+    const okB=root.querySelector('.ok'); okB.textContent=ok;
+    const caB=root.querySelector('.cancel'); if(caB) caB.textContent=cancel;
+    const inp=root.querySelector('input');
+    if(inp){ inp.value=input||''; }
+    const done=v=>{ root.classList.remove('on'); root.innerHTML='';
+      document.removeEventListener('keydown',key,true); resolve(v); };
+    const key=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); done(inp?inp.value:true); }
+      else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); done(inp?null:false); }
+    };
+    okB.onclick=()=>done(inp?inp.value:true);
+    if(caB) caB.onclick=()=>done(inp?null:false);
+    document.addEventListener('keydown',key,true);
+    root.classList.add('on');
+    (inp||okB).focus(); if(inp) inp.select();
+  });
+}
+const ask     =(m,o)=>_dialog(m,o);                          // -> true / false
+const askText =(m,def='')=>_dialog(m,{input:def});           // -> string / null
+const tell    =m=>_dialog(m,{cancel:null});                  // -> resolves on OK
+
+// ---- undo history -----------------------------------------------------------
+// Every edit already ends in persistDraft(), so history is recorded there: the
+// state as of the previous save is pushed whenever it differs from now. A whole
+// drag is one step because the drag only persists on mouseup, and a call that
+// changed nothing pushes nothing.
+const HISTORY_LIMIT=300;
+let history=[], future=[], lastState=null, restoring=false;
+function _stateNow(){
+  return JSON.stringify({
+    model: JSON.parse(JSON.stringify(model,
+      (k,v)=> (k==='_draft_at'||k==='_pred') ? undefined : v)),
+    pred: predToJSON()});
+}
+function recordHistory(){
+  if(restoring || !model) return;
+  const now=_stateNow();
+  if(lastState!==null && now!==lastState){
+    history.push(lastState);
+    if(history.length>HISTORY_LIMIT) history.shift();
+    future=[];
+  }
+  lastState=now;
+}
+function resetHistory(){ history=[]; future=[]; lastState=model?_stateNow():null; }
+function _restore(state){
+  const d=JSON.parse(state);
+  restoring=true;
+  try{
+    model=d.model;
+    predFromJSON(d.pred);
+    lastState=state;
+    persistDraft();
+  } finally { restoring=false; }
+  hoverName=null;
+  buildTasks(); renderAutoStat(); showHint(); draw(); updateCalRead();
+}
+function undoAction(){
+  if(!history.length){ toast('Nothing to undo'); return; }
+  future.push(_stateNow()); _restore(history.pop()); toast('Undone');
+}
+function redoAction(){
+  if(!future.length){ toast('Nothing to redo'); return; }
+  history.push(_stateNow()); _restore(future.pop()); toast('Redone');
+}
+function clearAll(){
+  if(!cur||!model) return;
+  const m=model[view];
+  const n=Object.keys(m.keypoints).length+Object.keys(m.polygons).length
+          +(m.ruler.a?1:0)+(m.ruler.b?1:0);
+  if(!n){ toast('Nothing placed on this view'); return; }
+  model[view]=emptyView();
+  if(view==='lateral') clearPred();
+  persistDraft(); buildTasks(); renderAutoStat(); showHint(); draw(); updateCalRead();
+  toast(`Cleared ${n} on ${view} — Z to undo`);
+}
 const cv=$('#cv'), ctx=cv.getContext('2d');
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
@@ -522,7 +628,7 @@ function predFromJSON(d){
         dropped:d.dropped||{}, frameWarning:d.frameWarning||null};
 }
 
-function persistDraft(){ if(!cur||!model)return; try{
+function persistDraft(){ if(!cur||!model)return; recordHistory(); try{
   model._draft_at = Date.now();
   model._pred = predToJSON();
   localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
@@ -727,6 +833,7 @@ async function selectSpec(s){
   updateCalRead();
   warnIfNoScale();
   loadSpecs();
+  resetHistory();           // undo never reaches back into the previous fish
 }
 function restoreRetrace(){
   if(localStorage.getItem('calipr_retrace')){
@@ -1274,7 +1381,9 @@ cv.addEventListener('wheel',e=>{e.preventDefault(); const r=cv.getBoundingClient
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
   if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}}
-  if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undo(); }
+  if((e.key==='z'||e.key==='Z') && e.shiftKey && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
+  else if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undoAction(); }
+  if((e.key==='y'||e.key==='Y') && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
   if((e.key==='a'||e.key==='A') && activeTask && activeTask.kind==='keypoint'){
     e.preventDefault();
     if(acceptPoint(activeTask.name)){ toast('Accepted '+activeTask.name); advance(); }
@@ -1286,7 +1395,8 @@ window.addEventListener('keydown',e=>{
 window.addEventListener('keyup',e=>{
   if(showAll && (e.key==='h'||e.key==='H')){ showAll=false; draw(); }
 });
-$('#undo').onclick=undo;
+$('#undo').onclick=undoAction;
+$('#clearall').onclick=clearAll;
 $('#finish').onclick=()=>{advance();buildTasks();draw();};
 $('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
   if(activeTask.kind==='keypoint')delete m.keypoints[activeTask.name];
@@ -1472,7 +1582,7 @@ document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
       if(!res.ok){
         let msg='export failed';
         try{ msg=(await res.json()).error || msg; }catch(e){}
-        alert('Export failed:\n\n'+msg);
+        tell('Export failed:\n\n'+msg);
         return;
       }
       const blob=await res.blob();
@@ -1483,7 +1593,7 @@ document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
       a.download=m?m[1]:(dataset+'_'+kind);
       a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
       toast('Exported '+a.download+' ('+Math.round(blob.size/1024)+' KB)');
-    }catch(e){ alert('Export failed:\n\n'+e.message); }
+    }catch(e){ tell('Export failed:\n\n'+e.message); }
     finally{ btn.textContent=label; all.forEach(b=>b.disabled=false);
              $('#expstate').textContent=''; }
   };
@@ -1652,7 +1762,7 @@ async function refreshAuth(){
   if(b) b.textContent = (AUTH.required && !AUTH.unlocked) ? 'Auto-label 🔒' : 'Auto-label';
 }
 async function unlock(){
-  const pw=prompt('Passphrase to unlock automated landmarking on this machine:');
+  const pw=await askText('Passphrase to unlock automated landmarking on this machine:');
   if(pw===null) return false;
   const r=await api('/api/unlock',{method:'POST',
     headers:{'Content-Type':'application/json'}, body:JSON.stringify({passphrase:pw})});
@@ -1666,7 +1776,7 @@ $('#autolabel').onclick=async()=>{
   if(AUTH.required && !AUTH.unlocked){ if(!await unlock()) return; }
   if(view!=='lateral'){ toast('Auto-label works on the lateral view'); return; }
   const placed=Object.keys(model.lateral.keypoints).length;
-  if(placed && !confirm(
+  if(placed && !await ask(
       `${placed} landmark(s) are already placed on this specimen.\n\n`+
       `Auto-label will overwrite them with the model's. Continue?`)) return;
   const btn=$('#autolabel'); const was=btn.textContent;
@@ -1772,7 +1882,7 @@ async function uploadFiles(files){
   files=[...files].filter(f=>IMG_RE.test(f.name));
   if(!files.length){ toast('No images in that selection'); return; }
   const view=$('#viewPick').value==='frontal'?'frontal':'lateral';
-  if(!confirm(`Add ${files.length} photograph(s) to “${dataset}” (${view})?\n\n`+
+  if(!await ask(`Add ${files.length} photograph(s) to “${dataset}” (${view})?\n\n`+
               `They are copied into the dataset. Nothing is overwritten.`)) return;
   const bar=$('#uprog'); bar.classList.add('on');
   let added=0, dup=0, failed=[];
@@ -1796,14 +1906,14 @@ async function uploadFiles(files){
   if(dup) msg+=`, ${dup} already present`;
   if(failed.length) msg+=`, ${failed.length} failed`;
   toast(msg);
-  if(failed.length) alert('These were not added:\n\n'+failed.slice(0,12).join('\n')
+  if(failed.length) tell('These were not added:\n\n'+failed.slice(0,12).join('\n')
     + (failed.length>12?`\n…and ${failed.length-12} more`:''));
 }
 
 // Retained for callers that already have a gesture to spend; the menu uses
 // openFolderPicker instead so the dialog is not blocked.
 async function newStudy(){
-  const name=prompt('Name the new study.\n\n'
+  const name=await askText('Name the new study.\n\n'
     + 'This creates an empty folder under data/ — a separate set of photographs '
     + 'with its own landmarks and its own exports. Nothing is shared with the '
     + 'studies you already have.');
@@ -1831,7 +1941,7 @@ $('#autoall').onclick=async()=>{
   if(AUTH.required && !AUTH.unlocked){ if(!await unlock()) return; }
   const todo=SPECS.filter(s=>!s.lateral_done);
   if(!todo.length){ toast('Every specimen is already labelled'); return; }
-  if(!confirm(`Run the model over ${todo.length} unlabelled specimen(s)?\n\n`+
+  if(!await ask(`Run the model over ${todo.length} unlabelled specimen(s)?\n\n`+
               `Results are cached so reviewing them is instant. Nothing is saved `+
               `as a label — you still review and save each one.`)) return;
 
@@ -1887,7 +1997,7 @@ $('#addfolder').onchange=async e=>{
     // The folder already has a name, so use it rather than asking twice. The
     // prompt is pre-filled and editable, not a blank box.
     const top=(picked[0].webkitRelativePath||'').split('/')[0] || '';
-    const name=prompt('Name for this study — a folder under data/ with its own '
+    const name=await askText('Name for this study — a folder under data/ with its own '
       + 'landmarks and its own exports, sharing nothing with the others.', top);
     if(!name) return;
     const r=await api('/api/dataset/new',{method:'POST',
@@ -1942,7 +2052,7 @@ $('#save').onclick=async()=>{
     if(n>=total && total>0){
       // Saving a prediction with nothing touched would launder model output
       // into the training set, where it teaches the model its own mistakes.
-      if(!confirm(`Every landmark here is still exactly where the model put `+
+      if(!await ask(`Every landmark here is still exactly where the model put `+
         `them — nothing has been checked.\n\nSaving now records this as a hand `+
         `label and it WILL be used for training. Save anyway?`)) return;
     }
