@@ -94,6 +94,9 @@ def setup_project(built: Path, project_dir: Path) -> Path:
     cfg, y = read_yaml(cfg_path)
     cfg["scorer"] = SCORER
     cfg["bodyparts"] = list(LATERAL_KP)
+    # Overwritten below once the split is known. DLC registers a shuffle under
+    # the fraction it actually got and looks it up by TrainingFraction[0], so a
+    # hardcoded value only works while the split happens to match it.
     cfg["TrainingFraction"] = [0.8]
     cfg["skeleton"] = []
     cfg["video_sets"] = {}
@@ -196,6 +199,17 @@ def main(argv=None) -> int:
     split = json.loads((args.built / "split.json").read_text())
     train_idx, test_idx = split_indices(cfg_path, split)
     print(f"[2/5] stratified split: {len(train_idx)} train / {len(test_idx)} test")
+
+    # create_training_dataset registers the shuffle under the fraction it is
+    # handed, rounded to two places, and train_network looks it up by
+    # TrainingFraction[0]. They have to agree or the shuffle is unfindable:
+    # "Couldn't find any shuffles with trainingsetindex=0, shuffle=1".
+    frac = round(len(train_idx) / max(len(train_idx) + len(test_idx), 1), 2)
+    cfg_now, y_now = read_yaml(cfg_path)
+    if cfg_now.get("TrainingFraction") != [frac]:
+        cfg_now["TrainingFraction"] = [frac]
+        write_yaml(cfg_path, cfg_now, y_now)
+        print(f"  TrainingFraction set to {frac} to match the split")
     if not train_idx or not test_idx:
         raise SystemExit("Split did not map onto the annotation index.")
 
