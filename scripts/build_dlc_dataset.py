@@ -69,8 +69,24 @@ def find_image(images: Path, fid: str, recorded: str | None = None):
     return None
 
 
+def unreviewed(data: dict) -> set[str]:
+    """Landmarks a sidecar holds that no person ever looked at.
+
+    Auto-label places every landmark. A labeller who reviews the ones they care
+    about and saves leaves the rest exactly where the model put them, and the
+    save warning only fires when *nothing* was touched. Those points are the
+    model's output in a hand label's file. They are recorded in
+    ``metadata.assist.unreviewed``; this is what reads that record back.
+    """
+    meta = data.get("metadata") or {}
+    names = set((meta.get("assist") or {}).get("unreviewed") or [])
+    names |= set(meta.get("unreviewed_predictions") or [])
+    return names
+
+
 def load_specimens(sidecars: Path, images: Path, group: str = ""):
     out = []
+    dropped_total = 0
     for path in sorted(sidecars.glob("*.json")):
         data = json.loads(path.read_text())
         fid = data["fish_id"]
@@ -84,7 +100,19 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
             # move toward the predictions. Never silently, never at all.
             print(f"  SKIP {fid}: predicted sidecar, not a hand label")
             continue
-        kps = (data.get("lateral") or {}).get("keypoints") or {}
+        kps = dict((data.get("lateral") or {}).get("keypoints") or {})
+        # Same principle as skipping a predicted sidecar, one landmark at a time:
+        # a point nobody accepted or moved is the model's guess, and training on
+        # it teaches the model to agree with itself. It becomes absent -- NaN in
+        # the frame -- which is how a landmark nobody placed is already handled.
+        # Accepted points stay: pressing A is a person looking and agreeing.
+        stale = unreviewed(data) & set(kps)
+        if stale:
+            for name in stale:
+                kps.pop(name)
+            dropped_total += len(stale)
+            print(f"  {fid}: {len(stale)} unreviewed landmark(s) left out — "
+                  f"{', '.join(sorted(stale))}")
         if not kps:
             print(f"  SKIP {fid}: no lateral keypoints")
             continue
@@ -99,7 +127,39 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
             "strain": f"{group}:{strain}" if group else strain,
             "compromised": bool((data.get("metadata") or {}).get("exclude_traits")),
         })
+    if dropped_total:
+        print(f"  {dropped_total} unreviewed auto-labelled landmark(s) excluded from "
+              f"training in total")
     return out
+
+
+def limit_train(train, n, seed):
+    """Keep ``n`` training fish, drawn evenly across strains.
+
+    For learning curves: the held-out set must stay identical across sizes or the
+    error at each point is measured against a different yardstick and the curve
+    means nothing. This trims the training side only, and takes from each strain
+    in proportion so a smaller set is not accidentally one strain.
+    """
+    if not n or n >= len(train):
+        return train
+    by_strain: dict[str, list] = {}
+    for s in train:
+        by_strain.setdefault(s["strain"], []).append(s)
+    rng = random.Random(seed)
+    for group in by_strain.values():
+        group.sort(key=lambda s: s["fish_id"])
+        rng.shuffle(group)
+    kept, i = [], 0
+    order = sorted(by_strain)
+    while len(kept) < n:                    # round-robin, so the mix is held
+        strain = order[i % len(order)]
+        if by_strain[strain]:
+            kept.append(by_strain[strain].pop())
+        elif not any(by_strain.values()):
+            break
+        i += 1
+    return kept
 
 
 def stratified_split(specs, test_frac, seed):
@@ -125,7 +185,7 @@ def stratified_split(specs, test_frac, seed):
 
 
 def build(out_dir: Path, sources, scale: float,
-          test_frac: float, seed: int) -> None:
+          test_frac: float, seed: int, train_limit: int = 0) -> None:
     specs = []
     seen: dict[str, str] = {}
     for sidecars, images, group in sources:
@@ -143,6 +203,17 @@ def build(out_dir: Path, sources, scale: float,
     if not specs:
         raise SystemExit("No labeled specimens found.")
     train, test = stratified_split(specs, test_frac, seed)
+    if train_limit:
+        before = len(train)
+        train = limit_train(train, train_limit, seed)
+        # The frames written below must be exactly train + test. A frame in
+        # neither index is an annotated row create_training_dataset cannot place,
+        # and it refuses to register the shuffle at all rather than saying so.
+        keep = {s["fish_id"] for s in train} | {s["fish_id"] for s in test}
+        specs = [s for s in specs if s["fish_id"] in keep]
+        print(f"  learning-curve build: {len(train)} of {before} training fish "
+              f"(held-out set unchanged at {len(test)}); "
+              f"writing {len(specs)} frames")
 
     labeled = out_dir / "labeled-data" / VIDEO
     labeled.mkdir(parents=True, exist_ok=True)
@@ -207,6 +278,9 @@ def main(argv=None) -> int:
     ap.add_argument("--scale", type=float, default=0.25)
     ap.add_argument("--test-frac", type=float, default=0.2)
     ap.add_argument("--seed", type=int, default=17)
+    ap.add_argument("--train-limit", type=int, default=0, metavar="N",
+                    help="use only N training fish, held-out set unchanged "
+                         "(for learning curves; 0 = all)")
     args = ap.parse_args(argv)
     if args.dataset:
         sources = [(Path(d) / "sidecars", Path(d) / "lateral", Path(d).name)
@@ -219,7 +293,8 @@ def main(argv=None) -> int:
     for sc, im, _ in sources:
         if not sc.is_dir() or not im.is_dir():
             raise SystemExit(f"missing {sc} or {im}")
-    build(args.out, sources, args.scale, args.test_frac, args.seed)
+    build(args.out, sources, args.scale, args.test_frac, args.seed,
+          args.train_limit)
     return 0
 
 
