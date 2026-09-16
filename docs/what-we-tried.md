@@ -530,3 +530,42 @@ training examples.
 Jonah's observation that started this — *the dorsal doesn't extend past two
 thirds of the fish* — is right and conservative: on a snout-to-caudal-base axis
 the labelled `dorsal_tip` runs 0.529–0.616.
+
+## Labels stranded by a re-crop
+
+`HRN_4` was labelled on a lateral crop that started at the mirror boundary,
+x=1656. On 2026-08-04 the lateral crops were re-cut with `--lateral-margin 450`,
+starting it at x=1206. `process_one` overwrote the image unconditionally and
+recorded nowhere where a crop began, so every landmark, the whole outline and
+both ruler clicks stayed where they were and sat 450 px left of the fish -- in
+the ruler -- for six weeks. It was one of the 37 fish the landmark model trained
+on.
+
+A uniform shift changes no distance, area or angle, so none of HRN_4's measured
+traits were wrong: re-measuring it before and after the repair changed 0 of 20.
+What broke was every use that pairs a coordinate with the pixel under it -- what
+the labeler draws, and what the model learned.
+
+Guarded at three points, because any one alone leaves a gap:
+
+- **At the source.** Preprocessing refuses to re-crop a fish that has labels. With
+  `--shift-labels` it moves them by the exact difference in crop start, and only
+  once it has confirmed the file on disk is a slice of the same photograph (0.75
+  grey levels of JPEG noise on HRN_4; a different photograph is refused outright).
+- **Wherever the image changes for any other reason.** Every save records the size
+  and hash of the image its coordinates sit on. A fish whose image no longer
+  matches opens with its labels withheld, cannot be saved, and is skipped by the
+  training-set builder; a browser draft made on another size is discarded. A crop
+  anchored to the right edge that is N px wider started N px further left, so a
+  recorded size makes the repair exact arithmetic.
+- **Against stale saves.** A save names the version of the file its labels were
+  loaded from and is refused if the file has changed since. Without this, the
+  repair itself could be overwritten by a tab still holding the old coordinates --
+  both image sizes match, so no fingerprint catches it.
+
+`scripts/realign_labels.py --audit` checks every traced outline against its image:
+aligned outlines score 20.6-37.6 in fish-versus-foam edge contrast across the 52
+traced trout; HRN_4 scored 5.4, and 26.2 once shifted back. A four-point eye box
+was tried for fish without an outline and rejected: it also scores highly on the
+snout's edge against the foam, and flagged HRN_10 at -158 px when its points were
+exactly right.

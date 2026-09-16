@@ -466,6 +466,9 @@ let imgToken=0;
 let vs={scale:1, ox:0, oy:0};       // view transform (image px -> screen)
 // model[view] = {keypoints:{name:[x,y]}, polygons:{name:[[x,y]..]}, ruler:{a:[x,y],b:[x,y]}, known_mm}
 let model=null;
+// The view whose image is currently loaded. imgW/imgH lag a view switch until the
+// new image arrives, so a size is only attributed to the view it came from.
+let imgView=null;
 
 // ---- in-page dialog ---------------------------------------------------------
 // Replaces confirm()/prompt()/alert(). Each resolves a Promise, so call sites
@@ -512,7 +515,7 @@ let history=[], future=[], lastState=null, restoring=false;
 function _stateNow(){
   return JSON.stringify({
     model: JSON.parse(JSON.stringify(model,
-      (k,v)=> (k==='_draft_at'||k==='_pred') ? undefined : v)),
+      (k,v)=> (k==='_draft_at'||k==='_pred'||k==='_base_mtime'||k==='_blocked') ? undefined : v)),
     pred: predToJSON()});
 }
 function recordHistory(){
@@ -530,7 +533,8 @@ function _restore(state){
   const d=JSON.parse(state);
   restoring=true;
   try{
-    model=d.model;
+    const base=model._base_mtime, blocked=model._blocked;   // about the disk, not the edit
+    model=d.model; model._base_mtime=base; model._blocked=blocked;
     predFromJSON(d.pred);
     lastState=state;
     persistDraft();
@@ -637,7 +641,13 @@ function predFromJSON(d){
         dropped:d.dropped||{}, frameWarning:d.frameWarning||null};
 }
 
-function persistDraft(){ if(!cur||!model)return; recordHistory(); try{
+function persistDraft(){ if(!cur||!model)return;
+  // Coordinates only mean something on the image they were placed on. Record its
+  // size with the labels, so a save -- or a draft reopened later -- can be checked
+  // against the image on disk. Set before recordHistory so undo carries it too.
+  if(imgW && imgView===view){ model._placed_on=model._placed_on||{};
+                              model._placed_on[view]=[imgW,imgH]; }
+  recordHistory(); try{
   model._draft_at = Date.now();
   model._pred = predToJSON();
   localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
@@ -825,13 +835,55 @@ function renderSpecList(){
     w.appendChild(d);
   });
 }
+// Views whose recorded image size differs from the image on disk now, as
+// {view: sentence}. Such coordinates were placed on another crop of the photo and
+// cannot line up with this one -- HRN_4 sat 450 px into the ruler this way.
+function sizeMismatches(placedOn, sizes){
+  const out={};
+  for(const v of ['lateral','frontal']){
+    const a=(placedOn||{})[v], b=(sizes||{})[v];
+    if(a && b && (a[0]!==b[0] || a[1]!==b[1]))
+      out[v]=`placed on a ${a[0]}×${a[1]} ${v} image, but the image is now ${b[0]}×${b[1]}`;
+  }
+  return out;
+}
 async function selectSpec(s){
   cur=s; model=blankModel(); clearPred();
-  const draft=loadDraft(s.id);
+  let draft=loadDraft(s.id);
+  const staleDraft = draft ? sizeMismatches(draft._placed_on, s.sizes) : {};
+  if(Object.keys(staleDraft).length){
+    clearDraft(s.id); draft=null;
+    await tell(`Unsaved work on ${shortId(s.id)} was discarded: it was `
+      + Object.values(staleDraft).join('; and ')
+      + `. Those coordinates would not have landed on the fish.`);
+  }
+  // One chain, in priority order: unsaved work, then saved labels, then a cached
+  // prediction. Each later source is used only when every earlier one is absent.
   if(draft){ model=draft; predFromJSON(draft._pred); }   // unsaved work wins
   else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id)+dsq());
-    ingest(sc);}catch(e){} }               // else fall back to the committed sidecar
+    model._base_mtime = sc._mtime || 0;
+    // Labels whose image has been re-cropped or replaced are not drawn at all:
+    // shown in the wrong place they look like a labelling error, and saving over
+    // them would destroy coordinates an exact shift can still recover.
+    const al=sc._alignment||{}, blocked={};
+    for(const [v,a] of Object.entries(al)){
+      if(a.status==='size_changed'){ blocked[v]=a.detail; delete sc[v]; }
+      else if(a.status==='content_changed') toast(`${shortId(s.id)} ${v}: ${a.detail}`);
+    }
+    ingest(sc);
+    model._placed_on={};  // (base recorded above)
+    for(const [v,a] of Object.entries(al))
+      if(a.status!=='size_changed' && a.current) model._placed_on[v]=[a.current.width,a.current.height];
+    if(Object.keys(blocked).length){
+      model._blocked=blocked;
+      await tell(`The saved labels for ${shortId(s.id)} do not fit this photograph and are not shown.\n\n`
+        + Object.entries(blocked).map(([v,d])=>`${v}: ${d}`).join('\n')
+        + `\n\nNothing can be saved for this fish until they are repaired, which moves them exactly:`
+        + `\n\n  python scripts/realign_labels.py --fish ${s.id}`);
+    }
+  }catch(e){} }               // else fall back to the committed sidecar
   else if(s.predicted){
+    model._base_mtime=0;                                   // nothing on disk yet
     // A fish the batch already predicted opens with those points in place.
     // Without this, Auto-label all unlabelled filled a cache that opening a fish
     // never read, and every fish looked untouched. Only on a fish with nothing
@@ -842,6 +894,7 @@ async function selectSpec(s){
       if(r && r.ok && cur===s) applyPrediction(r);   // a later click wins the race
     }catch(e){}
   }
+  else { model._base_mtime=0; }                          // a fish with nothing yet
   localStorage.setItem('calipr_last', s.id);
   // Show only the human-typed remainder; the flag notes are regenerated by
   // syncCompromise() and must not be echoed back into the free-text field.
@@ -901,7 +954,8 @@ function loadImage(){
     img=new Image();
     img.onerror=()=>{ if(token===imgToken){ imgW=imgH=0; draw(); } res(); };
     img.onload=()=>{ if(token!==imgToken) return res();   // superseded
-      imgW=img.naturalWidth;imgH=img.naturalHeight;resize();fit();buildTasks();draw();res();};
+      imgW=img.naturalWidth;imgH=img.naturalHeight;imgView=view;
+      resize();fit();buildTasks();draw();res();};
     img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq();
   });
 }
@@ -2132,6 +2186,12 @@ $('#addfolder').onchange=async e=>{
 })();
 $('#save').onclick=async()=>{
   if(!cur){toast('No specimen');return;}
+  if(model._blocked && Object.keys(model._blocked).length){
+    await tell(`Not saved. The labels already saved for ${shortId(cur.id)} do not fit this `
+      + `photograph, and saving now would overwrite coordinates that can still be recovered. `
+      + `Repair them first:\n\n  python scripts/realign_labels.py --fish ${cur.id}`);
+    return;
+  }
   // capture the "known span" field value even if it was left at its default
   const km=parseFloat($('#knownmm').value);
   if(!isNaN(km) && (model[view].ruler.a||model[view].ruler.b)) model[view].known_mm=km;
@@ -2185,9 +2245,24 @@ $('#save').onclick=async()=>{
       blk.calibration={mode:'none',notes:'no scale reference placed'};
     out[v]=blk;
   }
+  // The size of the image each view's labels were placed on; the server refuses
+  // the save if the file on disk is no longer that size.
+  // Only a server that checks these understands them. The page is re-read from
+  // disk on every load, so it can be newer than a server still running old code;
+  // sent to that server these would be written verbatim into the sidecar and
+  // checked by nothing. The specimen list carries image sizes only when the
+  // server does the checking.
+  if(SPECS.some(x=>x.sizes!==undefined)){
+    const placed={};
+    for(const v of ['lateral','frontal'])
+      if(out[v] && model._placed_on && model._placed_on[v]) placed[v]=model._placed_on[v];
+    if(Object.keys(placed).length) out.metadata.placed_on=placed;
+    if(model._base_mtime!==undefined) out.metadata.base_mtime=model._base_mtime;
+  }
   const res=await api('/api/save'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});
   if(res.ok){
     clearDraft(cur.id);
+    if(res.mtime!==undefined) model._base_mtime=res.mtime;   // later saves build on this one
     // Report what is still short rather than refusing the save: partial fin work
     // is worth keeping, it just must not read as finished.
     const short=finGroups().map(g=>({g,st:finState(g)})).filter(x=>!x.st.done);
@@ -2197,6 +2272,8 @@ $('#save').onclick=async()=>{
     loadSpecs();
   } else if(res.demo){
     toast('Demo mode — nothing was saved. Your labels on disk are untouched.');
+  } else if(res.misaligned || res.conflict){
+    await tell(res.error);
   } else toast('Error: '+(res.error||'?'));
 };
 boot();
