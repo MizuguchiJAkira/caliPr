@@ -87,6 +87,8 @@ def unreviewed(data: dict) -> set[str]:
 def load_specimens(sidecars: Path, images: Path, group: str = ""):
     out = []
     dropped_total = 0
+    from fish_morpho import image_identity
+    manifest = image_identity.load_manifest(sidecars.parent)
     for path in sorted(sidecars.glob("*.json")):
         data = json.loads(path.read_text())
         fid = data["fish_id"]
@@ -99,6 +101,15 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
             # and the error curve improves while it happens because the labels
             # move toward the predictions. Never silently, never at all.
             print(f"  SKIP {fid}: predicted sidecar, not a hand label")
+            continue
+        # Coordinates placed on a different crop of the photograph point at the
+        # wrong pixels. Trained on, they teach the model that a ruler is a snout:
+        # HRN_4 did exactly that, one of 37 training fish, for over a month.
+        rec = image_identity.recorded_for(data, manifest, fid, "lateral")
+        status = image_identity.compare(rec, image_identity.fingerprint(img))
+        if status == image_identity.SIZE_CHANGED:
+            print(f"  SKIP {fid}: its labels were placed on a different crop of this "
+                  f"photograph — repair with scripts/realign_labels.py --fish {fid}")
             continue
         kps = dict((data.get("lateral") or {}).get("keypoints") or {})
         # Same principle as skipping a predicted sidecar, one landmark at a time:

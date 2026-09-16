@@ -43,6 +43,7 @@ sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
 from fish_morpho import auth  # noqa: E402
+from fish_morpho import image_identity  # noqa: E402
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
     FIN_KEYPOINTS,
@@ -72,6 +73,72 @@ def list_images(directory: Path) -> dict[str, Path]:
         for p in sorted(directory.iterdir())
         if p.is_file() and p.suffix.lower() in IMAGE_SUFFIXES
     }
+
+_FP_CACHE: dict[tuple, dict | None] = {}
+_FP_LOCK = threading.Lock()
+
+
+def view_image(images_dir: Path, fid: str, view: str) -> Path | None:
+    """The file a fish's labels for ``view`` sit on: ``<view>/<fid>_L.*`` or ``_F.*``."""
+    folder = images_dir / view
+    suffix = "_L" if view == "lateral" else "_F"
+    for p in list_images(folder).values():
+        if p.stem == f"{fid}{suffix}":
+            return p
+    return None
+
+
+def current_fingerprint(path: Path | None) -> dict | None:
+    """Fingerprint of an image, cached on its size and mtime so a busy session does
+    not re-hash every photograph on every click."""
+    if path is None or not path.is_file():
+        return None
+    st = path.stat()
+    key = (str(path), st.st_size, st.st_mtime_ns)
+    with _FP_LOCK:
+        if key not in _FP_CACHE:
+            _FP_CACHE[key] = image_identity.fingerprint(path)
+        return _FP_CACHE[key]
+
+
+_SIZE_CACHE: dict[tuple, list | None] = {}
+
+
+def current_size(path: Path | None) -> list | None:
+    """[width, height] from the image header alone -- no hashing -- for the
+    specimen list, which covers every fish on every refresh."""
+    if path is None or not path.is_file():
+        return None
+    st = path.stat()
+    key = (str(path), st.st_size, st.st_mtime_ns)
+    if key not in _SIZE_CACHE:
+        from PIL import Image
+        with Image.open(path) as im:
+            _SIZE_CACHE[key] = [int(im.size[0]), int(im.size[1])]
+    return _SIZE_CACHE[key]
+
+
+def alignment(images_dir: Path, fid: str, doc: dict | None) -> dict:
+    """For each labelled view: do its saved coordinates belong to the image on disk?
+
+    ``size_changed`` is proof they do not -- the image was re-cropped or replaced
+    after labelling, and every coordinate is displaced. The labeler must not draw
+    or save such labels as though they fit.
+    """
+    manifest = image_identity.load_manifest(images_dir)
+    out = {}
+    for view in ("lateral", "frontal"):
+        if not image_identity.has_labels(doc, view):
+            continue
+        cur = current_fingerprint(view_image(images_dir, fid, view))
+        rec = image_identity.recorded_for(doc, manifest, fid, view)
+        status = image_identity.compare(rec, cur)
+        out[view] = {"status": status,
+                     "detail": image_identity.describe(status, rec, cur),
+                     "recorded": ({k: rec[k] for k in ("width", "height")} if rec else None),
+                     "current": ({k: cur[k] for k in ("width", "height")} if cur else None)}
+    return out
+
 
 def _heldout_ids() -> set[str]:
     """The DLC held-out specimens, if a split has been written.
@@ -458,6 +525,11 @@ class Handler(BaseHTTPRequestHandler):
                 "fins_done": fins_done,
                 "heldout": fid in HELDOUT,
                 "suggested": fid in suggested,
+                # Size of each view's image as it is on disk now. A draft records
+                # the size it was made on; the labeler discards any draft whose
+                # size no longer matches, because its coordinates cannot fit.
+                "sizes": {"lateral": current_size(path),
+                          "frontal": current_size(fro.get(fname))},
                 # A prediction is cached for this fish. The labeler applies it on
                 # open, so a batch run actually reaches the fish it predicted.
                 "predicted": (self.images_dir / "sidecars_auto"
@@ -969,7 +1041,16 @@ class Handler(BaseHTTPRequestHandler):
             p = self.out_dir / f"{fid}.json"
             if not p.is_file():
                 return self._send(404, {"error": "no sidecar"})
-            return self._send(200, p.read_text())
+            try:
+                doc = json.loads(p.read_text())
+            except Exception as exc:
+                return self._send(500, {"error": f"unreadable sidecar: {exc}"})
+            # Sent with the labels, never written into them: whether each view's
+            # coordinates still belong to the image on disk, and which version of
+            # this file they are -- a save based on an older version is refused.
+            doc["_alignment"] = alignment(self.images_dir, fid, doc)
+            doc["_mtime"] = p.stat().st_mtime
+            return self._send(200, doc)
         if route.startswith("/img/"):
             sub = unquote(route[len("/img/"):])  # e.g. lateral/Name_L.JPEG
             if ".." in sub:
@@ -1029,9 +1110,68 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._send(400, {"error": f"bad payload: {exc}"})
         safe = re.sub(r"[^A-Za-z0-9_.-]", "_", fid)
+        data.pop("_alignment", None)
+        # Labels already on disk that no longer fit their image are recoverable by
+        # an exact shift -- until something overwrites them. So nothing is saved
+        # for such a fish until it has been repaired.
+        existing = self.out_dir / f"{safe}.json"
+        data.pop("_mtime", None)
+        # The version of this file the labels being saved were loaded from. If the
+        # file has changed on disk since -- repaired, saved from another tab --
+        # these coordinates are out of date and would overwrite the newer ones.
+        base = (data.get("metadata") or {}).pop("base_mtime", None)
+        if base is not None:
+            now = existing.stat().st_mtime if existing.is_file() else 0.0
+            if abs(now - float(base)) > 1.0:
+                return self._send(409, {
+                    "ok": False, "conflict": True,
+                    "error": ("Not saved. This fish's saved labels changed on disk after you "
+                              "opened it, so what is on screen is out of date and would "
+                              "overwrite the newer version. Reload the page and reopen it. "
+                              "Nothing was written.")})
+        if existing.is_file():
+            try:
+                stale = {v: a for v, a in alignment(self.images_dir, fid,
+                                                    json.loads(existing.read_text())).items()
+                         if a["status"] == image_identity.SIZE_CHANGED}
+            except Exception:
+                stale = {}
+            if stale:
+                v, a = next(iter(stale.items()))
+                return self._send(409, {
+                    "ok": False, "misaligned": True, "view": v,
+                    "error": (f"Not saved. The labels already saved for this fish do not fit "
+                              f"its {v} image: {a['detail']}. Repair them first, which moves "
+                              f"them exactly:  python scripts/realign_labels.py --fish {fid}")})
+        meta = data.setdefault("metadata", {})
+        # The labeler reports the size of the image each view's labels were placed
+        # on. If the file on disk is not that size, the image changed underneath
+        # the open fish and these coordinates belong to a different crop: refuse,
+        # rather than write labels that are displaced from the moment they land.
+        placed_on = meta.pop("placed_on", None) or {}
+        images = {}
+        for view in ("lateral", "frontal"):
+            if not image_identity.has_labels(data, view):
+                continue
+            cur = current_fingerprint(view_image(self.images_dir, fid, view))
+            seen = placed_on.get(view)
+            if cur and seen and list(seen) != [cur["width"], cur["height"]]:
+                return self._send(409, {
+                    "ok": False, "misaligned": True, "view": view,
+                    "error": (f"Not saved. The {view} labels were placed on a "
+                              f"{seen[0]}x{seen[1]} image, but the image on disk is now "
+                              f"{cur['width']}x{cur['height']} — it was re-cropped or "
+                              f"replaced, so every coordinate would be displaced. "
+                              f"Nothing was written.")})
+            if cur:
+                images[view] = cur
+        if images:
+            meta["images"] = images          # what these coordinates were placed on
         self.out_dir.mkdir(parents=True, exist_ok=True)
-        (self.out_dir / f"{safe}.json").write_text(json.dumps(data, indent=2))
-        return self._send(200, {"ok": True, "saved": f"{safe}.json"})
+        target = self.out_dir / f"{safe}.json"
+        target.write_text(json.dumps(data, indent=2))
+        return self._send(200, {"ok": True, "saved": f"{safe}.json",
+                                "mtime": target.stat().st_mtime})
 
 
 def main(argv=None) -> int:
