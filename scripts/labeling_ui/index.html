@@ -955,6 +955,7 @@ function loadImage(){
     img.onerror=()=>{ if(token===imgToken){ imgW=imgH=0; draw(); } res(); };
     img.onload=()=>{ if(token!==imgToken) return res();   // superseded
       imgW=img.naturalWidth;imgH=img.naturalHeight;imgView=view;
+      buildImgSmall();
       resize();fit();buildTasks();draw();res();};
     img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq();
   });
@@ -964,7 +965,7 @@ function loadImage(){
 // per-view default, switching tabs silently inherited the other view's value,
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
-function setView(v){ view=v; $('#viewPick').value=v;
+function setView(v){ view=v; $('#viewPick').value=v; blankRetries=0;
   if(!cur){ activeTask=null; buildTasks(); showHint(); draw(); return Promise.resolve(); }
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
@@ -1185,11 +1186,71 @@ function fit(){ if(!imgW){return;} const r=cv.getBoundingClientRect();
 function toImg(sx,sy){return [(sx-vs.ox)/vs.scale,(sy-vs.oy)/vs.scale];}
 function toScr(ix,iy){return [ix*vs.scale+vs.ox, iy*vs.scale+vs.oy];}
 
+// A quarter-size copy of the photograph, made once while it is freshly decoded.
+// The originals are 6000x4000 -- ~96 MB decoded -- and WebKit, which the labeler
+// runs in, may throw that decode away under memory pressure and re-decode on
+// demand, at reduced resolution when the image is being drawn small. When that
+// decode fails nothing is drawn and the canvas goes black on zooming out, until
+// the specimen is reopened and the image reloaded. Zoomed out, the copy is drawn
+// instead, so the fragile large-image path is not used at all; zoomed in, the
+// original is drawn at full resolution, so placing a landmark loses nothing.
+const SMALL_FACTOR=4, USE_SMALL_BELOW=1/SMALL_FACTOR;
+// Retries reset only when a different image is chosen (setView), never by the
+// reload a retry itself triggers -- otherwise an image that truly cannot be drawn
+// would reload in a loop.
+let imgSmall=null, blankRetries=0, lastBlankCheck=0;
+const BLANK_CHECK_MS=250;   // reading pixels back is not free; four checks a second
+                            // still catches a black canvas before anyone notices
+function buildImgSmall(){
+  imgSmall=null;
+  try{
+    const c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(imgW/SMALL_FACTOR)); c.height=Math.max(1,Math.round(imgH/SMALL_FACTOR));
+    const x=c.getContext('2d'); x.imageSmoothingEnabled=true; x.imageSmoothingQuality='high';
+    x.drawImage(img,0,0,c.width,c.height);
+    if(!regionBlank(x,0,0,c.width,c.height)) imgSmall=c;   // only keep a copy that came out
+  }catch(e){ imgSmall=null; }
+}
+// True when every sampled pixel in the rectangle is fully transparent: the image
+// was asked for and nothing was drawn. A few points, not the whole region, so this
+// costs nothing per frame; a photograph is never transparent at all of them.
+function regionBlank(c,x,y,w,h){
+  const cw=c.canvas.width, ch=c.canvas.height;
+  const pts=[[.5,.5],[.25,.25],[.75,.25],[.25,.75],[.75,.75],[.5,.2],[.5,.8],[.2,.5],[.8,.5]];
+  let seen=0;
+  for(const [fx,fy] of pts){
+    const px=Math.floor(x+w*fx), py=Math.floor(y+h*fy);
+    if(px<0||py<0||px>=cw||py>=ch) continue;
+    seen++;
+    if(c.getImageData(px,py,1,1).data[3]!==0) return false;
+  }
+  return seen>0;
+}
 function draw(){
   const r=cv.getBoundingClientRect();
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
-  if(imgW){ ctx.imageSmoothingEnabled=false; ctx.filter=imgFilter;
-    ctx.drawImage(img, vs.ox, vs.oy, imgW*vs.scale, imgH*vs.scale); ctx.filter='none'; }
+  if(imgW){
+    const dw=imgW*vs.scale, dh=imgH*vs.scale, small = !!imgSmall && vs.scale<=USE_SMALL_BELOW;
+    ctx.imageSmoothingEnabled = small;       // smooth a shrink; crisp pixels when zoomed in
+    ctx.filter=imgFilter;
+    // A lost decode can also surface as an exception rather than an empty draw;
+    // either way the photograph is missing, so both lead to the same recovery.
+    let threw=false;
+    try{ ctx.drawImage(small?imgSmall:img, vs.ox, vs.oy, dw, dh); }catch(e){ threw=true; }
+    ctx.filter='none';
+    // If the photograph was drawn and nothing appeared, the decode was lost:
+    // reload the image rather than leave a black canvas. Bounded, so an image
+    // that genuinely cannot be drawn does not reload forever.
+    const now=performance.now();
+    const due = now-lastBlankCheck >= BLANK_CHECK_MS;
+    if(due) lastBlankCheck=now;
+    if((threw || due) && blankRetries<2 && cur && (threw || regionBlank(ctx, vs.ox, vs.oy, dw, dh))){
+      blankRetries++;
+      console.warn(`image drew blank (${small?'small copy':'original'}, scale ${vs.scale.toFixed(3)}); reloading it`);
+      const keep={ox:vs.ox, oy:vs.oy, scale:vs.scale};
+      loadImage().then(()=>{ vs.ox=keep.ox; vs.oy=keep.oy; vs.scale=keep.scale; draw(); });
+    }
+  }
   const m=model?model[view]:null; if(m){
     // In retrace mode only the fin being worked on is drawn. body_plus_caudal is
     // 52-86 vertices running the length of the fish and it buries the specimen;
