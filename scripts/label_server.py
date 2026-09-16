@@ -458,6 +458,10 @@ class Handler(BaseHTTPRequestHandler):
                 "fins_done": fins_done,
                 "heldout": fid in HELDOUT,
                 "suggested": fid in suggested,
+                # A prediction is cached for this fish. The labeler applies it on
+                # open, so a batch run actually reaches the fish it predicted.
+                "predicted": (self.images_dir / "sidecars_auto"
+                              / f"{fid}.json").is_file(),
             })
         return out
 
