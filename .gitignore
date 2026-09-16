@@ -63,3 +63,7 @@ data/fishphenokey_request.md
 
 # Editor/agent launch config, not part of the published tool
 .claude/
+
+# Automatic backups written before a sidecar's coordinates are moved (git keeps
+# the history; these are a local safety net, not something to publish)
+data/**/*.json.bak

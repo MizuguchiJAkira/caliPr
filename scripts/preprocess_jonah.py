@@ -93,6 +93,10 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--lateral-margin", type=int, default=0,
                    help="Extend the lateral crop this many px left of the split "
                         "(crops overlap; guards against clipping the snout).")
+    p.add_argument("--shift-labels", action="store_true",
+                   help="Move a fish's saved lateral labels with its crop when a re-run changes "
+                        "where the crop starts. Without this, a labelled fish whose crop "
+                        "would move is refused and left untouched.")
     p.add_argument("--frontal-margin", type=int, default=0,
                    help="Extend the frontal crop this many px right of the split "
                         "(keeps the mirror head-shot when the split lands left).")
@@ -146,9 +150,13 @@ def main(argv: list[str] | None = None) -> int:
                 boundary_override=overrides.get(stem),
                 lateral_margin=args.lateral_margin,
                 frontal_margin=args.frontal_margin,
+                shift_labels=args.shift_labels,
             )
             ok += 1
             per_strain[strain] = per_strain.get(strain, 0) + 1
+        except pc.LabelledImageError as exc:
+            log.warning("REFUSED %s", exc)
+            skipped.append(raw.name)
         except Exception:
             log.exception("FAILED on %s", raw.name)
             skipped.append(raw.name)

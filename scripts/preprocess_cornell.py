@@ -37,7 +37,11 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime as _dt
+import json
 import logging
+import shutil
+import sys
 from pathlib import Path
 
 import cv2
@@ -45,6 +49,86 @@ import numpy as np
 from PIL import Image, ImageOps
 
 log = logging.getLogger(__name__)
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
+from fish_morpho import image_identity  # noqa: E402
+
+
+class LabelledImageError(RuntimeError):
+    """Writing this crop would move the pixels under labels that already exist."""
+
+
+#: How closely the file on disk must match a slice of the raw photograph before
+#: its labels may be moved automatically. JPEG round-trips sit near 1 grey level;
+#: a different photograph sits in the tens. Anything between is not the same crop
+#: with certainty, so it is refused rather than guessed at.
+SAME_PHOTO_MAX_DIFF = 4.0
+
+
+def _guard_labels(image, out_dir: Path, base: str, lat_path: Path,
+                  lat_start: int, fro_end: int, shift_labels: bool) -> float:
+    """Refuse a crop that would strand existing labels; return the x shift to apply.
+
+    A lateral crop runs from ``lat_start`` to the right edge, so the start of the
+    crop already on disk is ``raw_width - its_width``. If that differs from the
+    new start, every saved lateral coordinate would end up displaced by the
+    difference -- which is exactly what happened to HRN_4, 450 px into the ruler.
+
+    Moving the labels is only safe when the file on disk is provably a slice of
+    this same photograph; otherwise the two crops are not related by a shift at
+    all (a different photo mapped to the same specimen, say) and nothing is
+    written. The frontal crop always starts at x=0, so its coordinates never move;
+    it is refused only if the new crop would cut off a labelled point.
+    """
+    sidecar = out_dir / "sidecars" / f"{base}.json"
+    if not sidecar.is_file():
+        return 0.0
+    try:
+        doc = json.loads(sidecar.read_text())
+    except Exception as exc:
+        raise LabelledImageError(f"{base}: sidecar unreadable ({exc}); not overwriting its images")
+
+    shift = 0.0
+    if image_identity.has_labels(doc, "lateral") and lat_path.is_file():
+        old = cv2.imread(str(lat_path))
+        if old is None:
+            raise LabelledImageError(f"{base}: existing lateral crop unreadable; not overwriting it")
+        old_start = image.shape[1] - old.shape[1]
+        if old_start != lat_start or old.shape[0] != image.shape[0]:
+            same = (old.shape[0] == image.shape[0] and 0 <= old_start < image.shape[1]
+                    and float(cv2.absdiff(image[:, old_start:], old).mean()) <= SAME_PHOTO_MAX_DIFF)
+            if not same:
+                raise LabelledImageError(
+                    f"{base}: has lateral labels, and the crop on disk is not a slice of this "
+                    f"photograph — its labels cannot be moved safely. Not overwriting.")
+            if not shift_labels:
+                raise LabelledImageError(
+                    f"{base}: has lateral labels placed on a crop starting at x={old_start}; this "
+                    f"run would start it at x={lat_start} and displace every label by "
+                    f"{old_start - lat_start:+d} px. Not overwriting. Re-run with "
+                    f"--shift-labels to move the labels with the crop.")
+            shift = float(old_start - lat_start)
+
+    if image_identity.has_labels(doc, "frontal"):
+        mx = image_identity.max_x(doc, "frontal")
+        if mx is not None and mx >= fro_end:
+            raise LabelledImageError(
+                f"{base}: the new frontal crop ends at x={fro_end}, cutting off a labelled "
+                f"point at x={mx:.0f}. Not overwriting.")
+
+    if shift:
+        backup = sidecar.with_name(
+            f"{base}.pre-recrop-{_dt.datetime.now():%Y%m%dT%H%M%S}.json.bak")
+        shutil.copy2(sidecar, backup)
+        moved = image_identity.shift_view(doc, "lateral", shift)
+        notes = doc.setdefault("metadata", {}).setdefault("coordinate_history", [])
+        notes.append({"at": _dt.datetime.now().isoformat(timespec="seconds"),
+                      "view": "lateral", "dx": shift, "points": moved,
+                      "reason": f"re-cropped from x={lat_start + shift:.0f} to x={lat_start}"})
+        sidecar.write_text(json.dumps(doc, indent=2))
+        log.warning("  %s: moved %d lateral label(s) by %+d px with the re-crop (backup %s)",
+                    base, moved, int(shift), backup.name)
+    return shift
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +271,7 @@ def process_one(
     boundary_override: int | None = None,
     lateral_margin: int = 0,
     frontal_margin: int = 0,
+    shift_labels: bool = False,
 ) -> tuple[Path, Path]:
     """Split one raw photo into lateral + frontal crops.
 
@@ -237,8 +322,13 @@ def process_one(
     lat_path = lat_dir / lateral_name
     fro_path = fro_dir / frontal_name
 
+    # Nothing is written until labels already placed on these images are safe:
+    # either the crop is unchanged, or the labels move with it by an exact shift.
+    _guard_labels(image, out_dir, base, lat_path, lat_start, fro_end, shift_labels)
+
     cv2.imwrite(str(lat_path), lateral_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
     cv2.imwrite(str(fro_path), frontal_crop, [cv2.IMWRITE_JPEG_QUALITY, 95])
+    _record_fingerprints(out_dir, base, lat_path, fro_path)
 
     log.info(
         "  → %s (%dx%d) + %s (%dx%d)",
@@ -250,6 +340,23 @@ def process_one(
         frontal_crop.shape[0],
     )
     return lat_path, fro_path
+
+
+def _record_fingerprints(out_dir: Path, base: str, lat_path: Path, fro_path: Path) -> None:
+    """Record the images a labelled fish now points at, so the labeler can tell if
+    they ever change again. Only for fish that have labels -- an unlabelled crop
+    has nothing to protect, and its first save records its own fingerprint."""
+    sidecar = out_dir / "sidecars" / f"{base}.json"
+    if not sidecar.is_file():
+        return
+    manifest_path = out_dir / image_identity.MANIFEST
+    manifest = image_identity.load_manifest(out_dir)
+    entry = manifest.setdefault(base, {})
+    for view, path in (("lateral", lat_path), ("frontal", fro_path)):
+        fp = image_identity.fingerprint(path)
+        if fp:
+            entry[view] = fp
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
 
 
 def load_specimen_map(csv_path: Path) -> dict[str, str]:
@@ -308,6 +415,13 @@ def _build_parser() -> argparse.ArgumentParser:
         default="fontinalis",
         help="Species for catalog name.",
     )
+    p.add_argument(
+        "--shift-labels",
+        action="store_true",
+        help="Move a fish's saved lateral labels with its crop when a re-run changes "
+                        "where the crop starts. Without this, a labelled fish whose crop "
+                        "would move is refused and left untouched.",
+    )
     return p
 
 
@@ -344,7 +458,10 @@ def main(argv: list[str] | None = None) -> int:
                 specimen_number=spec_num,
                 genus=args.genus,
                 species=args.species,
+                shift_labels=args.shift_labels,
             )
+        except LabelledImageError as exc:
+            log.warning("REFUSED %s", exc)
         except Exception:
             log.exception("FAILED on %s", raw_name)
 
