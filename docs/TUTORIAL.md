@@ -77,22 +77,29 @@ Points arrive coloured by the model's own confidence:
 | **green** | confident |
 | **orange, ringed** | not confident — these are the ones to look at |
 
-It also draws the body outline. Selection jumps straight to the least
-trustworthy point, and the sidebar lists what still needs review.
+Whether it also draws the body outline depends on the study; the brook trout
+study traces it by hand. The sidebar lists what still needs review.
 
-Then, for each point:
+Then work down the points with one key:
 
-- **drag it** to correct it. A faint line stays behind showing where the model
-  had it, so you can see the size of the fix.
-- **press `A`** to accept it, meaning you looked and agree.
+- **press `A`** to accept the point in hand and move to the next one waiting.
+- **drag it** to correct it, then press `A` to move on. A faint line stays
+  behind showing where the model had it, so you can see the size of the fix.
+
+`A` passes over fin landmarks. Fins are where the model is least reliable, and
+an accepted point is used for training, so they are left for you to click and
+review deliberately.
 
 Accepting is a deliberate keypress, never assumed from leaving a point alone.
-Those are different claims and the sidecar records them separately.
+Those are different claims and the sidecar records them separately. `Z` undoes
+anything — an accept, a drag, a vertex — and **Clear all** empties the view in
+one step, also undoable.
 
 The first Auto-label of a session takes a few seconds while the model loads;
 after that it is about a second. **Auto-label all unlabelled** runs the whole
-backlog in one pass and caches the results, so reviewing them afterwards is
-instant.
+backlog in one pass. Each fish then opens with its points already placed and
+the first one selected, so `A` works from the first press; a **P** badge marks
+the ones still to review.
 
 ---
 
