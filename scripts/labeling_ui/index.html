@@ -857,6 +857,12 @@ async function selectSpec(s){
   warnIfNoScale();
   loadSpecs();
   resetHistory();           // undo never reaches back into the previous fish
+  // A predicted fish opens on its first point waiting for review, so A works
+  // from the first press. Done last: setView() above clears the selection.
+  if(pred.model && view==='lateral' && !activeTask){
+    const first=nextPending(null);
+    if(first){ pickByName('keypoint', first); draw(); }
+  }
 }
 function restoreRetrace(){
   if(localStorage.getItem('calipr_retrace')){
@@ -1407,9 +1413,25 @@ window.addEventListener('keydown',e=>{
   if((e.key==='z'||e.key==='Z') && e.shiftKey && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
   else if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undoAction(); }
   if((e.key==='y'||e.key==='Y') && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
-  if((e.key==='a'||e.key==='A') && activeTask && activeTask.kind==='keypoint'){
-    e.preventDefault();
-    if(acceptPoint(activeTask.name)){ toast('Accepted '+activeTask.name); advance(); }
+  if((e.key==='a'||e.key==='A') && !(e.metaKey||e.ctrlKey)){
+    if(retrace && activeTask && activeTask.kind==='keypoint'){   // fin review keeps its own walk
+      e.preventDefault();
+      if(acceptPoint(activeTask.name)){ toast('Accepted '+activeTask.name); advance(); }
+    } else if(view==='lateral' && pred.model){
+      // Accept the point in hand, then go straight to the next one waiting. On a
+      // point you just dragged, A only moves on: the drag already recorded it as
+      // corrected, which is stronger evidence than accepting.
+      e.preventDefault();
+      const here = activeTask && activeTask.kind==='keypoint' ? activeTask.name : null;
+      const took = here ? acceptPoint(here) : false;
+      const next = nextPending(here);
+      if(next){ pickByName('keypoint', next); draw();
+                toast((took?`Accepted ${here} → `:'') + next); }
+      else { activeTask=null; showHint(); buildTasks(); draw();
+             const fins=Object.keys(pred.conf).filter(n=>finOf(n)).length;
+             toast((took?`Accepted ${here} · `:'') + 'all points reviewed'
+                   + (fins?` · ${fins} fin left alone`:'')); }
+    }
   }
   if(retrace && (e.key==='f'||e.key==='F')){ e.preventDefault(); nextFin(); }
   if(retrace && (e.key==='h'||e.key==='H') && !showAll){ showAll=true; draw(); }
@@ -1735,6 +1757,19 @@ function reviewed(name){          // the human MOVED this point
   }
   pred.accepted.delete(name);
   delete pred.conf[name]; pred.low.delete(name); renderAutoStat();
+}
+// The next predicted point still waiting for a look: list order, after the one
+// in hand, wrapping round so nothing is stranded above. Reviewed points, the
+// ruler and outlines are passed over, so each A lands somewhere it can act.
+// Fins are passed over too. They are out of scope for review, they sit in the
+// middle of the list, and an accepted point trains -- walking into them would
+// have A accepting fin points by habit. Click a fin row to review one.
+function nextPending(fromName){
+  const all=((SCHEMA.lateral||{}).keypoints||[]).map(k=>k.name);
+  const pending=all.filter(n=>pred.conf[n]!==undefined && !finOf(n));
+  if(!pending.length) return null;
+  const at=all.indexOf(fromName);
+  return pending.find(n=>all.indexOf(n)>at) || pending[0];
 }
 function acceptPoint(name){       // the human LOOKED and agrees
   if(!name || pred.conf[name]===undefined) return false;
