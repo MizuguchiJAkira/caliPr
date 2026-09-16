@@ -35,6 +35,11 @@ sys.path.insert(0, str(_ROOT / "src"))
 from fish_morpho.landmark_config import KEYPOINTS, View  # noqa: E402
 
 LATERAL_KP = [k.name for k in KEYPOINTS if k.view == View.LATERAL]
+
+#: Frame folder and default project directory per view; the frontal model never
+#: shares a directory with the lateral one.
+VIEW_VIDEO = {"lateral": "cornell_lateral", "frontal": "cornell_frontal"}
+VIEW_PROJECT = {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}
 SCORER = "jcalipr"
 PROJECT = "jcalipr"
 VIDEO = "cornell_lateral"
@@ -92,6 +97,14 @@ def setup_project(built: Path, project_dir: Path) -> Path:
         print(f"  created {cfg_path.parent.name}")
 
     cfg, y = read_yaml(cfg_path)
+    # A reused project is rewritten below -- its landmark list replaced and its
+    # labelled frames deleted. If it was built for other landmarks, that would
+    # silently destroy a different model's project. Refuse instead.
+    if existing and cfg.get("bodyparts") and list(cfg["bodyparts"]) != list(LATERAL_KP):
+        raise SystemExit(
+            f"refusing to reuse {existing[0]}: it was set up for "
+            f"{len(cfg['bodyparts'])} landmarks ({', '.join(list(cfg['bodyparts'])[:3])}...), "
+            f"not these {len(LATERAL_KP)}. Use a separate --project-dir.")
     cfg["scorer"] = SCORER
     cfg["bodyparts"] = list(LATERAL_KP)
     # Overwritten below once the split is known. DLC registers a shuffle under
@@ -173,7 +186,9 @@ def patch_training_config(cfg_path: Path, resume: Path | None,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="train_dlc")
     ap.add_argument("--built", type=Path, default=_ROOT / "dlc")
-    ap.add_argument("--project-dir", type=Path, default=_ROOT / "dlc_project")
+    ap.add_argument("--project-dir", type=Path, default=None,
+                    help="defaults to dlc_project/ for lateral, dlc_project_frontal/ "
+                         "for frontal -- the view is read from the built dataset")
     ap.add_argument("--epochs", type=int, default=200)
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--net", default="resnet_50")
@@ -189,14 +204,24 @@ def main(argv=None) -> int:
                          "starting from ImageNet, not from a fitted model.")
     args = ap.parse_args(argv)
 
+    # The built dataset says which landmarks it holds, so the trainer cannot be
+    # pointed at one view and train it as the other.
+    global LATERAL_KP, VIDEO
+    split = json.loads((args.built / "split.json").read_text())
+    view = split.get("view", "lateral")
+    if split.get("keypoints"):
+        LATERAL_KP = list(split["keypoints"])
+    VIDEO = VIEW_VIDEO[view]
+    project_dir = args.project_dir or (_ROOT / VIEW_PROJECT[view])
+    print(f"  view: {view} ({len(LATERAL_KP)} landmarks) -> {project_dir}")
+
     import deeplabcut
     import torch
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     print(f"[1/5] project setup (device={device})")
-    cfg_path = setup_project(args.built, args.project_dir)
+    cfg_path = setup_project(args.built, project_dir)
 
-    split = json.loads((args.built / "split.json").read_text())
     train_idx, test_idx = split_indices(cfg_path, split)
     print(f"[2/5] stratified split: {len(train_idx)} train / {len(test_idx)} test")
 
