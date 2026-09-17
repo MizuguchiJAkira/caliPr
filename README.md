@@ -29,13 +29,21 @@ Python 3.11 or newer. Four dependencies (NumPy, OpenCV, openpyxl, Pillow),
 approximately seven seconds. The system Python on macOS is 3.9 and will be
 refused.
 
-Automated landmarking requires PyTorch, DeepLabCut and Segment Anything, which
-are installed separately and are not needed for manual labelling or export:
+Automated landmarking (Auto-label) requires PyTorch, DeepLabCut and Segment
+Anything, which are installed separately and are not needed for manual labelling
+or export, and the trained models, which are downloaded rather than kept in the
+repository:
 
 ```bash
 python3.11 -m venv .venv-train
-./.venv-train/bin/pip install "deeplabcut[tf]" transformers torch
+./.venv-train/bin/pip install "deeplabcut==3.0.1" transformers
+./.venv/bin/python scripts/fetch_model.py
 ```
+
+About 1.7 GB for the environment and 570 MB for the models and Segment Anything.
+The models are trained on the Cornell brook trout photo rig (fish facing left, a
+ruler along the top, a mirror showing the head) and do not transfer to
+photographs taken another way.
 
 Development and all timings reported here are on Apple Silicon (M3, 8 GB) with
 PyTorch on the MPS backend. There is no CUDA requirement.

@@ -2045,8 +2045,9 @@ $('#autolabel').onclick=async()=>{
     const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()
                       +(v==='frontal'?'&view=frontal':''));
     if(cur!==s){ return; }                 // another fish was opened meanwhile
-    if(!r.ok){ toast('Auto-label unavailable: '+(r.error||'?'));
-               renderAutoStat(); return; }
+    if(!r.ok){ renderAutoStat();
+               await tell('Auto-label is not available.\n\n'+(r.error||'The model did not answer.'));
+               return; }
     // A server started before frontal Auto-label existed ignores the view and
     // answers with lateral landmarks, which would land on the frontal image.
     if((r.view||'lateral')!==v){ renderAutoStat();
