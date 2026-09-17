@@ -386,3 +386,40 @@ def test_every_fin_area_trait_depends_on_a_fin_polygon():
     for code in ("DFs", "PlFs", "AFs", "PFs"):
         required = set(trait_by_code(code).required_polygons)
         assert required & set(FIN_POLYGONS), code
+
+
+# ---------------------------------------------------------------------------
+# alternative landmark schemes
+# ---------------------------------------------------------------------------
+
+def test_a_scheme_keeps_the_protocol_s_numbering():
+    """TPS identifies a landmark by its row, so the order is the protocol's."""
+    from fish_morpho import schemes
+
+    kp = schemes.keypoints("bgnn_2d", "lateral")
+    assert len(kp) == 23
+    assert [k["number"] for k in kp] == list(range(1, 24))
+    assert kp[0]["name"] == "dentary_anterior" and kp[0]["label"].startswith("1. ")
+    assert kp[22]["name"] == "opercle_ventral"
+    assert schemes.order("bgnn_2d")[:2] == ("dentary_anterior", "mouth_posterior")
+    assert len({k["name"] for k in kp}) == 23                 # no repeated names
+    assert all(k["description"] and k["hint"] and k["group"] for k in kp)
+
+
+def test_a_scheme_names_no_calipr_landmark():
+    """The two schemes describe different points; sharing a name would imply a
+    mapping between them, which is a claim about anatomy, not a conversion."""
+    from fish_morpho import schemes
+    from fish_morpho.landmark_config import KEYPOINTS
+
+    assert not {k["name"] for k in schemes.keypoints("bgnn_2d", "lateral")} & {
+        k.name for k in KEYPOINTS}
+
+
+def test_calipr_is_the_default_and_unknown_schemes_are_not_invented():
+    from fish_morpho import schemes
+
+    assert schemes.get(None) is None and schemes.get("calipr") is None
+    assert schemes.get("nope") is None
+    assert schemes.keypoints("bgnn_2d", "frontal") == []      # a lateral-only protocol
+    assert [s["name"] for s in schemes.listing()][0] == "calipr"

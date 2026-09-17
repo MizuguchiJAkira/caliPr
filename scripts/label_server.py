@@ -45,7 +45,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
-from fish_morpho import auth  # noqa: E402
+from fish_morpho import auth, schemes  # noqa: E402
 from fish_morpho import image_identity  # noqa: E402
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
@@ -265,6 +265,8 @@ def load_profile(images_dir: Path) -> dict:
         # the stored name is what the traits, the trained model and every sidecar
         # already written refer to.
         "labels": dict(prof.get("labels") or {}),
+        # Which landmark scheme this study collects. caliPr's own unless named.
+        "scheme": prof.get("scheme") or schemes.DEFAULT,
         "note": prof.get("note", ""),
     }
 
@@ -277,11 +279,18 @@ def build_schema(profile: dict | None = None) -> dict:
     drop_kp = profile.get("exclude_keypoints") or set()
     extra = profile.get("extra_keypoints") or []
     labels = profile.get("labels") or {}
+    scheme = profile.get("scheme") or schemes.DEFAULT
 
     # Excluded landmarks are MARKED, not omitted: the labeler has to be able to
     # show them struck through and let someone put one back. Consumers that read
     # schema.json directly (the standalone build, the TPS export) still filter.
     def kp(items, view, extras=False):
+        # A study on another scheme collects that scheme's landmarks instead of
+        # caliPr's: the two name different points, and no trait is defined for it.
+        if extras and schemes.get(scheme):
+            return [dict(k, label=labels.get(k["name"], k["label"]),
+                         excluded=k["name"] in drop_kp)
+                    for k in schemes.keypoints(scheme, view.value if hasattr(view, "value") else view)]
         out = [
             {"name": k.name, "label": labels.get(k.name, k.name),
              "description": k.description, "hint": k.labeling_hint,
@@ -303,6 +312,8 @@ def build_schema(profile: dict | None = None) -> dict:
         return out
 
     def poly(view):
+        if schemes.get(scheme):
+            return []
         # `target` drives the vertex counter in the labeler. Fin areas read low
         # when the outline is sparse, so the UI has to show progress toward a
         # usable density rather than just "3+ points, done".
@@ -348,7 +359,12 @@ def build_schema(profile: dict | None = None) -> dict:
 
     return {
         "profile_note": profile.get("note", ""),
-        "fin_groups": fin_groups(),
+        "scheme": scheme,
+        "scheme_title": (schemes.get(scheme) or {}).get("title", "caliPr"),
+        "schemes": schemes.listing(),
+        # A scheme of another protocol has no fins to retrace and no traits.
+        "traits": not schemes.get(scheme),
+        "fin_groups": [] if schemes.get(scheme) else fin_groups(),
         "lateral": {
             "polygons": poly(View.LATERAL),
             "keypoints": kp(KEYPOINTS, View.LATERAL, extras=True),
@@ -734,6 +750,38 @@ class Handler(BaseHTTPRequestHandler):
         median = vals[len(vals) // 2] if vals else None
         return {"median_px_per_mm": median, "n": len(vals)}
 
+    def _set_scheme(self):
+        """Switch this study to another landmark scheme, or back to caliPr's.
+
+        Landmarks already saved are left exactly as they are: they are what a
+        person clicked, and the two schemes name different points, so nothing can
+        be converted. They simply stop being asked for until the scheme is
+        switched back.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            name = json.loads(self.rfile.read(n) or b"{}").get("scheme") or schemes.DEFAULT
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        if name != schemes.DEFAULT and not schemes.get(name):
+            return self._send(404, {"ok": False, "error": f"no scheme {name!r}"})
+        path = self.images_dir / "schema.json"
+        prof = {}
+        if path.is_file():
+            try:
+                prof = json.loads(path.read_text())
+            except Exception:
+                prof = {}
+        if name == schemes.DEFAULT:
+            prof.pop("scheme", None)
+        else:
+            prof["scheme"] = name
+        path.write_text(json.dumps(prof, indent=2) + "\n")
+        return self._send(200, {"ok": True, "scheme": name,
+                                "schema": build_schema(load_profile(self.images_dir))})
+
     def _edit_schema_keypoint(self):
         """Add, rename or remove one of this study's own landmarks.
 
@@ -897,6 +945,13 @@ class Handler(BaseHTTPRequestHandler):
         # the repository's own data/, so a server started with --data-root or
         # --images elsewhere produced exports that looked for a directory that
         # does not exist — or worse, found a same-named study in the repo.
+        scheme = load_profile(self.images_dir).get("scheme")
+        if kind == "measurements" and schemes.get(scheme):
+            raise ExportError(
+                f"This study collects the {schemes.get(scheme)['title']} landmarks. Every trait "
+                f"is defined against caliPr's own landmarks, so there is nothing to measure here "
+                f"— export Landmarks for R (.tps) instead, which carries all "
+                f"{len(schemes.get(scheme)['landmarks'])} points in the protocol's order.")
         if kind == "measurements":
             out = root / "measurements.xlsx"
             run([str(_ROOT / "scripts/export_measurements.py"), "--dataset", ds,
@@ -1274,6 +1329,13 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(401, {
                 "ok": False, "locked": True,
                 "error": "automated landmarking is locked on this machine"})
+        scheme = load_profile(self.images_dir).get("scheme")
+        if schemes.get(scheme):
+            return self._send(400, {
+                "ok": False, "error":
+                    f"This study collects the {schemes.get(scheme)['title']} landmarks, and the "
+                    f"model was trained on caliPr's. It would place points this study does not "
+                    f"collect, so Auto-label is off here."})
         query = parse_qs(urlparse(self.path).query)
         view = query.get("view", ["lateral"])[0]
         if view not in ("lateral", "frontal"):
@@ -1426,7 +1488,8 @@ class Handler(BaseHTTPRequestHandler):
                      # A dataset whose profile drops every fin polygon can never
                      # satisfy the fin-density badge, so the UI should not show it.
                      "has_fin_polygons": bool(
-                         set(FIN_POLYGONS)
+                         not schemes.get(load_profile(Handler.datasets[n]).get("scheme"))
+                         and set(FIN_POLYGONS)
                          - set((load_profile(Handler.datasets[n]).get("exclude_polygons")
                                 or set()))),
                      }
@@ -1544,6 +1607,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/schema/keypoint":
             return self._edit_schema_keypoint()
+
+        if route == "/api/schema/scheme":
+            return self._set_scheme()
 
         if route != "/api/save":
             return self._send(404, {"error": "unknown route"})
