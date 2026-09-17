@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -355,6 +356,34 @@ NO_TRAINING_STACK = (
     "then restart the labeler. Hand labelling works without it.")
 
 
+XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
+class ExportError(Exception):
+    """An export that could not be built, with a message for the annotator."""
+
+
+#: What the platform's file browser is called, for the message after an export.
+FILE_BROWSER = ("Finder" if sys.platform == "darwin"
+                else "File Explorer" if sys.platform.startswith("win") else "the file manager")
+
+
+def show_on_this_computer(path: Path, how: str) -> None:
+    """Open ``path`` in its default app (``how="open"``) or select it in the file
+    browser (``how="reveal"``)."""
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-R", str(path)] if how == "reveal" else ["open", str(path)],
+                       check=True, capture_output=True, timeout=30)
+    elif sys.platform.startswith("win"):
+        if how == "reveal":
+            subprocess.Popen(["explorer", f"/select,{path}"])   # exits 1 even on success
+        else:
+            os.startfile(str(path))                             # noqa: S606 -- local file we wrote
+    else:
+        subprocess.run(["xdg-open", str(path.parent if how == "reveal" else path)],
+                       check=True, capture_output=True, timeout=30)
+
+
 class Predictor:
     """A single long-lived predict_worker subprocess, started on first use.
 
@@ -630,95 +659,123 @@ class Handler(BaseHTTPRequestHandler):
             "dropped_traits": sorted(traits_requiring(kps, polys)),
         })
 
-    def _export(self, kind: str):
-        """Build an export on demand and hand it back as a download.
+    def _build_export(self, kind: str) -> dict:
+        """Write an export under ``results/<dataset>/`` and say how to show it.
 
-        Run in-process rather than shelled out so a failure surfaces as a message
-        the annotator can read, instead of a non-zero exit code in a terminal they
-        are not looking at.
+        Returns the file to download (``file``, ``name``, ``type``) and what to open
+        on this computer (``show``, ``how``). Raises :class:`ExportError` with a
+        message the annotator can read, and ``KeyError`` for an unknown kind.
         """
-        import io
         import zipfile
-        import subprocess
 
         ds = self.images_dir.name
         root = _ROOT / "results" / ds
+
+        def run(args: list[str], timeout: int) -> None:
+            r = subprocess.run([sys.executable, *args], capture_output=True, text=True,
+                               timeout=timeout, cwd=_ROOT)
+            if r.returncode != 0:
+                raise ExportError((r.stderr or r.stdout)[-800:])
+
+        def zipped(name: str, members: list[tuple[Path, str]]) -> Path:
+            target = root / name
+            root.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
+                for f, arc in members:
+                    z.write(f, arc)
+            return target
+
         # Pass the paths, never just the dataset name. The scripts default to
         # the repository's own data/, so a server started with --data-root or
         # --images elsewhere produced exports that looked for a directory that
         # does not exist — or worse, found a same-named study in the repo.
+        if kind == "measurements":
+            out = root / "measurements.xlsx"
+            run([str(_ROOT / "scripts/export_measurements.py"), "--dataset", ds,
+                 "--images", str(self.images_dir / "lateral"),
+                 "--labels", str(self.out_dir), "--out", str(out)], 600)
+            if not out.is_file():
+                raise ExportError("the workbook was not written")
+            return {"file": out, "name": f"{ds}_measurements.xlsx", "type": XLSX,
+                    "show": out, "how": "open"}
+
+        if kind == "tps":
+            run([str(_ROOT / "scripts/export_tps.py"), "--sidecars", str(self.out_dir),
+                 "--images", str(self.images_dir / "lateral"),
+                 "--schema-dir", str(self.images_dir), "--out", str(root / "tps")], 600)
+            files = [f for f in sorted((root / "tps").iterdir()) if f.is_file()]
+            zp = zipped(f"{ds}_tps.zip", [(f, f.name) for f in files])
+            tps = root / "tps" / "landmarks.tps"
+            return {"file": zp, "name": zp.name, "type": "application/zip",
+                    "show": tps if tps.is_file() else zp, "how": "reveal"}
+
+        if kind == "sidecars":
+            # The annotations themselves, which is what training consumes and
+            # what a correction lives inside. Every other export is derived
+            # and cannot be trained on; without this a collaborator's
+            # corrections stay on their machine.
+            files = sorted(self.out_dir.glob("*.json"))
+            if not files:
+                raise ExportError("nothing labelled yet")
+            zp = zipped(f"{ds}_sidecars.zip", [(f, f"{ds}/sidecars/{f.name}") for f in files])
+            return {"file": zp, "name": zp.name, "type": "application/zip",
+                    "show": zp, "how": "reveal"}
+
+        if kind == "overlays":
+            run([str(_ROOT / "scripts/render_overlays.py"), "--dataset", ds,
+                 "--images", str(self.images_dir / "lateral"),
+                 "--sidecars", str(self.out_dir), "--out", str(root / "overlays")], 1800)
+            folder = root / "overlays"
+            imgs = sorted(folder.glob("*.jpg")) if folder.is_dir() else []
+            if not imgs:
+                raise ExportError("nothing annotated yet")
+            zp = zipped(f"{ds}_overlays.zip", [(f, f.name) for f in imgs])
+            return {"file": zp, "name": zp.name, "type": "application/zip",
+                    "show": folder, "how": "open"}
+
+        raise KeyError(kind)
+
+    def _export(self, kind: str):
+        """Build an export on demand and hand it back as a download."""
         try:
-            if kind == "measurements":
-                r = subprocess.run(
-                    [sys.executable, str(_ROOT / "scripts/export_measurements.py"),
-                     "--dataset", ds,
-                     "--images", str(self.images_dir / "lateral"),
-                     "--labels", str(self.out_dir),
-                     "--out", str(root / "measurements.xlsx")],
-                    capture_output=True, text=True, timeout=600, cwd=_ROOT)
-                out = root / "measurements.xlsx"
-                if r.returncode != 0 or not out.is_file():
-                    return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
-                return self._send_file(out, f"{ds}_measurements.xlsx")
-
-            if kind == "tps":
-                r = subprocess.run(
-                    [sys.executable, str(_ROOT / "scripts/export_tps.py"),
-                     "--sidecars", str(self.out_dir),
-                     "--images", str(self.images_dir / "lateral"),
-                     "--schema-dir", str(self.images_dir),
-                     "--out", str(root / "tps")],
-                    capture_output=True, text=True, timeout=600, cwd=_ROOT)
-                if r.returncode != 0:
-                    return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
-                buf = io.BytesIO()
-                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-                    for f in sorted((root / "tps").iterdir()):
-                        if f.is_file():
-                            z.write(f, f.name)
-                return self._send_bytes(buf.getvalue(), f"{ds}_tps.zip",
-                                        "application/zip")
-
-            if kind == "sidecars":
-                # The annotations themselves, which is what training consumes and
-                # what a correction lives inside. Every other export is derived
-                # and cannot be trained on; without this a collaborator's
-                # corrections stay on their machine.
-                files = sorted(self.out_dir.glob("*.json"))
-                if not files:
-                    return self._send(500, {"error": "nothing labelled yet"})
-                buf = io.BytesIO()
-                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-                    for f in files:
-                        z.write(f, f"{ds}/sidecars/{f.name}")
-                return self._send_bytes(buf.getvalue(), f"{ds}_sidecars.zip",
-                                        "application/zip")
-
-            if kind == "overlays":
-                r = subprocess.run(
-                    [sys.executable, str(_ROOT / "scripts/render_overlays.py"),
-                     "--dataset", ds,
-                     "--images", str(self.images_dir / "lateral"),
-                     "--sidecars", str(self.out_dir),
-                     "--out", str(root / "overlays")],
-                    capture_output=True, text=True, timeout=1800, cwd=_ROOT)
-                if r.returncode != 0:
-                    return self._send(500, {"error": (r.stderr or r.stdout)[-800:]})
-                folder = root / "overlays"
-                imgs = sorted(folder.glob("*.jpg")) if folder.is_dir() else []
-                if not imgs:
-                    return self._send(500, {"error": "nothing annotated yet"})
-                buf = io.BytesIO()
-                with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-                    for f in imgs:
-                        z.write(f, f.name)
-                return self._send_bytes(buf.getvalue(), f"{ds}_overlays.zip",
-                                        "application/zip")
+            out = self._build_export(kind)
+        except KeyError:
+            return self._send(404, {"error": f"unknown export {kind!r}"})
         except subprocess.TimeoutExpired:
             return self._send(500, {"error": "export timed out"})
         except Exception as exc:
             return self._send(500, {"error": str(exc)})
-        return self._send(404, {"error": f"unknown export {kind!r}"})
+        return self._send_bytes(out["file"].read_bytes(), out["name"], out["type"])
+
+    def _export_and_show(self, kind: str):
+        """Build an export and open it on this computer, instead of downloading it.
+
+        A download goes wherever the browser sends it, and the browser pane inside
+        the Claude app offers every download to Claude instead of opening it. The
+        server only ever listens on 127.0.0.1, so it is on the annotator's own
+        computer and can open the file itself: the workbook in the spreadsheet
+        app, the rest selected in Finder. If nothing can open it -- no desktop --
+        the page falls back to downloading.
+        """
+        try:
+            out = self._build_export(kind)
+        except KeyError:
+            return self._send(404, {"ok": False, "error": f"unknown export {kind!r}"})
+        except subprocess.TimeoutExpired:
+            return self._send(500, {"ok": False, "error": "export timed out"})
+        except Exception as exc:
+            return self._send(500, {"ok": False, "error": str(exc)})
+        try:
+            rel = str(out["show"].relative_to(_ROOT))
+        except ValueError:
+            rel = str(out["show"])
+        try:
+            show_on_this_computer(out["show"], out["how"])
+        except Exception as exc:
+            return self._send(200, {"ok": True, "path": rel, "shown": None,
+                                    "error": f"could not open it here: {exc}"})
+        return self._send(200, {"ok": True, "path": rel, "shown": out["how"],
+                                "shown_in": FILE_BROWSER})
 
     #: What a photograph may be. Extension alone is not enough — a .jpg that is
     #: not a JPEG produces a specimen that silently fails to load later, so the
@@ -729,6 +786,41 @@ class Handler(BaseHTTPRequestHandler):
         (b"II*\x00", ".tif"), (b"MM\x00*", ".tif"),   # TIFF, both byte orders
     )
     MAX_UPLOAD = 300 * 1024 * 1024
+
+    def _remove_dataset(self):
+        """Take a study out of the list by moving its folder to ``data/.trash/``.
+
+        Nothing is deleted. A study holds photographs and hand labels that took
+        hours; a mistaken click must be recoverable by moving the folder back. The
+        trash is not a study (it has no ``lateral/`` at its top level), so it never
+        appears in the list. Exports under ``results/`` are left alone.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        if Handler.data_root is None:
+            return self._send(400, {"ok": False, "error": "server was started for a single "
+                                                         "dataset; restart without --images"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            name = json.loads(self.rfile.read(n) or b"{}").get("name", "")
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        Handler.datasets = discover_datasets(Handler.data_root)
+        base = Handler.datasets.get(name)          # only a listed study, never a path
+        if base is None:
+            return self._send(404, {"ok": False, "error": f"no study named “{name}”"})
+        trash = Handler.data_root / ".trash"
+        trash.mkdir(exist_ok=True)
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        target = trash / f"{name}-{stamp}"
+        shutil.move(str(base), str(target))
+        Handler.datasets = discover_datasets(Handler.data_root)
+        if Handler.default_dataset not in Handler.datasets:
+            Handler.default_dataset = sorted(Handler.datasets)[0] if Handler.datasets else ""
+        return self._send(200, {"ok": True, "name": name,
+                                "moved_to": str(target.relative_to(Handler.data_root.parent))
+                                if Handler.data_root.parent in target.parents else str(target),
+                                "default": Handler.default_dataset})
 
     def _new_dataset(self):
         """Create an empty study directory so a folder of photographs has
@@ -1086,11 +1178,6 @@ class Handler(BaseHTTPRequestHandler):
                                      if k not in drop]
         return res
 
-    def _send_file(self, path: Path, filename: str):
-        self._send_bytes(path.read_bytes(), filename,
-                         "application/vnd.openxmlformats-officedocument."
-                         "spreadsheetml.sheet")
-
     def _send_bytes(self, data: bytes, filename: str, ctype: str):
         self.send_response(200)
         self.send_header("Content-Type", ctype)
@@ -1124,6 +1211,8 @@ class Handler(BaseHTTPRequestHandler):
                     {"name": n,
                      "images": len(list_images(Handler.datasets[n] / "lateral")),
                      "has_frontal": (Handler.datasets[n] / "frontal").is_dir(),
+                     "labelled": sum(1 for f in (Handler.datasets[n] / "sidecars").glob("*.json"))
+                                 if (Handler.datasets[n] / "sidecars").is_dir() else 0,
                      "settings": [f for f in STUDY_SETTINGS
                                   if (Handler.datasets[n] / f).is_file()],
                      # A dataset whose profile drops every fin polygon can never
@@ -1221,6 +1310,12 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/dataset/new":
             return self._new_dataset()
+
+        if route == "/api/dataset/remove":
+            return self._remove_dataset()
+
+        if route.startswith("/api/export/"):
+            return self._export_and_show(route[len("/api/export/"):])
 
         if route == "/api/upload":
             return self._upload()

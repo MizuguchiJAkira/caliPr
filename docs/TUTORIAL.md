@@ -59,6 +59,9 @@ their names are kept: `Lake_2026/Site_A/IMG_01.jpg` arrives as
 that is not an image is ignored.
 
 To add more later, hover a study in the same menu and click **+ photos**.
+**remove** takes a study out of the list by moving its folder to `data/.trash/`;
+nothing is deleted, so moving the folder back restores it. A study with saved
+labels asks you to type its name first.
 
 A study is a plain folder under `data/`, so you can also just make one yourself
 and it will appear without restarting the server.
@@ -143,12 +146,15 @@ If every landmark is still exactly where the model put it, Save asks first. A
 sidecar saved that way is model output entering the training set as ground
 truth, which is worth one deliberate click to avoid.
 
-Open **EXPORT** for three things:
+Open **EXPORT**. Each export is saved under `results/<study>/` and opened on
+your computer rather than downloaded: the workbook in your spreadsheet app, the
+rest shown in Finder.
 
 | | |
 |---|---|
 | **Measurements (.xlsx)** | one row per specimen, 33 traits, plus About / Ratios / Shape / QC / Validation sheets |
 | **Landmarks for R (.tps)** | geomorph-ready, with landmark names and a loader snippet |
+| **Annotations (.zip)** | the labels themselves, to send back for training |
 | **Labelled images (.zip)** | each photograph with its annotation drawn on |
 
 Read the **Validation** sheet before analysing. It lists the checks that failed,

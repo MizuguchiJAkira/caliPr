@@ -314,3 +314,59 @@ def test_settings_from_a_study_that_does_not_exist_creates_nothing(rooted):
     code, body = _post_json(url, "/api/dataset/new", {"name": "demo", "settings_from": "nope"})
     assert code == 400 and "nope" in body["error"]
     assert not (root / "demo").exists()
+
+
+def test_removing_a_study_moves_it_to_the_trash_intact(rooted):
+    """Nothing is deleted: a study holds hand labels, and a wrong click must be undoable."""
+    url, root = rooted
+    _post_json(url, "/api/dataset/new", {"name": "demo"})
+    (root / "demo" / "sidecars").mkdir()
+    (root / "demo" / "sidecars" / "fish.json").write_text('{"fish_id": "fish"}')
+    (root / "demo" / "lateral" / "fish_L.JPEG").write_bytes(b"\xff\xd8\xffphoto")
+
+    code, body = _post_json(url, "/api/dataset/remove", {"name": "demo"})
+
+    assert code == 200 and body["ok"]
+    assert "demo" not in _datasets(url) and not (root / "demo").exists()
+    [moved] = list((root / ".trash").iterdir())
+    assert moved.name.startswith("demo-")
+    assert (moved / "sidecars" / "fish.json").read_text() == '{"fish_id": "fish"}'
+    assert (moved / "lateral" / "fish_L.JPEG").read_bytes() == b"\xff\xd8\xffphoto"
+    assert ".trash" not in _datasets(url)
+
+
+def test_removing_the_default_study_picks_another(rooted):
+    url, root = rooted
+    _post_json(url, "/api/dataset/new", {"name": "other"})
+    code, body = _post_json(url, "/api/dataset/remove", {"name": "study"})
+    assert code == 200 and body["default"] == "other"
+
+
+def test_only_a_listed_study_can_be_removed(rooted):
+    url, root = rooted
+    (root / "not_a_study").mkdir()
+    for name in ("../..", "not_a_study", "", "nope"):
+        code, body = _post_json(url, "/api/dataset/remove", {"name": name})
+        assert code == 404, name
+    assert (root / "study").is_dir() and (root / "not_a_study").is_dir()
+    assert not (root / ".trash").exists()
+
+
+def test_the_list_says_how_many_fish_each_study_has_labelled(rooted):
+    url, root = rooted
+    (root / "study" / "sidecars").mkdir()
+    for i in range(3):
+        (root / "study" / "sidecars" / f"f{i}.json").write_text("{}")
+    with urllib.request.urlopen(f"{url}/api/datasets") as r:
+        [d] = json.loads(r.read())["datasets"]
+    assert d["labelled"] == 3
+
+
+def test_demo_mode_refuses_removing_a_study(rooted):
+    url, root = rooted
+    ls.Handler.demo_mode = True
+    try:
+        code, _ = _post_json(url, "/api/dataset/remove", {"name": "study"})
+    finally:
+        ls.Handler.demo_mode = False
+    assert code == 403 and (root / "study").is_dir()
