@@ -32,6 +32,7 @@ import argparse
 import datetime
 import json
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -171,6 +172,13 @@ def discover_datasets(root: Path) -> dict[str, Path]:
         if d.is_dir() and (d / "lateral").is_dir():
             out[d.name] = d
     return out
+
+#: A study's own settings: which landmarks it collects and how its strain is read
+#: from filenames (schema.json), and the anatomy bands Auto-label checks points
+#: against (plausibility.json). A new study of the same fish on the same rig wants
+#: both; without them Auto-label offers the outline the study turned off, checks
+#: nothing, and the export has no strain column.
+STUDY_SETTINGS = ("schema.json", "plausibility.json")
 
 #: How many specimens to mark as the suggested labelling subset.
 SUGGESTED_N = 40
@@ -734,9 +742,15 @@ class Handler(BaseHTTPRequestHandler):
                                              "dataset; restart without --images"})
         n = int(self.headers.get("Content-Length", 0))
         try:
-            raw = json.loads(self.rfile.read(n) or b"{}").get("name", "")
+            payload = json.loads(self.rfile.read(n) or b"{}")
+            raw = payload.get("name", "")
+            settings_from = payload.get("settings_from") or None
         except Exception:
             return self._send(400, {"ok": False, "error": "bad payload"})
+        source = Handler.datasets.get(settings_from) if settings_from else None
+        if settings_from and source is None:
+            return self._send(400, {"ok": False,
+                                    "error": f"no study named “{settings_from}” to copy settings from"})
         # A dataset name becomes a directory name, so it may not be a path.
         name = re.sub(r"[^A-Za-z0-9._-]", "_", Path(str(raw)).name).strip("._-")
         if not name:
@@ -746,10 +760,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(409, {"ok": False, "name": name,
                                     "error": f"“{name}” already exists"})
         (base / "lateral").mkdir(parents=True)
+        copied = []
+        for f in STUDY_SETTINGS:
+            if source is not None and (source / f).is_file():
+                shutil.copyfile(source / f, base / f)
+                copied.append(f)
         Handler.datasets = discover_datasets(Handler.data_root)
         if Handler.default_dataset not in Handler.datasets:
             Handler.default_dataset = name
-        return self._send(200, {"ok": True, "name": name})
+        return self._send(200, {"ok": True, "name": name, "settings_copied": copied})
 
     def _upload(self):
         """Accept one photograph into the current dataset's lateral/ folder.
@@ -1105,6 +1124,8 @@ class Handler(BaseHTTPRequestHandler):
                     {"name": n,
                      "images": len(list_images(Handler.datasets[n] / "lateral")),
                      "has_frontal": (Handler.datasets[n] / "frontal").is_dir(),
+                     "settings": [f for f in STUDY_SETTINGS
+                                  if (Handler.datasets[n] / f).is_file()],
                      # A dataset whose profile drops every fin polygon can never
                      # satisfy the fin-density badge, so the UI should not show it.
                      "has_fin_polygons": bool(

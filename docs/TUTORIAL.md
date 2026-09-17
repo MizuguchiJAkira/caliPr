@@ -20,24 +20,38 @@ anything more helpful. `python3 --version` tells you; Homebrew or python.org
 gets you a newer one.
 
 Automated landmarking is a separate, much heavier install (PyTorch, DeepLabCut,
-Segment Anything) and is **not needed to label by hand or to export**. Skip it
-until you want it:
+Segment Anything, about 1.7 GB) and is **not needed to label by hand or to
+export**. The trained models are downloaded separately, not kept in the
+repository. Skip all of it until you want it:
 
 ```bash
 python3.11 -m venv .venv-train
-./.venv-train/bin/pip install "deeplabcut[tf]" transformers torch
+./.venv-train/bin/pip install "deeplabcut==3.0.1" transformers
+./.venv/bin/python scripts/fetch_model.py
 ```
 
-Without it the labeler runs normally and the Auto-label button says so.
+Without it the labeler runs normally, and Auto-label tells you what to run.
 
 ---
 
 ## 1. Add your photographs
 
-Open the **dataset** menu and choose **Add folder**, then pick a folder of
-photographs. It becomes a *study*, named after the folder.
+Open the **dataset** menu and choose **Add folder — a new study**, then pick a
+folder of photographs. It becomes a *study*, named after the folder.
 
 ![Add folder](img/tutorial/1-add-folder.png)
+
+Two boxes to tick on the way in:
+
+- **Use the same settings as** the study you have open. Leave it ticked for more
+  fish from the same rig: the study then collects the same landmarks, reads the
+  strain from each file name, and gets Auto-label's anatomy check. Untick it for
+  a different species or setup.
+- **Each photo also shows the head-on view in a mirror.** For photographs from
+  the Cornell rig, where a mirror on the left shows the fish's head. Each one is
+  split into a lateral and a frontal image. The original is kept, and a photo
+  where no mirror edge can be found is added whole and named in a message. Check
+  a few on the **frontal** view to see the head was not cut.
 
 You can also drag a folder straight onto the page. Subfolders are walked, and
 their names are kept: `Lake_2026/Site_A/IMG_01.jpg` arrives as
@@ -101,12 +115,16 @@ Each view keeps its own record of what was accepted, corrected and left
 unreviewed, and the record is saved with the fish. Reopening a saved fish brings
 it back, so points you never reviewed stay marked and `A` still walks them.
 
+On the frontal view there is no ruler auto-scale: click the two ruler points and
+set **known span** to the millimetres between them. Without it the fish still
+exports, with mouth width left blank and the reason in the QC sheet.
+
 On the frontal view, check both corners whatever their colour. On the seven fish
 held out from training, the worst corner pair was 1.7 mm off in mouth width at
 0.95 confidence, and the best was placed at 0.27.
 
-The first Auto-label of a session takes a few seconds while the model loads;
-after that it is about a second. **Auto-label all unlabelled** runs the whole
+The first Auto-label of a session takes a few seconds while the model loads,
+closer to a minute on a fresh install; after that it is about a second. **Auto-label all unlabelled** runs the whole
 backlog in one pass. Each fish then opens with its points already placed and
 the first one selected, so `A` works from the first press; a **P** badge marks
 the ones still to review.
