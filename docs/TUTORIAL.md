@@ -132,6 +132,27 @@ backlog in one pass. Each fish then opens with its points already placed and
 the first one selected, so `A` works from the first press; a **P** badge marks
 the ones still to review.
 
+### A different landmark scheme
+
+Under the **Landmarks** header, **scheme** chooses what a study collects:
+
+| | |
+|---|---|
+| **caliPr (23 landmarks, 33 traits)** | the default: what the traits, the trained model and this tutorial use |
+| **BGNN 2D body landmarks (23)** | the Fish-AIR / BGNN shape landmarks, in their numbered order |
+
+A study on another scheme asks for that scheme's points, in its numbering, and
+exports them to TPS in that order — which is what geomorph reads. No trait is
+computed there: every trait is defined in code against caliPr's landmarks, and a
+mapping between two schemes would be a claim about anatomy rather than a
+conversion. The measurements export says so instead of writing a sheet of blanks,
+and Auto-label is off, because the model only knows the landmarks it was trained
+on.
+
+Switching is reversible and changes nothing already saved. Labels stay in their
+sidecars exactly as clicked; the other scheme's points simply stop being asked
+for until you switch back.
+
 ### Landmarks of your own
 
 Every study collects the landmarks defined in the code. A study can also add its
