@@ -7,6 +7,13 @@ foam (docs/what-we-tried.md). A model trained on the lab's own tracings is the n
 thing to try. This writes what it trains on.
 
     python scripts/build_fin_dataset.py            # -> fin_seg/
+    python scripts/build_fin_dataset.py --framed-by predicted.json --out fin_seg_pred
+
+With ``--framed-by``, each crop is framed from *predicted* landmarks (a JSON of
+``{fish_id: {"keypoints": {...}}}``) while the mask is still the hand tracing, so a
+fin outliner can be measured the way it would be used: on crops placed by the
+keypoint model. A fin whose predicted base or tip is missing -- not found, or
+dropped as anatomically impossible -- gets no crop and is recorded as such.
 
 Each example is one fin on one fish:
 
@@ -91,7 +98,7 @@ def px_per_mm(block: dict) -> float | None:
     return None
 
 
-def build(dataset: Path, out: Path) -> list[dict]:
+def build(dataset: Path, out: Path, framed_by: dict | None = None) -> list[dict]:
     manifest = ident.load_manifest(dataset)
     out.mkdir(parents=True, exist_ok=True)
     rows = []
@@ -104,6 +111,12 @@ def build(dataset: Path, out: Path) -> list[dict]:
                   and all(k in kps for k in FIN_LANDMARKS[f])]
         if not wanted or "premaxilla_tip" not in kps or "caudal_base" not in kps:
             continue
+        # Where the crop is framed from: this fish's own labels, or a prediction.
+        frame = kps
+        if framed_by is not None:
+            if fid not in framed_by:
+                continue
+            frame = framed_by[fid].get("keypoints") or {}
         img_path = next(iter(sorted((dataset / "lateral").glob(f"{fid}_L.*"))), None)
         if img_path is None:
             continue
@@ -112,9 +125,16 @@ def build(dataset: Path, out: Path) -> list[dict]:
             print(f"  SKIP {fid}: labels do not fit the image on disk")
             continue
         image = cv2.imread(str(img_path))
-        sl = math.dist(kps["premaxilla_tip"], kps["caudal_base"])
         for fin in wanted:
-            base, tip = (kps[k] for k in FIN_LANDMARKS[fin])
+            need = (*FIN_LANDMARKS[fin], "premaxilla_tip", "caudal_base")
+            absent = [k for k in need if k not in frame]
+            if absent:
+                rows.append({"name": f"{fid}__{fin}", "fish_id": fid, "fin": fin, "no_crop": True,
+                             "missing": absent, "area_px": round(polygon_area(
+                                 np.asarray(polys[fin], float)), 1)})
+                continue
+            sl = math.dist(frame["premaxilla_tip"], frame["caudal_base"])
+            base, tip = (frame[k] for k in FIN_LANDMARKS[fin])
             box = crop_box(base, tip, sl)
             crop, sx, sy = cut(image, box)
             poly = to_crop(polys[fin], box, sx, sy)
@@ -140,14 +160,20 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="build_fin_dataset")
     ap.add_argument("--dataset", type=Path, default=_ROOT / "data" / "cornell")
     ap.add_argument("--out", type=Path, default=_ROOT / "fin_seg")
+    ap.add_argument("--framed-by", type=Path, default=None,
+                    help="frame crops from these predicted landmarks instead of the labels")
     args = ap.parse_args(argv)
-    rows = build(args.dataset, args.out)
+    framed = json.loads(args.framed_by.read_text()) if args.framed_by else None
+    rows = build(args.dataset, args.out, framed)
     fish = {r["fish_id"] for r in rows}
-    print(f"{len(rows)} fin crops from {len(fish)} fish -> {args.out}")
+    made = [r for r in rows if not r.get("no_crop")]
+    print(f"{len(made)} fin crops from {len(fish)} fish -> {args.out}")
     for fin in FINS:
-        n = sum(r["fin"] == fin for r in rows)
-        clipped = sum(r["fin"] == fin and r["outside_crop"] for r in rows)
-        print(f"  {fin:9} {n:3}" + (f"  ({clipped} reach outside the crop)" if clipped else ""))
+        n = sum(r["fin"] == fin for r in made)
+        clipped = sum(r["fin"] == fin and r["outside_crop"] for r in made)
+        none = sum(r["fin"] == fin for r in rows if r.get("no_crop"))
+        print(f"  {fin:9} {n:3}" + (f"  ({clipped} reach outside the crop)" if clipped else "")
+              + (f"  ({none} with no predicted base/tip)" if none else ""))
     return 0
 
 

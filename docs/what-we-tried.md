@@ -618,3 +618,38 @@ draws the dots so this can be seen per photograph; it does not yet correct for i
 The dots also expose a wrong auto-scale: on ASN_42, read at 15.07 px/mm where the
 rig is about 20.6, they fall between the ticks almost everywhere.
 
+## A fin outliner trained on the lab's tracings
+
+Segment Anything untrained missed fin area by a median 8-35%. A model trained on the
+lab's own dense tracings (`scripts/build_fin_dataset.py`,
+`scripts/train_fin_segmenter.py`): one network for all four fins, given a crop
+framed from the fin's base and tip and sized from standard length, plus a map
+marking that base and tip. ResNet-50 encoder, the one DeepLabCut uses. Measured by
+five-fold cross-validation split by fish, as area error against the hand tracing.
+
+| fin | tracings | median \|error\| | worst |
+|---|---|---|---|
+| pectoral | 24 | 5.7% | 29% |
+| dorsal | 18 | 13.7% | 51% |
+| pelvic | 22 | 10.0% | 78% |
+| anal | 25 | 4.7% | 19% |
+
+An earlier run on 81 of these 89 fins gave 4.3 / 8.3 / 8.8 / 5.2%. With about
+twenty tracings a fin the dorsal's median moved five points between runs, so read
+these as ranges.
+
+**Framing from predicted landmarks costs nothing measurable.** Scored again on the
+26 fish the keypoint model never trained on, with crops framed from its
+predictions: medians within a point of hand framing on all 65 fins. On the 29 fins
+where predicted and labelled points actually differ -- including every fin of
+ASN_24, ASN_27, ASN_30 and HRN_42, labelled wholly by hand -- the median is 6.0%
+predicted against 7.0% hand-framed, with no fin consistently worse.
+
+**What does cost: 6 of 71 fins got no crop**, because the plausibility check
+dropped a predicted tip (HRN_15 dorsal; TXD_17 pectoral, dorsal and pelvic; TXD_18
+anal; TXD_2 dorsal). Those fins would get no outline at all.
+
+The large misses are small, folded or pinned fins, where a few pixels are a large
+fraction of the area, and at least one is a labelling inconsistency: TXD_17's
+pelvic tip sits well beyond its own traced outline.
+
