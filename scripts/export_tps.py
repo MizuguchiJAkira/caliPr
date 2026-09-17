@@ -53,6 +53,24 @@ from fish_morpho.landmark_config import (  # noqa: E402
 )
 
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".JPEG", ".JPG")
+LANDMARK_LABELS: dict[str, str] = {}
+
+def landmark_labels(profile_dir: Path | None) -> dict[str, str]:
+    """What this study calls each landmark: its own additions, and any it renamed."""
+    if profile_dir is None:
+        return {}
+    prof = profile_dir / "schema.json"
+    if not prof.is_file():
+        return {}
+    try:
+        doc = json.loads(prof.read_text())
+    except Exception:
+        return {}
+    out = {k["name"]: k.get("label") or k["name"]
+           for k in (doc.get("extra_keypoints") or []) if isinstance(k, dict) and k.get("name")}
+    out.update(doc.get("labels") or {})
+    return out
+
 
 def landmark_order(profile_dir: Path | None) -> tuple[str, ...]:
     """Landmark order for this dataset: the schema, minus anything it excludes.
@@ -64,15 +82,23 @@ def landmark_order(profile_dir: Path | None) -> tuple[str, ...]:
     landmark it has never seen — gpagen would simply fail.
     """
     drop: set[str] = set()
+    extra: list[str] = []
     if profile_dir is not None:
         prof = profile_dir / "schema.json"
         if prof.is_file():
             try:
-                drop = set(json.loads(prof.read_text()).get("exclude_keypoints") or [])
+                doc = json.loads(prof.read_text())
+                drop = set(doc.get("exclude_keypoints") or [])
+                # Landmarks this study added. No trait uses them, but they are
+                # coordinates on every specimen, which is exactly what TPS carries.
+                extra = [k["name"] for k in (doc.get("extra_keypoints") or [])
+                         if isinstance(k, dict) and k.get("name")
+                         and (k.get("view") or "lateral") == "lateral"
+                         and k["name"] not in drop]
             except Exception:
-                drop = set()
-    return tuple(k.name for k in KEYPOINTS
-                 if k.view == View.LATERAL and k.name not in drop)
+                drop, extra = set(), []
+    return tuple([k.name for k in KEYPOINTS
+                  if k.view == View.LATERAL and k.name not in drop] + extra)
 
 #: Coordinate written for a landmark the annotator did not place. Negative by
 #: convention so ``readland.tps(negNA = TRUE)`` turns it into NA.
@@ -132,8 +158,10 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     # the profile lives beside the image folder, e.g. data/alewife/schema.json
-    order = landmark_order(args.schema_dir or args.images.parent)
+    profile_dir = args.schema_dir or args.images.parent
+    order = landmark_order(profile_dir)
     globals()["LANDMARK_ORDER"] = order
+    globals()["LANDMARK_LABELS"] = landmark_labels(profile_dir)
 
     args.out.mkdir(parents=True, exist_ok=True)
     tps_path = args.out / f"{args.name}.tps"
@@ -210,9 +238,9 @@ def main(argv=None) -> int:
     names_path = args.out / "landmark_names.csv"
     with names_path.open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["index", "name"])
+        w.writerow(["index", "name", "label"])
         for i, n in enumerate(LANDMARK_ORDER, start=1):
-            w.writerow([i, n])
+            w.writerow([i, n, LANDMARK_LABELS.get(n, n)])
 
     r_path = args.out / "load_landmarks.R"
     r_path.write_text(f'''# Load the landmarks exported from caliPr.
