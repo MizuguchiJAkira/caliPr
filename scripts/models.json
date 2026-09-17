@@ -1,0 +1,27 @@
+{
+  "release": "models-2026-09-17",
+  "models": {
+    "lateral": {
+      "file": "calipr-trout-lateral-2026-08-05.zip",
+      "url": "https://github.com/MizuguchiJAkira/caliPr/releases/download/models-2026-09-17/calipr-trout-lateral-2026-08-05.zip",
+      "sha256": "48eeff402e91b4a7ef4a68c768ba22a10f9e0e9de99d556badc0a764534f0357",
+      "bytes": 98305537,
+      "folder": "dlc_project",
+      "project": "jcalipr-jcalipr-2026-08-05",
+      "snapshot": "snapshot-best-170.pt",
+      "scale": 0.25,
+      "landmarks": 19
+    },
+    "frontal": {
+      "file": "calipr-trout-frontal-2026-09-16.zip",
+      "url": "https://github.com/MizuguchiJAkira/caliPr/releases/download/models-2026-09-17/calipr-trout-frontal-2026-09-16.zip",
+      "sha256": "7f902c1818891eba0a2b35cc6e8928bf51b98b8f7c157f3e2ac3b4ad6731d764",
+      "bytes": 94543828,
+      "folder": "dlc_project_frontal",
+      "project": "jcalipr-jcalipr-2026-09-16",
+      "snapshot": "snapshot-200.pt",
+      "scale": 0.3,
+      "landmarks": 2
+    }
+  }
+}
