@@ -146,6 +146,11 @@
   #autocal { display:flex; align-items:center; gap:7px; margin-top:6px; }
   #autocal button { padding:3px 8px; font-size:11px; }
   #autotxt { font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
+  #tickrow { display:flex; align-items:center; gap:7px; margin-top:4px; font-size:11px; color:var(--mut); }
+  #tickrow label { display:flex; align-items:center; gap:5px; cursor:pointer; }
+  #tickrow button { padding:2px 7px; font-size:11px; }
+  #ticktxt { font-size:11px; color:var(--mut); line-height:1.4; margin-top:3px; }
+  #ticktxt b { color:var(--fg); font-weight:600; }
   #calread { margin-top:6px; font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
   #calread.warn { color:#04121f; background:var(--warn); border-radius:4px; padding:3px 6px; font-weight:600; }
   /* Stacked, not side by side: two range inputs in a 290px sidebar overflowed by
@@ -328,6 +333,9 @@
       </div>
       <div id="calread">—</div>
       <div id="autocal"><button id="useauto">use ruler auto-scale</button><span id="autotxt"></span></div>
+      <div id="tickrow"><label title="A dot for every millimetre at the detected scale. Green: within ¼ mm of its tick. Amber: within ½ mm. Red: further — the scale does not hold there."><input type="checkbox" id="showticks"> show mm dots on the ruler</label>
+        <button id="tickzoom" title="Zoom to the ruler to check the dots against the ticks">check</button></div>
+      <div id="ticktxt"></div>
       <details id="imgpanel">
         <summary>image adjustments <span id="imgstate"></span></summary>
         <div id="imgctrl">
@@ -1430,6 +1438,7 @@ function draw(){
       ctx.strokeStyle='#c07bff';ctx.lineWidth=1.5;ctx.stroke(); }
     if(!only && m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
     if(!only && m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
+    if(!only) drawTicks();
   }
   // One screen pixel covers 1/scale image pixels, and that is the floor on
   // placement precision however steady the hand. Fitted to a 4400px crop it is
@@ -1696,15 +1705,87 @@ $('#useauto').onclick=applyAutoCal;
 // needs no clicked points and no typed span.
 let autoCal=null;
 async function loadAutoCal(){
-  autoCal=null; $('#autotxt').textContent='detecting…';
+  autoCal=null; $('#autotxt').textContent='detecting…'; renderTickSummary();
   if(!cur||!cur.lateral){ $('#autotxt').textContent=''; return; }
+  const s=cur;
   try{
     const r=await api('/api/autocal/'+encodeURIComponent(cur.lateral)+dsq());
+    if(cur!==s) return;                              // another fish was opened meanwhile
     if(r && r.px_per_mm){ autoCal=r;
       $('#autotxt').textContent=`${r.px_per_mm.toFixed(2)} px/mm detected`; }
     else { $('#autotxt').textContent='auto-scale unavailable'; }
   }catch(e){ $('#autotxt').textContent='auto-scale unavailable'; }
+  renderTickSummary(); draw();
 }
+// ---- millimetre dots on the ruler ------------------------------------------
+// The auto-scale is one number, measured from how regularly the ticks repeat.
+// The dots lay that number along the ruler, one per millimetre, so whether it
+// fits can be seen rather than taken on trust. A dot a whole millimetre out sits
+// on the neighbouring tick and looks right, so the colour carries the drift:
+// green within a quarter millimetre of its own tick, amber within a half, red
+// beyond. On this rig the ruler is often nearer the camera at one end and the
+// millimetres widen along it, so the dots go amber and red toward the ends.
+let showTicks = localStorage.getItem('calipr_show_ticks')!=='0';
+$('#showticks').checked = showTicks;
+$('#showticks').onchange=e=>{ showTicks=e.target.checked;
+  localStorage.setItem('calipr_show_ticks', showTicks?'1':'0'); draw(); };
+function tickColour(off, ppm){
+  const a=Math.abs(off)/ppm;
+  return a<=0.25 ? '#37c871' : a<=0.5 ? '#ffb454' : '#ff5d6c';
+}
+function renderTickSummary(){
+  const el=$('#ticktxt'), T=autoCal && autoCal.ticks;
+  $('#tickrow').style.display = T ? '' : 'none';
+  if(!T){
+    // No ticks at the detected spacing: the auto-scale itself is most likely wrong.
+    el.innerHTML = (autoCal && autoCal.ticks_error)
+      ? `<b style="color:var(--kp)">No ruler ticks at ${autoCal.px_per_mm.toFixed(2)} px/mm</b> — this auto-scale is probably wrong; place the two ruler points instead`
+      : '';
+    return;
+  }
+  const n=T.ticks.length, on=T.within_quarter_mm;
+  const a=T.px_per_mm_first_end, b=T.px_per_mm_last_end, spread=Math.abs(b-a)/T.px_per_mm*100;
+  const wrong = on < 0.3*n;
+  el.innerHTML = (wrong ? `<b style="color:var(--kp)">The dots do not follow the ticks — this auto-scale is probably wrong; place the two ruler points instead.</b><br>` : '')
+    + `<b>${on}</b> of ${n} dots within ¼ mm of their tick · worst `
+    + `<b>${T.max_offset_mm.toFixed(1)} mm</b> off`
+    + (spread>=1 ? `<br>millimetres ${spread.toFixed(0)}% wider at one end of the ruler `
+                 + `(${Math.min(a,b).toFixed(1)}–${Math.max(a,b).toFixed(1)} px/mm)` : '');
+}
+function drawTicks(){
+  if(!showTicks || view!=='lateral' || !autoCal || !autoCal.ticks || imgView!=='lateral') return;
+  const T=autoCal.ticks, ppm=T.px_per_mm, gap=ppm*vs.scale;          // screen px between dots
+  const r=Math.max(1.2, Math.min(4, gap*0.28));
+  for(const [x,y,off] of T.ticks){
+    const [sx,sy]=toScr(x,y);
+    if(sx<-5||sy<-5||sx>cv.width+5||sy>cv.height+5) continue;
+    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fillStyle=tickColour(off,ppm); ctx.fill();
+    // Close enough to see individual ticks: mark where the real one is, so the
+    // gap between dot and tick is visible, not just coloured.
+    if(gap>=14 && Math.abs(off)>=1){
+      const [tx]=toScr(x+off,y);
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(tx,sy);
+      ctx.strokeStyle='#ffffffaa'; ctx.lineWidth=1; ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(tx,sy-r-2); ctx.lineTo(tx,sy+r+2); ctx.stroke();
+    }
+  }
+}
+$('#tickzoom').onclick=()=>{
+  const T=autoCal && autoCal.ticks; if(!T || !imgW) return;
+  if(view!=='lateral'){ toast('The ruler dots are on the lateral view'); return; }
+  if(!showTicks){ showTicks=true; $('#showticks').checked=true; localStorage.setItem('calipr_show_ticks','1'); }
+  const xs=T.ticks.map(t=>t[0]), ys=T.ticks.map(t=>t[1]);
+  const x0=Math.min(...xs), x1=Math.max(...xs), yc=(Math.min(...ys)+Math.max(...ys))/2;
+  const rr=cv.getBoundingClientRect();
+  // Framed on the first ten centimetres from the end that drifts most, where a
+  // misfit shows first; wheel out to see the whole ruler.
+  const worstLeft = Math.abs(T.ticks[0][2]) >= Math.abs(T.ticks[T.ticks.length-1][2]);
+  const span=Math.min(x1-x0, 40*T.px_per_mm);
+  vs.scale = rr.width/(span*1.1);
+  const cx = worstLeft ? x0+span/2 : x1-span/2;
+  vs.ox = rr.width/2 - cx*vs.scale; vs.oy = rr.height/2 - yc*vs.scale;
+  draw();
+};
 function applyAutoCal(){
   if(!autoCal){ toast('No auto-scale for this image'); return; }
   model[view].auto_ppm=autoCal.px_per_mm;

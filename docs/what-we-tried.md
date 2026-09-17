@@ -597,3 +597,24 @@ The frontal model is pinned to epoch 200 by `model.json` in its project. Trainin
 picked `snapshot-best-030` on its validation metric, but epoch 200 was better on
 the seven held-out fish: median mouth-width error 0.73 mm, worst 1.7 mm.
 
+## The ruler's scale is not the same along its length
+
+Ruler auto-scale measures one tick spacing for the whole photograph. Laying that
+spacing along the ruler as a dot per millimetre, and finding the real tick near
+each dot, shows the dots on the ticks across the middle and drifting toward the
+ends -- on TXD_46 a whole millimetre by each end, on ASN_3 two. The drift runs the
+same way on both sides of the middle, so it is not lens distortion, which would
+be symmetric: the millimetres widen from one end of the ruler to the other, as
+they do when one end is nearer the camera. Checked without the tick tracking by
+measuring the gaps between the long centimetre ticks: on TXD_46 they grow 247,
+249, 250, 252, 254, 257, 257, 259 px from left to right; HRN_45, flatter in the
+tracking, gives 252-254 px.
+
+Across six Cornell photographs the two ends of the ruler differ by 1-7% in px/mm.
+A single scale is therefore a few percent off at the ends of the ruler, and the
+fish, which lies below it, is measured through the same tilt. The labeler now
+draws the dots so this can be seen per photograph; it does not yet correct for it.
+
+The dots also expose a wrong auto-scale: on ASN_42, read at 15.07 px/mm where the
+rig is about 20.6, they fall between the ticks almost everywhere.
+

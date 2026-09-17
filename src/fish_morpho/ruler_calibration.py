@@ -591,3 +591,164 @@ def calibrate(
             notes=f"{result.notes}; auto fallback reason: {auto_error}",
         )
     return result
+
+
+def locate_ticks(
+    image: "NDArray[np.uint8]",
+    px_per_mm: float,
+    *,
+    band_h: int = 24,
+    step: int = 8,
+    reach: int = 96,
+    gap: int = 6,
+) -> dict:
+    """Where a detected scale puts each millimetre on the ruler, and where the ticks are.
+
+    ``detect_tick_scale`` measures the spacing of the ticks, not their positions.
+    This lays that spacing along the ruler -- one position per millimetre -- and
+    finds the real tick nearest each position, so the labeler can draw a dot per
+    millimetre and anyone can see whether the dots stay on the ticks.
+
+    They do not always. On the Cornell rig the ruler is often slightly closer to
+    the camera at one end, so the millimetres are wider there: on TXD_46 the dots
+    sit within 2 px of the ticks across the middle and drift a whole millimetre by
+    the ends. A single px/mm is then a few percent off at one end of the ruler.
+
+    Returns ``ticks``, a list of ``[x, y, offset]`` (offset: real tick minus dot,
+    in px, unwrapped so a drift past half a tick keeps growing rather than jumping
+    to the neighbouring tick), plus a summary. Raises ``RuntimeError`` if no ruler
+    is found at this spacing.
+    """
+    if image.ndim == 3:
+        import cv2
+
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = image
+    P = float(px_per_mm)
+    h, w = gray.shape[:2]
+    if P < 2 or w < 10 * P or h <= band_h:
+        raise RuntimeError("image too small for this tick spacing")
+
+    # Every horizontal band's column darkness, detrended, in one pass.
+    cs = np.vstack([np.zeros((1, w), np.float64), np.cumsum(gray, axis=0, dtype=np.float64)])
+    ys = np.arange(0, h - band_h, step)
+    bands = 255.0 - (cs[ys + band_h] - cs[ys]) / band_h
+    k = max(9, int(4 * P) | 1)
+    csx = np.hstack([np.zeros((bands.shape[0], 1)), np.cumsum(bands, axis=1)])
+    half = k // 2
+    lo = np.clip(np.arange(w) - half, 0, w)
+    hi = np.clip(np.arange(w) + half + 1, 0, w)
+    bands = bands - (csx[:, hi] - csx[:, lo]) / (hi - lo)
+
+    # The band, stretch and phase where a comb at this spacing fits best. Scored
+    # over a window a few centimetres long rather than the whole width: a short
+    # ruler -- the alewife card's -- is otherwise diluted by the empty frame.
+    nbins = max(8, int(round(2 * P)))
+    win = int(min(w, 40 * P))
+    starts = range(0, max(1, w - win + 1), max(1, win // 2))
+    best_score, best_band, best_bin, best_std = -np.inf, 0, 0, 1.0
+    for x0 in starts:
+        cols = np.arange(x0, x0 + win)
+        phase_bin = ((cols % P) / P * nbins).astype(int) % nbins
+        counts = np.bincount(phase_bin, minlength=nbins).astype(float)
+        filled = counts > 0                   # a whole-number spacing leaves some bins empty
+        for i in range(bands.shape[0]):
+            seg = bands[i, x0:x0 + win]
+            folded = np.full(nbins, np.nan)
+            folded[filled] = np.bincount(phase_bin, weights=seg, minlength=nbins)[filled] / counts[filled]
+            j = int(np.nanargmax(folded))
+            score = folded[j] - np.nanmean(folded)
+            if score > best_score:
+                best_score, best_band, best_bin, best_std = score, i, j, float(seg.std())
+    # A comb fits anything a little. Rulers score well above both floors; noise
+    # and a ruler-free stretch of photograph score below them.
+    if best_score < 5.0 or best_score < 0.45 * best_std:
+        raise RuntimeError(f"no ruler ticks at {P:.2f} px/mm")
+    phi = (best_bin + 0.5) / nbins * P
+    xs = phi + np.arange(int((w - 1 - phi) / P) + 1) * P
+    xs = xs[(xs > P) & (xs < w - 1 - P)]
+
+    def at(row, x):
+        return np.interp(x, np.arange(w), row)
+
+    # Each position's tick contrast in the bands near the best one: a tilted ruler
+    # leaves one band partway along.
+    near = np.flatnonzero(np.abs(ys - ys[best_band]) <= reach)
+    C = np.array([at(bands[j], xs) - 0.5 * (at(bands[j], xs - P / 2) + at(bands[j], xs + P / 2))
+                  for j in near])
+    strength = C.max(axis=0)
+    band_of = near[C.argmax(axis=0)]
+
+    # The ruler: the longest run of positions with a tick, bridging short gaps.
+    on = np.convolve(strength, np.ones(5) / 5, mode="same") > 0.25 * np.percentile(strength, 90)
+    idx = np.flatnonzero(on)
+    if idx.size < 10:
+        raise RuntimeError(f"no ruler ticks at {P:.2f} px/mm")
+    runs, a = [], idx[0]
+    for p, q in zip(idx[:-1], idx[1:]):
+        if q - p > gap + 1:
+            runs.append((a, p))
+            a = q
+    runs.append((a, idx[-1]))
+    a, b = max(runs, key=lambda r: r[1] - r[0])
+    sel = np.arange(a, b + 1)
+    good = sel[strength[sel] > 0.25 * np.percentile(strength[sel], 90)]
+    line = np.polyfit(xs[good], ys[band_of[good]] + band_h / 2, 1)
+
+    # Walk outward from the middle of that run, finding each real tick near where
+    # the previous one was: the drift is followed continuously, so a tick a whole
+    # millimetre out is still matched to its own dot rather than the neighbour's.
+    def tick_near(x, expect):
+        c = x + expect
+        yb = int(np.clip(np.searchsorted(ys, np.polyval(line, x) - band_h / 2), 0, len(ys) - 1))
+        row = bands[yb]
+        l, r = int(np.floor(c - P / 2)), int(np.ceil(c + P / 2))
+        if l < 1 or r >= w - 1:
+            return None, 0.0
+        m = l + int(np.argmax(row[l:r + 1]))
+        if m in (l, r):
+            # the window's edge, sloping up to a tick outside it: no tick here
+            return None, 0.0
+        y0, y1, y2 = row[m - 1], row[m], row[m + 1]
+        den = y0 - 2 * y1 + y2
+        peak = m + (0.5 * (y0 - y2) / den if den else 0.0)
+        return peak - x, float(y1 - np.median(row[l:r + 1]))
+
+    floor = 0.4 * np.percentile([tick_near(x, 0.0)[1] for x in xs[good]], 90)
+    mid = int(good[len(good) // 2])
+    o_mid, _ = tick_near(xs[mid], 0.0)
+    offs = {mid: o_mid if o_mid is not None else 0.0}
+    first = last = mid
+    for direction in (1, -1):
+        i, prev, misses = mid, offs[mid], 0
+        while 0 <= i + direction < len(xs):
+            i += direction
+            o, strength_here = tick_near(xs[i], prev)
+            if o is None or strength_here <= floor:
+                # a number or a smudge interrupts the ticks: carry the drift across
+                misses += 1
+                if misses > gap:
+                    break
+                offs[i] = prev
+                continue
+            misses, prev, offs[i] = 0, o, o
+            first, last = min(first, i), max(last, i)
+    order = range(first, last + 1)
+    ticks = [[round(float(xs[i]), 1), round(float(np.polyval(line, xs[i])), 1),
+              round(float(offs[i]), 1)] for i in order]
+    o = np.array([offs[i] for i in order])
+    n = len(o)
+    ends = max(1, n // 8)
+    def spacing(seg):
+        kk = np.arange(len(seg))
+        return float(P + np.polyfit(kk, seg, 1)[0]) if len(seg) > 2 else P
+    return {
+        "px_per_mm": P,
+        "ticks": ticks,
+        "span_mm": n - 1,
+        "within_quarter_mm": int(np.sum(np.abs(o) <= P / 4)),
+        "max_offset_mm": round(float(np.abs(o).max() / P), 2),
+        "px_per_mm_first_end": round(spacing(o[:ends]), 2),
+        "px_per_mm_last_end": round(spacing(o[-ends:]), 2),
+    }
