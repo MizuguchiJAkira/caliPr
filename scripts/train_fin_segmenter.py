@@ -85,7 +85,7 @@ class FinSegmenter(nn.Module):
 # ---------------------------------------------------------------------------
 
 def load(data: Path) -> list[dict]:
-    rows = json.loads((data / "index.json").read_text())
+    rows = [r for r in json.loads((data / "index.json").read_text()) if not r.get("no_crop")]
     for r in rows:
         z = np.load(data / f"{r['name']}.npz")
         r["image"], r["mask"], r["base_tip"] = z["image"], z["mask"], z["base_tip"]
@@ -241,6 +241,9 @@ def main(argv=None) -> int:
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available()
                     else "mps" if torch.backends.mps.is_available() else "cpu")
     ap.add_argument("--seed", type=int, default=7)
+    ap.add_argument("--eval-also", type=Path, default=None,
+                    help="a second crop set (e.g. framed by predicted landmarks) to score each "
+                         "fold's model on, for the same held-out fish")
     args = ap.parse_args(argv)
 
     rows = load(args.data)
@@ -263,6 +266,11 @@ def main(argv=None) -> int:
     rng.shuffle(shuffled)
     folds = [shuffled[i::args.folds] for i in range(args.folds)]
     results = []
+    also_rows, also_results, also_missing = [], [], []
+    if args.eval_also:
+        index = json.loads((args.eval_also / "index.json").read_text())
+        also_missing = [r for r in index if r.get("no_crop")]
+        also_rows = load(args.eval_also)
     for k, held in enumerate(folds):
         if args.only_fold is not None and k != args.only_fold:
             continue
@@ -281,6 +289,17 @@ def main(argv=None) -> int:
         for r in fold_res:
             r["fold"] = k
         results += fold_res
+        also_te = [r for r in also_rows if r["fish_id"] in held]
+        if also_te:
+            also_masks = predict_masks(model, also_te, args.device)
+            also_dir = args.out / "predicted_also"
+            also_dir.mkdir(exist_ok=True)
+            for r, m in zip(also_te, also_masks):
+                cv2.imwrite(str(also_dir / f"{r['name']}.png"), m * 255)
+            also_fold = measure(also_te, also_masks)
+            for r in also_fold:
+                r["fold"] = k
+            also_results += also_fold
         print(f"  fold {k} done in {time.time() - t0:.0f}s: "
               + ", ".join(f"{r['fin']} {r['area_err_pct']:+.0f}%" for r in fold_res))
         del model
@@ -289,13 +308,29 @@ def main(argv=None) -> int:
         elif args.device == "cuda":
             torch.cuda.empty_cache()
     summary = summarise(results)
-    (args.out / "cv_results.json").write_text(json.dumps({"summary": summary, "results": results,
-                                                          "epochs": args.epochs, "folds": args.folds},
-                                                         indent=1))
-    print("\nheld-out fin area error (vs hand tracing):")
-    for fin, s in summary.items():
-        print(f"  {fin:9} n={s['n']:2}  median |err| {s['median_abs_err_pct']:5.1f}%  "
-              f"mean {s['mean_err_pct']:+5.1f}%  worst {s['worst_abs_err_pct']:5.1f}%  IoU {s['median_iou']:.2f}")
+    report = {"summary": summary, "results": results, "epochs": args.epochs, "folds": args.folds}
+
+    def show(title, summ):
+        print(f"\n{title}")
+        for fin, s in summ.items():
+            print(f"  {fin:9} n={s['n']:2}  median |err| {s['median_abs_err_pct']:5.1f}%  "
+                  f"mean {s['mean_err_pct']:+5.1f}%  worst {s['worst_abs_err_pct']:5.1f}%  IoU {s['median_iou']:.2f}")
+
+    show("held-out fin area error (vs hand tracing):", summary)
+    if args.eval_also:
+        # The same fins both ways, so the difference is the framing and nothing else.
+        names = {r["name"] for r in also_results}
+        paired_hand = [r for r in results if r["name"] in names]
+        report.update(also=str(args.eval_also), also_results=also_results,
+                      also_summary=summarise(also_results),
+                      paired_hand_summary=summarise(paired_hand),
+                      also_no_crop=[{k: r[k] for k in ("name", "fin", "missing")} for r in also_missing])
+        show(f"same fins, crops framed from hand landmarks ({len(paired_hand)}):", report["paired_hand_summary"])
+        show(f"same fins, crops framed from {args.eval_also.name} ({len(also_results)}):", report["also_summary"])
+        if also_missing:
+            print(f"  plus {len(also_missing)} fin(s) with no crop at all -- base or tip not predicted: "
+                  + ", ".join(f"{r['fish_id'].split('_', 2)[-1]} {r['fin']}" for r in also_missing))
+    (args.out / "cv_results.json").write_text(json.dumps(report, indent=1))
     return 0
 
 
