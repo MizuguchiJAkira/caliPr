@@ -7,6 +7,7 @@ SHA-256, so a truncated or altered download is refused rather than loaded.
 
     python scripts/fetch_model.py                 # lateral and frontal
     python scripts/fetch_model.py --views frontal
+    python scripts/fetch_model.py --from ~/Downloads   # zips already on disk
 
 Each model is unpacked to ``dlc_project/`` or ``dlc_project_frontal/``, which is
 where the labeler looks. An existing model folder of the same name is never
@@ -159,6 +160,9 @@ def main(argv=None) -> int:
     ap.add_argument("--views", nargs="+", choices=["lateral", "frontal"])
     ap.add_argument("--manifest", type=Path, default=MANIFEST)
     ap.add_argument("--root", type=Path, default=_ROOT, help="where to install (the repository)")
+    ap.add_argument("--from", dest="source", type=Path,
+                    help="a folder holding the zips already (offline, or before a release "
+                         "is published); still checked against the recorded checksums")
     ap.add_argument("--no-sam", action="store_true", help="skip the Segment Anything weights")
     args = ap.parse_args(argv)
     if not args.manifest.is_file():
@@ -171,6 +175,13 @@ def main(argv=None) -> int:
     if missing:
         print(f"no published model for: {', '.join(missing)}")
         return 1
+    if args.source:
+        models = {v: dict(m, url=str(args.source.expanduser() / m["file"]))
+                  for v, m in models.items()}
+        absent = [m["file"] for v, m in models.items() if v in views and not Path(m["url"]).is_file()]
+        if absent:
+            print(f"not in {args.source}: {', '.join(absent)}")
+            return 1
     ok = all([install(v, models[v], args.root) for v in views])
     if ok and not args.no_sam:
         fetch_sam(args.root)
