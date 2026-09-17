@@ -399,7 +399,7 @@ class Predictor:
 
     @classmethod
     def predict(cls, image: Path, polygons: bool = False,
-                emit_polygons: bool = True) -> dict:
+                emit_polygons: bool = True, view: str = "lateral") -> dict:
         with cls._lock:                      # one request at a time down one pipe
             if cls._proc is None or cls._proc.poll() is not None:
                 started = cls._start()
@@ -408,7 +408,8 @@ class Predictor:
             try:
                 cls._proc.stdin.write(json.dumps({"image": str(image),
                                                   "polygons": polygons,
-                                                  "emit_polygons": emit_polygons})
+                                                  "emit_polygons": emit_polygons,
+                                                  "view": view})
                                       + "\n")
                 cls._proc.stdin.flush()
                 line = cls._proc.stdout.readline()
@@ -940,27 +941,39 @@ class Handler(BaseHTTPRequestHandler):
         Deliberately does not write anything. A prediction becomes data only
         when a human has looked at it and pressed Save, at which point it is
         saved as their sidecar — so nothing here can quietly manufacture labels.
+
+        ``?view=frontal`` runs the mouth-corner model on the frontal crop. Its
+        cache is kept in ``sidecars_auto/frontal/``, apart from the lateral one,
+        whose presence is what marks a fish as batch-predicted.
         """
         if self._locked():
             return self._send(401, {
                 "ok": False, "locked": True,
                 "error": "automated landmarking is locked on this machine"})
-        lat = list_images(self.images_dir / "lateral")
+        query = parse_qs(urlparse(self.path).query)
+        view = query.get("view", ["lateral"])[0]
+        if view not in ("lateral", "frontal"):
+            return self._send(400, {"ok": False, "error": f"unknown view {view!r}"})
         match = None
-        for name, path in lat.items():
-            stem = Path(name).stem
-            if stem == fid or (stem.endswith("_L") and stem[:-2] == fid):
-                match = path
-                break
+        if view == "lateral":
+            for name, path in list_images(self.images_dir / "lateral").items():
+                stem = Path(name).stem
+                if stem == fid or (stem.endswith("_L") and stem[:-2] == fid):
+                    match = path
+                    break
+        else:
+            match = view_image(self.images_dir, fid, "frontal")
         if match is None:
-            return self._send(404, {"ok": False, "error": f"no image for {fid}"})
+            return self._send(404, {"ok": False, "error": f"no {view} image for {fid}"})
 
         # A batch run writes its results here, so opening a specimen afterwards
         # returns instantly instead of paying a second of inference again. The
         # cache lives in sidecars_auto/, never beside the hand labels, and every
         # entry is marked source=predicted.
-        cache = self.images_dir / "sidecars_auto" / f"{fid}.json"
-        want_cache = parse_qs(urlparse(self.path).query).get("cache", ["1"])[0] != "0"
+        auto = self.images_dir / "sidecars_auto"
+        cache = (auto if view == "lateral" else auto / "frontal") / f"{fid}.json"
+        want_cache = query.get("cache", ["1"])[0] != "0"
+        res = None
         if want_cache and cache.is_file():
             try:
                 doc = json.loads(cache.read_text())
@@ -970,24 +983,33 @@ class Handler(BaseHTTPRequestHandler):
                 # would quietly reinstate exactly what the check removes, so it
                 # is treated as a miss and predicted again.
                 if meta.get("source") == "predicted" and "implausible" in meta:
-                    return self._send(200, {
-                        "ok": True, "fish_id": fid, "cached": True,
+                    res = {
+                        "ok": True, "fish_id": fid, "cached": True, "view": view,
                         "model": meta.get("model"),
-                        "keypoints": doc["lateral"]["keypoints"],
-                        "polygons": (doc["lateral"].get("polygons") or {}),
+                        "keypoints": doc[view]["keypoints"],
+                        "polygons": (doc[view].get("polygons") or {}),
                         "confidence": meta.get("keypoint_confidence") or {},
                         "low_confidence": meta.get("low_confidence") or [],
                         "implausible": meta.get("implausible") or {},
                         "frame_warning": meta.get("frame_warning"),
-                        "elapsed": 0.0})
+                        "elapsed": 0.0}
             except Exception:
-                pass                       # a corrupt cache entry just re-predicts
+                res = None                 # a corrupt cache entry just re-predicts
+        if res is None:
+            res = self._run_model(fid, view, match, cache, want_cache)
+            if not res.get("ok"):
+                return self._send(503, res)
 
+        return self._send(200, self._excluded(res))
+
+    def _run_model(self, fid: str, view: str, match: Path, cache: Path,
+                   want_cache: bool) -> dict:
         # Only the body outline is predicted, and only where the study collects
         # it. The fins are not automatable at any useful accuracy, so offering
         # them would spend review time to no end.
         prof0 = load_profile(self.images_dir)
-        want_body = "body_plus_caudal" not in set(prof0.get("exclude_polygons") or ())
+        want_body = (view == "lateral" and "body_plus_caudal"
+                     not in set(prof0.get("exclude_polygons") or ()))
 
         # A study may want the outline computed but not offered. The plausibility
         # check measures each landmark against the span from snout to caudal tip,
@@ -998,9 +1020,10 @@ class Handler(BaseHTTPRequestHandler):
         emit_body = "body_plus_caudal" not in set(
             prof0.get("exclude_predicted_polygons") or ())
 
-        res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body)
+        res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body,
+                                view=view)
         if not res.get("ok"):
-            return self._send(503, res)
+            return res
 
         if want_cache and not self.demo_mode:
             try:
@@ -1013,14 +1036,16 @@ class Handler(BaseHTTPRequestHandler):
                                  "low_confidence": res.get("low_confidence") or [],
                                  "implausible": res.get("implausible") or {},
                                  "frame_warning": res.get("frame_warning")},
-                    "lateral": {"keypoints": res.get("keypoints") or {},
-                                "polygons": res.get("polygons") or {},
-                                "calibration": {"mode": "none",
-                                                "notes": "predicted; not a label"}},
+                    view: {"keypoints": res.get("keypoints") or {},
+                           "polygons": res.get("polygons") or {},
+                           "calibration": {"mode": "none",
+                                           "notes": "predicted; not a label"}},
                 }, indent=2))
             except Exception:
                 pass                       # caching is an optimisation, not a duty
+        return res
 
+    def _excluded(self, res: dict) -> dict:
         # Never offer a point for a landmark this study has excluded.
         prof = load_profile(self.images_dir)
         drop = set(prof.get("exclude_keypoints") or ())
@@ -1035,7 +1060,7 @@ class Handler(BaseHTTPRequestHandler):
                                  if k not in drop}
             res["low_confidence"] = [k for k in res["low_confidence"]
                                      if k not in drop]
-        return self._send(200, res)
+        return res
 
     def _send_file(self, path: Path, filename: str):
         self._send_bytes(path.read_bytes(), filename,

@@ -569,3 +569,31 @@ traced trout; HRN_4 scored 5.4, and 26.2 once shifted back. A four-point eye box
 was tried for fish without an outline and rejected: it also scores highly on the
 snout's edge against the foam, and flagged HRN_10 at -158 px when its points were
 exactly right.
+
+## Review records lost on a second save
+
+Auto-label records, per landmark, whether a person accepted it, corrected it or
+never looked, and the dataset builder leaves the unreviewed ones out of training.
+That record lived only in the open page. Reopening a saved fish read its
+coordinates back but not its record, so saving it again -- to fix a ruler span, to
+add an outline -- wrote the file with no record at all. Every point still where
+the model put it then trained as a hand label: the model learning its own output.
+
+Found on 2026-09-16 while making Auto-label work on the frontal view. HRN_10,
+HRN_16 and HRN_28 have no record, and 13, 17 and 16 of their lateral landmarks sit
+within a pixel of the cached prediction. Which of those were looked at cannot be
+recovered.
+
+The record is now read back when a fish is opened, so a second save writes it
+unchanged. Saves also keep the model's confidence for unreviewed points, which
+older records lack; those show as `?` and are treated as unsure.
+
+A single record shared by both views would have caused the same loss another
+way, because a frontal Auto-label replaced it whole. Each view now has its own:
+lateral under `metadata.assist` as before, frontal under
+`metadata.assist_frontal`, and the builder reads the one for the view it builds.
+
+The frontal model is pinned to epoch 200 by `model.json` in its project. Training
+picked `snapshot-best-030` on its validation metric, but epoch 200 was better on
+the seven held-out fish: median mouth-width error 0.73 mm, worst 1.7 mm.
+

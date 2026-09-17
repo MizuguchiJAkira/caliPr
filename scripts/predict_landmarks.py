@@ -46,13 +46,28 @@ sys.path.insert(0, str(_ROOT / "src"))
 DEFAULT_MIN_CONFIDENCE = 0.6
 
 
-def find_project(explicit: Path | None) -> Path:
+#: Where each view's model is trained (matches ``train_dlc.VIEW_PROJECT``).
+VIEW_PROJECT = {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}
+
+#: A file in a project naming the snapshot to use, for when the validation-best
+#: one is not the best one. It records a decision about one trained model, so it
+#: lives beside that model rather than in code.
+PIN = "model.json"
+
+
+def find_project(explicit: Path | None, view: str = "lateral") -> Path:
     if explicit is not None:
         return explicit
-    hits = sorted((_ROOT / "dlc_project").glob("*/config.yaml"))
+    folder = VIEW_PROJECT[view]
+    hits = sorted((_ROOT / folder).glob("*/config.yaml"))
     if not hits:
-        raise SystemExit("no DLC project under dlc_project/ — pass --project")
+        raise SystemExit(f"no DLC project under {folder}/ — pass --project")
     return hits[-1].parent
+
+
+def _epoch(p: Path) -> int:
+    digits = "".join(ch for ch in p.stem if ch.isdigit())
+    return int(digits) if digits else -1
 
 
 def find_config_and_snapshot(project: Path, snapshot: Path | None):
@@ -65,10 +80,18 @@ def find_config_and_snapshot(project: Path, snapshot: Path | None):
         if not snapshot.is_file():
             raise SystemExit(f"snapshot not found: {snapshot}")
         return cfg, snapshot
+    pin = project / PIN
+    if pin.is_file():
+        chosen = cfg.parent / json.loads(pin.read_text())["snapshot"]
+        if not chosen.is_file():
+            raise SystemExit(f"{pin} names {chosen.name}, which is not in {cfg.parent}")
+        return cfg, chosen
     # "best" is chosen on the validation metric; prefer it over the last epoch,
-    # which is only the point training happened to stop at.
-    best = sorted(cfg.parent.glob("snapshot-best-*.pt"))
-    last = sorted(cfg.parent.glob("snapshot-*.pt"))
+    # which is only the point training happened to stop at. By epoch, not by name:
+    # by name snapshot-1000 sorts before snapshot-200.
+    best = sorted(cfg.parent.glob("snapshot-best-*.pt"), key=_epoch)
+    last = sorted((p for p in cfg.parent.glob("snapshot-*.pt")
+                   if not p.name.startswith("snapshot-best-")), key=_epoch)
     if best:
         return cfg, best[-1]
     if last:
