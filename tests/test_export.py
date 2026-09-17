@@ -212,3 +212,27 @@ def test_export_handles_missing_measurements_as_blank(tmp_path: Path):
     qc_rows = list(wb["QC"].iter_rows(values_only=True))
     missing_col = qc_rows[0].index("missing_landmarks")
     assert "polygon:body_plus_caudal" in str(qc_rows[1][missing_col])
+
+
+def test_tps_exports_a_study_s_own_landmarks_and_its_names(tmp_path):
+    """A landmark the study added is a coordinate on every specimen, which is what
+    TPS carries; the names file says both what it is stored as and what it is called."""
+    import json
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "scripts"))
+    import export_tps
+
+    study = tmp_path / "study"
+    study.mkdir()
+    (study / "schema.json").write_text(json.dumps({
+        "exclude_keypoints": ["lower_jaw_tip"],
+        "extra_keypoints": [{"name": "adipose_base", "label": "Adipose base", "view": "lateral"},
+                            {"name": "cheek_spot", "label": "Cheek spot", "view": "frontal"}],
+        "labels": {"premaxilla_tip": "snout tip"}}))
+    order = export_tps.landmark_order(study)
+    assert order[-1] == "adipose_base"            # last, after the master landmarks
+    assert "cheek_spot" not in order              # frontal: not in a lateral TPS
+    assert "lower_jaw_tip" not in order
+    labels = export_tps.landmark_labels(study)
+    assert labels["premaxilla_tip"] == "snout tip"
+    assert labels["adipose_base"] == "Adipose base"      # what the study calls its own
