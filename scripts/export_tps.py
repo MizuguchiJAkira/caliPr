@@ -47,6 +47,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 
+from fish_morpho import schemes  # noqa: E402
 from fish_morpho.landmark_config import (  # noqa: E402
     KEYPOINTS,
     View,
@@ -54,6 +55,20 @@ from fish_morpho.landmark_config import (  # noqa: E402
 
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".JPEG", ".JPG")
 LANDMARK_LABELS: dict[str, str] = {}
+
+def scheme_of(profile_dir: Path | None) -> str | None:
+    """The landmark scheme this study collects, if it is not caliPr's own."""
+    if profile_dir is None:
+        return None
+    prof = profile_dir / "schema.json"
+    if not prof.is_file():
+        return None
+    try:
+        name = json.loads(prof.read_text()).get("scheme")
+    except Exception:
+        return None
+    return name if schemes.get(name) else None
+
 
 def landmark_labels(profile_dir: Path | None) -> dict[str, str]:
     """What this study calls each landmark: its own additions, and any it renamed."""
@@ -66,6 +81,10 @@ def landmark_labels(profile_dir: Path | None) -> dict[str, str]:
         doc = json.loads(prof.read_text())
     except Exception:
         return {}
+    scheme = schemes.get(doc.get("scheme"))
+    if scheme:
+        return {k["name"]: k["description"]
+                for k in schemes.keypoints(doc["scheme"], "lateral")}
     out = {k["name"]: k.get("label") or k["name"]
            for k in (doc.get("extra_keypoints") or []) if isinstance(k, dict) and k.get("name")}
     out.update(doc.get("labels") or {})
@@ -88,6 +107,11 @@ def landmark_order(profile_dir: Path | None) -> tuple[str, ...]:
         if prof.is_file():
             try:
                 doc = json.loads(prof.read_text())
+                # A study on another protocol's scheme exports that scheme, in its
+                # own numbering: TPS identifies a landmark by its row.
+                scheme = schemes.get(doc.get("scheme"))
+                if scheme:
+                    return schemes.order(doc["scheme"], "lateral")
                 drop = set(doc.get("exclude_keypoints") or [])
                 # Landmarks this study added. No trait uses them, but they are
                 # coordinates on every specimen, which is exactly what TPS carries.

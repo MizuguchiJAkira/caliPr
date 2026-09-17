@@ -69,7 +69,11 @@ python scripts/render_overlays.py --dataset cornell
 
 A dataset is a directory under `data/` containing `lateral/`, optionally
 `frontal/`, `sidecars/`, and a `schema.json` declaring which landmarks the study
-collects. `schema.json` may only remove from the master schema, never add.
+collects: which of the master landmarks it leaves out, any it adds for itself,
+what it calls them, and — for a study following another protocol — which landmark
+scheme it collects instead (`src/fish_morpho/schemes.py`). A study on another
+scheme exports coordinates to TPS rather than traits: every trait is defined in
+code against caliPr's own landmarks.
 
 ## Measurements
 

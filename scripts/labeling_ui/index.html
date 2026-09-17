@@ -24,6 +24,11 @@
     color:var(--mut); padding:12px 14px 8px; border-bottom:1px solid var(--line);
     display:flex; align-items:center; gap:8px; }
   #taskcount { margin-left:auto; font-variant-numeric:tabular-nums; }
+  #schemerow { display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+    padding:5px 12px; border-bottom:1px solid var(--line); font-size:11px; color:var(--mut); }
+  #schemepick { background:var(--panel2,#141a22); border:1px solid #2b3644; border-radius:4px;
+    color:inherit; font:inherit; font-size:11px; padding:2px 4px; }
+  #schemenote { color:var(--warn); }
   #hideex { display:flex; align-items:center; gap:4px; cursor:pointer;
     text-transform:none; letter-spacing:0; font-size:10px; }
   /* Struck through rather than removed: an excluded landmark is a decision, and
@@ -435,6 +440,8 @@ ones to check.">Auto-label</button>
     <div class="colhdr">Landmarks <span id="taskcount"></span>
       <label id="hideex" title="Hide the landmarks this study does not collect">
         <input type="checkbox" id="hideExcl"> hide excluded</label></div>
+    <div id="schemerow">scheme <select id="schemepick" title="Which landmark scheme this study collects"></select>
+      <span id="schemenote"></span></div>
     <div id="hint">Select a specimen to begin.</div>
     <div id="tasks"></div>
   </div>
@@ -878,6 +885,7 @@ async function boot(){
           : (DATASETS.some(d=>d.name===saved) ? saved : info.default);
   await refreshDatasets();
   SCHEMA=await api('/api/schema'+dsq());
+  renderSchemePicker();
   restoreRetrace();
   await loadSpecs();
   loadRef(); loadCalStats(); refreshAuth();
@@ -1103,7 +1111,7 @@ async function selectSpec(s){
       .split(';').map(s=>s.trim())
       .filter(s=>s && !CLIP_FLAGS.some(fl=>fl.note===s))
       .join('; ');
-  renderClipFlags(); updateDcState(); renderAutoStat();
+  renderClipFlags(); updateDcState(); renderAutoStat(); renderSchemePicker();
   await setView('lateral');
   loadAutoCal();
   await loadCalStats();      // the comparison median is per lot, so it moves with the specimen
@@ -1242,7 +1250,14 @@ function buildTasks(){
   // Region grouping, always expanded. Headers are separators for scanning, not
   // controls: landmarking is a click-through task and the flow auto-advances, so
   // anything that has to be opened before it can be used is pure friction.
-  const REGIONS=[
+  // A scheme carries its own grouping; caliPr's is by where the landmark sits.
+  const byGroup = (sc.keypoints||[]).some(k=>k.group);
+  const REGIONS = byGroup
+    ? [['ruler', n=>/^ruler_/.test(n)],
+       ...[...new Set((sc.keypoints||[]).map(k=>k.group))].map(g=>
+         [g, n=>((sc.keypoints||[]).find(k=>k.name===n)||{}).group===g]),
+       ['other', ()=>true]]
+    : [
     ['ruler',    n=>/^ruler_/.test(n)],
     ['head',     n=>/^(eye_|premaxilla|maxilla|lower_jaw|operculum|snout)/.test(n)],
     ['pectoral', n=>/^pectoral/.test(n)],
@@ -1362,6 +1377,45 @@ function renderRetraceStatus(){
 // dataset's schema and reaches the measurement engine — a trait that needed it
 // gets no Excel column at all, rather than a column of blanks that reads as
 // "measured and missing".
+// Which landmark scheme this study collects. caliPr's own drives the 33 traits;
+// another protocol's is shape landmarks for geometric morphometrics, which no
+// trait is defined against. Switching asks for different points on every fish in
+// the study, and leaves anything already labelled untouched on disk.
+function renderSchemePicker(){
+  // Fin retrace walks fin outlines; a scheme that traces none has nothing to walk.
+  const rt=$('#rtoggle');
+  if(rt) rt.style.display = (SCHEMA && (SCHEMA.fin_groups||[]).length) ? '' : 'none';
+  const sel=$('#schemepick'), note=$('#schemenote');
+  if(!sel||!SCHEMA) return;
+  const list=SCHEMA.schemes||[];
+  sel.innerHTML=list.map(s=>`<option value="${s.name}"${s.name===SCHEMA.scheme?' selected':''}>`
+    + `${s.title}</option>`).join('');
+  const cur=list.find(s=>s.name===SCHEMA.scheme);
+  note.textContent = SCHEMA.traits ? '' : '— no traits; export .tps';
+  note.title = cur && cur.note || '';
+}
+$('#schemepick').onchange=async e=>{
+  const name=e.target.value, was=SCHEMA.scheme;
+  if(name===was){ return; }
+  const to=(SCHEMA.schemes||[]).find(s=>s.name===name)||{title:name};
+  const keeps=SPECS.filter(s=>s.labeled).length;
+  const ok=await ask(`Collect the ${to.title} landmarks in “${dataset}”?\n\n`
+    + (name==='calipr'
+        ? 'Back to caliPr\'s own landmarks, which the 33 traits and the model use.'
+        : 'These are shape landmarks for geometric morphometrics. None of the 33 traits '
+          + 'is defined against them, so this study exports coordinates (.tps) rather than '
+          + 'measurements, and Auto-label is off for it.')
+    + (keeps ? `\n\n${keeps} fish here already have labels. They stay exactly as saved; `
+             + `the other scheme's points simply stop being asked for.` : ''),
+    {ok:'Switch'});
+  if(!ok){ e.target.value=was; return; }
+  const r=await api('/api/schema/scheme'+dsq(),{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({scheme:name})});
+  if(!r.ok){ e.target.value=was; await tell('Could not switch:\n\n'+(r.error||'?')); return; }
+  SCHEMA=r.schema; activeTask=null;
+  renderSchemePicker(); buildTasks(); showHint(); draw(); loadSpecs();
+  toast('“'+dataset+'” now collects '+to.title);
+};
 async function toggleExcluded(kind, name){
   const kps=SCHEMA.lateral.keypoints.filter(k=>k.excluded).map(k=>k.name);
   const pol=SCHEMA.lateral.polygons.filter(p=>p.excluded).map(p=>p.name);
@@ -2017,6 +2071,7 @@ async function pickDataset(name){
   cur=null; model=blankModel(); activeTask=null; imgW=imgH=0;
   imgToken++;                    // abandon any image still loading from the old set
   SCHEMA=await api('/api/schema'+dsq());
+  renderSchemePicker();
   await loadSpecs(); loadCalStats();
   buildTasks(); showHint(); draw();
   if(SPECS.length) await selectSpec(SPECS[0]);
@@ -2773,8 +2828,11 @@ $('#save').onclick=async()=>{
     if(res.mtime!==undefined) model._base_mtime=res.mtime;   // later saves build on this one
     // Report what is still short rather than refusing the save: partial fin work
     // is worth keeping, it just must not read as finished.
-    const short=finGroups().map(g=>({g,st:finState(g)})).filter(x=>!x.st.done);
-    toast(short.length
+    // A study whose scheme traces no fins has nothing to report here.
+    const groups=finGroups();
+    const short=groups.map(g=>({g,st:finState(g)})).filter(x=>!x.st.done);
+    toast(!groups.length ? 'Saved '+res.saved
+      : short.length
       ? `Saved ${res.saved} — still short: `+short.map(x=>`${x.g.fin} ${x.st.n}/${x.g.target}`).join(', ')
       : 'Saved '+res.saved+' — all four fins at target');
     loadSpecs();

@@ -452,3 +452,44 @@ def test_a_studys_own_landmark_is_a_landmark_not_a_ruler_point(rooted):
     assert "adipose_base" in [k["name"] for k in sch["keypoints"]]
     assert "adipose_base" not in [k["name"] for k in sch["ruler"]]
     assert [k["name"] for k in sch["ruler"]] == ["ruler_point_a", "ruler_point_b"]
+
+
+# --------------------------------------------------------------------------
+# switching a study to another protocol's landmark scheme
+# --------------------------------------------------------------------------
+
+def test_a_study_can_collect_another_protocols_landmarks(rooted):
+    url, root = rooted
+    code, body = _post_json(url, "/api/schema/scheme?dataset=study", {"scheme": "bgnn_2d"})
+    assert code == 200 and body["scheme"] == "bgnn_2d"
+    sch = body["schema"]
+    kp = sch["lateral"]["keypoints"]
+    assert len(kp) == 23 and kp[0]["name"] == "dentary_anterior"
+    assert kp[0]["label"].startswith("1. ")                 # numbered as the protocol does
+    assert sch["traits"] is False and sch["fin_groups"] == []
+    assert sch["lateral"]["polygons"] == []                 # that scheme traces no outlines
+    assert [r["name"] for r in sch["lateral"]["ruler"]] == ["ruler_point_a", "ruler_point_b"]
+    assert json.loads((root / "study" / "schema.json").read_text())["scheme"] == "bgnn_2d"
+
+    # and back again, which is what makes it a switch rather than a rewrite
+    code, body = _post_json(url, "/api/schema/scheme?dataset=study", {"scheme": "calipr"})
+    assert code == 200 and body["schema"]["traits"] is True
+    assert "premaxilla_tip" in [k["name"] for k in body["schema"]["lateral"]["keypoints"]]
+    assert "scheme" not in json.loads((root / "study" / "schema.json").read_text())
+
+
+def test_an_unknown_scheme_is_refused(rooted):
+    url, root = rooted
+    assert _post_json(url, "/api/schema/scheme?dataset=study", {"scheme": "nope"})[0] == 404
+    assert not (root / "study" / "schema.json").exists()      # and nothing written
+
+
+def test_labels_already_saved_are_left_alone_when_the_scheme_changes(rooted):
+    """The two schemes name different points, so nothing can be converted; what a
+    person clicked stays exactly as clicked."""
+    url, root = rooted
+    (root / "study" / "sidecars").mkdir(exist_ok=True)
+    before = json.dumps({"fish_id": "f1", "lateral": {"keypoints": {"premaxilla_tip": [10, 20]}}})
+    (root / "study" / "sidecars" / "f1.json").write_text(before)
+    _post_json(url, "/api/schema/scheme?dataset=study", {"scheme": "bgnn_2d"})
+    assert (root / "study" / "sidecars" / "f1.json").read_text() == before
