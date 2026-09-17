@@ -326,6 +326,17 @@ def _emit(obj) -> None:
     sys.stdout.flush()
 
 
+#: What a machine without a trained model is told. The models are not in the
+#: repository; they are downloaded.
+NO_MODEL = ("There is no trained {view} model on this machine. Download it with:\n\n"
+            "    .venv/bin/python scripts/fetch_model.py\n\n"
+            "then click Auto-label again.")
+
+
+class MissingModel(Exception):
+    pass
+
+
 class _Model:
     """One trained DeepLabCut model: its config, snapshot, scale and landmarks."""
 
@@ -368,17 +379,21 @@ def main(argv=None) -> int:
 
     # Imported here, not at module scope: the ready/error handshake below should
     # report an import failure rather than the process dying before it speaks.
-    # find_project and friends raise SystemExit, which is not an Exception.
     try:
         import cv2
         import numpy as np
         from deeplabcut.pose_estimation_pytorch import apis
 
         import predict_landmarks as pl
-
-        models = {"lateral": _Model(args.project, args.snapshot, args.scale, "lateral")}
-    except (Exception, SystemExit) as exc:
+    except Exception as exc:
         _emit({"ready": False, "error": f"{type(exc).__name__}: {exc}"})
+        return 1
+    try:
+        models = {"lateral": _Model(args.project, args.snapshot, args.scale, "lateral")}
+    except SystemExit as exc:                  # find_project and friends raise it
+        missing = "no DLC project" in str(exc)
+        _emit({"ready": False, "missing_model": missing,
+               "error": NO_MODEL.format(view="lateral") if missing else str(exc)})
         return 1
     lat = models["lateral"]
     _emit({"ready": True, "model": lat.snapshot.name, "scale": lat.scale,
@@ -391,7 +406,9 @@ def main(argv=None) -> int:
             try:
                 models[view] = _Model(args.frontal_project, None, None, "frontal")
             except SystemExit as exc:          # not an Exception; must not end the worker
-                raise RuntimeError(f"no frontal model: {exc}") from None
+                if "no DLC project" in str(exc):
+                    raise MissingModel(NO_MODEL.format(view="frontal")) from None
+                raise RuntimeError(str(exc)) from None
         return models[view]
 
     tmp = Path(tempfile.mkdtemp(prefix="calipr_worker_"))
@@ -491,6 +508,8 @@ def main(argv=None) -> int:
                    "implausible": bad, "frame_warning": frame_warning,
                    "view": view, "model": m.snapshot.name,
                    "elapsed": round(time.time() - t0, 2)})
+        except MissingModel as exc:
+            _emit({"ok": False, "missing_model": True, "error": str(exc)})
         except Exception as exc:
             _emit({"ok": False, "error": f"{type(exc).__name__}: {exc}"})
     return 0

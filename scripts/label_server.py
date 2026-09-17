@@ -337,6 +337,16 @@ def build_schema(profile: dict | None = None) -> dict:
     }
 
 
+#: Hand labelling works without any of this, so it is installed separately.
+NO_TRAINING_STACK = (
+    "Auto-label needs the training stack, which is installed separately from the "
+    "labeler. In the caliPr folder:\n\n"
+    "    python3.11 -m venv .venv-train\n"
+    "    .venv-train/bin/pip install \"deeplabcut==3.0.1\" transformers\n"
+    "    .venv/bin/python scripts/fetch_model.py\n\n"
+    "then restart the labeler. Hand labelling works without it.")
+
+
 class Predictor:
     """A single long-lived predict_worker subprocess, started on first use.
 
@@ -364,7 +374,7 @@ class Predictor:
         worker = _ROOT / "scripts" / "predict_worker.py"
         exe = next((p for p in cls._PYTHONS if p.is_file()), None)
         if exe is None or not worker.is_file():
-            return {"error": "no training environment found (.venv-train)"}
+            return {"error": NO_TRAINING_STACK}
         try:
             proc = subprocess.Popen(
                 [str(exe), str(worker)], stdin=subprocess.PIPE,
@@ -387,13 +397,8 @@ class Predictor:
             # Saying which package is absent helps nobody; saying what to install
             # does.
             if "ModuleNotFoundError" in err or "ImportError" in err:
-                return {"error":
-                        "automated landmarking needs the training stack, which "
-                        "is installed separately from the labeler:  python -m "
-                        "venv .venv-train && .venv-train/bin/pip install "
-                        "'deeplabcut[tf]' transformers torch  — hand labelling "
-                        "works without it."}
-            return {"error": err}
+                return {"error": NO_TRAINING_STACK}
+            return {"error": err, "missing_model": bool(info.get("missing_model"))}
         cls._proc, cls._info = proc, info
         return info
 
