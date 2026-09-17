@@ -363,8 +363,6 @@ def process_specimen(spec: SpecimenInput,
         )
     if lateral_block:
         _load_view_annotation(lateral_block, annotation, "lateral")
-    if frontal_block:
-        _load_view_annotation(frontal_block, annotation, "frontal")
 
     # A frontal-only sidecar is legitimate — mouth width is collected from the
     # mirror view and needs no lateral data. Refusing to process it would
@@ -388,6 +386,16 @@ def process_specimen(spec: SpecimenInput,
         frontal_calib = _calibration_from_block(
             frontal_block.get("calibration"), spec.image_path, "frontal"
         )
+    # Frontal points with no frontal ruler cannot be put in millimetres, and the
+    # lateral scale is not theirs to borrow: the mirror sits at another distance.
+    # The engine refuses such a trait outright, which used to drop the whole
+    # specimen from the export -- every lateral trait with it. Frontal Auto-label
+    # made that easy to hit. So the frontal geometry is left out, and the frontal
+    # traits are blanked with the reason, where the QC sheet shows it.
+    frontal_uncalibrated = bool(frontal_block) and frontal_calib is None and bool(
+        (frontal_block.get("keypoints") or frontal_block.get("polygons")))
+    if frontal_block and not frontal_uncalibrated:
+        _load_view_annotation(frontal_block, annotation, "frontal")
 
     calibrations: dict[View, CalibrationResult] = {}
     if lateral_calib is not None:
@@ -412,12 +420,24 @@ def process_specimen(spec: SpecimenInput,
             filter(None, [metadata.get("data_note"), _sparse_fin_note(sparse)])
         )
 
+    if frontal_uncalibrated:
+        note = "frontal landmarks have no frontal ruler calibration — frontal traits left blank"
+        metadata["data_note"] = "; ".join(filter(None, [metadata.get("data_note"), note]))
+        log.warning("%s: %s", spec.fish_id, note)
+
     ms: MeasurementSet = compute_all(
         fish_id=spec.fish_id,
         annotation=annotation,
         calibrations=calibrations,
         metadata=metadata,
     )
+    if frontal_uncalibrated:
+        for code, mv in ms.values.items():
+            if mv.view == View.FRONTAL and math.isnan(mv.value):
+                ms.values[code] = MeasurementValue(
+                    key=mv.key, label=mv.label, value=math.nan, unit=mv.unit,
+                    view=mv.view, missing_landmarks=("calibration:frontal",),
+                )
 
     # Data-compromise handling: if the labeler flagged a photo problem (e.g. a
     # fin clipped by the frame), salvage the usable traits but force-NaN the

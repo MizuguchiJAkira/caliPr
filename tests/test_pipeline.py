@@ -7,6 +7,7 @@ exported xlsx contains a row per fish plus QC rows.
 """
 
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -219,6 +220,23 @@ def test_pipeline_accepts_frontal_only_sidecar(tmp_path: Path):
     assert mw.value == pytest.approx(5.0)  # 10 px over a 10 px = 5 mm span
     assert record.measurements.values["SL"].missing_landmarks  # NaN, not raised
     assert "lateral" not in record.calibrations
+
+
+def test_frontal_points_without_a_frontal_ruler_blank_only_the_frontal_traits(tmp_path: Path):
+    """Frontal Auto-label places the mouth corners; the frontal ruler is still a
+    hand step. Missing it used to drop the whole fish from the export."""
+    from fish_morpho.pipeline import process_specimen, SpecimenInput
+
+    sidecar = _sidecar_payload("no-frontal-ruler")
+    del sidecar["frontal"]["calibration"]
+    spec = SpecimenInput(fish_id="no-frontal-ruler", image_path=tmp_path / "x.jpg",
+                         sidecar_path=tmp_path / "x.json", sidecar=sidecar)
+    record = process_specimen(spec)
+    mw = record.measurements.values["MW"]
+    assert math.isnan(mw.value) and mw.missing_landmarks == ("calibration:frontal",)
+    assert record.measurements.values["SL"].value > 0          # lateral traits still measured
+    assert "frontal ruler" in record.measurements.metadata["data_note"]
+    assert "frontal" not in record.calibrations
 
 
 def test_pipeline_rejects_sidecar_with_no_views(tmp_path: Path):
