@@ -1289,15 +1289,19 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 import cv2
 
-                from fish_morpho.ruler_calibration import detect_tick_scale
+                from fish_morpho.ruler_calibration import detect_tick_scale, locate_ticks
 
                 img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
                 res = detect_tick_scale(img)
-                return self._send(200, {
-                    "px_per_mm": res.px_per_mm,
-                    "confidence": res.confidence,
-                    "notes": res.notes,
-                })
+                out = {"px_per_mm": res.px_per_mm, "confidence": res.confidence,
+                       "notes": res.notes}
+                # Where that scale puts each millimetre along the ruler, so the
+                # labeler can draw it and anyone can see whether it fits.
+                try:
+                    out["ticks"] = locate_ticks(img, res.px_per_mm)
+                except Exception as exc:
+                    out["ticks_error"] = str(exc)
+                return self._send(200, out)
             except Exception as exc:
                 return self._send(200, {"error": str(exc)})
         if route.startswith("/api/export/"):

@@ -189,6 +189,13 @@ does not need millimetres.
 With a ruler, click **use ruler auto-scale**, or place the two ruler points and
 type the span you clicked across.
 
+To see how far to trust the auto-scale, tick **show mm dots on the ruler**: a dot
+for every millimetre at the detected scale, green within ¼ mm of its tick, amber
+within ½ mm, red beyond. **check** zooms to the end of the ruler that drifts most.
+Dots that go red toward the ends mean the ruler is nearer the camera at one end,
+so its millimetres are wider there; dots that are red almost everywhere, or no
+dots at all, mean the auto-scale is wrong for that photograph.
+
 ---
 
 ## Sharing the work
