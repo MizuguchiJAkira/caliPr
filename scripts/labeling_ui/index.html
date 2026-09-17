@@ -187,6 +187,7 @@
     padding:2px 6px; cursor:pointer; white-space:nowrap; }
   .dsrow:hover .add { display:inline-block; }
   .dsrow .add:hover { border-color:var(--accent); color:var(--accent); }
+  .dsrow .rm:hover { border-color:var(--bad,#ff5d6c); color:var(--bad,#ff5d6c); }
   #dsMenu .sep { border-top:1px solid #2b3644; }
   #dsNew { display:flex; align-items:center; gap:6px; padding:7px 8px; cursor:pointer;
     font-size:12px; color:var(--mut); }
@@ -346,13 +347,13 @@
     </div>
     <details id="exportbox"><summary>export <span id="expstate"></span></summary>
       <div class="exprow"><button data-exp="measurements">Measurements (.xlsx)</button>
-        <span>traits per specimen, ratios, QC</span></div>
+        <span>traits per specimen, ratios, QC — opens in your spreadsheet app</span></div>
       <div class="exprow"><button data-exp="tps">Landmarks for R (.tps)</button>
-        <span>geomorph-ready, with landmark names</span></div>
+        <span>geomorph-ready, with landmark names — shown in Finder</span></div>
       <div class="exprow"><button data-exp="sidecars">Annotations (.zip)</button>
-        <span>the labels themselves — send these back for training</span></div>
+        <span>the labels themselves, to send back for training — shown in Finder</span></div>
       <div class="exprow"><button data-exp="overlays">Labelled images (.zip)</button>
-        <span>each photo with its annotation drawn on</span></div>
+        <span>each photo with its annotation drawn on — opens the folder</span></div>
     </details>
     <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
     <div id="dropzone"><div><b>Drop photographs to add them</b>
@@ -765,7 +766,9 @@ function renderDsMenu(){
       + `<span class="tick">${d.name===dataset?'✓':''}</span>`
       + `<span class="nm">${d.name}</span><span class="ct">${d.images}</span>`
       + `<button class="add" data-add="${d.name}" title="Add photographs to ${d.name}"`
-      + `>+ photos</button></div>`).join('')
+      + `>+ photos</button>`
+      + `<button class="add rm" data-rm="${d.name}" title="Remove ${d.name} from the list"`
+      + `>remove</button></div>`).join('')
     + `<div class="sep"></div><div id="dsNew">＋ Add folder — a new study</div>`;
 
   $('#dsMenu').querySelectorAll('.dsrow').forEach(row=>{
@@ -775,7 +778,10 @@ function renderDsMenu(){
       pickDataset(row.dataset.ds);
     };
   });
-  $('#dsMenu').querySelectorAll('.add').forEach(b=>{
+  $('#dsMenu').querySelectorAll('.rm').forEach(b=>{
+    b.onclick=e=>{ e.stopPropagation(); closeDsMenu(); removeStudy(b.dataset.rm); };
+  });
+  $('#dsMenu').querySelectorAll('.add:not(.rm)').forEach(b=>{
     b.onclick=e=>{
       e.stopPropagation();
       closeDsMenu();
@@ -790,6 +796,32 @@ function renderDsMenu(){
     e.stopPropagation(); closeDsMenu();
     openFolderPicker({mode:'new'});
   };
+}
+
+// Remove a study from the list. The server moves its folder into data/.trash/ --
+// nothing is deleted, so a wrong click is undone by moving it back. A study with
+// saved labels asks for its name to be typed: those are hours of hand work.
+async function removeStudy(name){
+  const d=DATASETS.find(x=>x.name===name); if(!d) return;
+  const what=`“${name}” — ${d.images} photograph(s), ${d.labelled||0} labelled fish`;
+  const where=`It is moved to data/.trash/, not deleted: move the folder back to restore it. `
+            + `Exports in results/${name}/ are left where they are.`;
+  if(d.labelled){
+    const typed=await askText(`Remove ${what}?\n\n${where}\n\nType the study's name to confirm.`, '');
+    if(typed===null) return;
+    if(typed.trim()!==name){ toast('Name did not match — nothing removed'); return; }
+  } else if(!await ask(`Remove ${what}?\n\n${where}`, {ok:'Remove'})) return;
+  const r=await api('/api/dataset/remove',{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+  if(!r.ok){ tell('Could not remove it:\n\n'+(r.error||'?')); return; }
+  const wasOpen = name===dataset;
+  await refreshDatasets();
+  if(wasOpen){
+    dataset='';                                   // force pickDataset to reload
+    if(r.default) await pickDataset(r.default);
+    else { cur=null; model=blankModel(); SPECS=[]; buildTasks(); draw(); renderDsMenu(); }
+  }
+  toast(`Removed “${name}” — it is in ${r.moved_to}`);
 }
 
 function closeDsMenu(){ $('#dsMenu').classList.remove('on'); }
@@ -1807,9 +1839,27 @@ Object.entries(COLS).forEach(([v,c])=>{
   grip.addEventListener('dblclick',()=>setCol(v, c.def));
 });
 
-// Exports are built on demand by the server and handed back as a download. They
-// can take a while on a big dataset, so the button reports what is happening
-// rather than appearing to do nothing.
+// Exports are built on demand by the server, saved under results/<study>/, and
+// opened on this computer by the server itself: the workbook in the spreadsheet
+// app, the others selected in Finder. Not downloaded, because the browser pane in
+// the Claude app offers every download to Claude instead of opening it. Only if
+// the server cannot open anything (no desktop) does it fall back to a download.
+// Exports can take a while on a big study, so the button says what is happening.
+async function downloadExport(kind){
+  const res=await fetch('/api/export/'+kind+dsq());
+  if(!res.ok){
+    let msg='export failed';
+    try{ msg=(await res.json()).error || msg; }catch(e){}
+    throw new Error(msg);
+  }
+  const blob=await res.blob();
+  const m=/filename="([^"]+)"/.exec(res.headers.get('Content-Disposition')||'');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=m?m[1]:(dataset+'_'+kind);
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  toast('Exported '+a.download+' ('+Math.round(blob.size/1024)+' KB)');
+}
 document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
   btn.onclick=async()=>{
     const kind=btn.dataset.exp, label=btn.textContent;
@@ -1817,21 +1867,13 @@ document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
     all.forEach(b=>b.disabled=true);
     btn.textContent='working…'; $('#expstate').textContent=' — building '+kind;
     try{
-      const res=await fetch('/api/export/'+kind+dsq());
-      if(!res.ok){
-        let msg='export failed';
-        try{ msg=(await res.json()).error || msg; }catch(e){}
-        tell('Export failed:\n\n'+msg);
-        return;
-      }
-      const blob=await res.blob();
-      const cd=res.headers.get('Content-Disposition')||'';
-      const m=/filename="([^"]+)"/.exec(cd);
-      const a=document.createElement('a');
-      a.href=URL.createObjectURL(blob);
-      a.download=m?m[1]:(dataset+'_'+kind);
-      a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
-      toast('Exported '+a.download+' ('+Math.round(blob.size/1024)+' KB)');
+      const r=await api('/api/export/'+kind+dsq(),{method:'POST'});
+      // A server started before exports opened themselves has no such route.
+      if(r.error==='unknown route'){ await downloadExport(kind); return; }
+      if(!r.ok){ await tell('Export failed:\n\n'+(r.error||'?')); return; }
+      if(r.shown==='open') toast('Opened '+r.path);
+      else if(r.shown==='reveal') toast('Saved '+r.path+' — shown in '+(r.shown_in||'Finder'));
+      else await downloadExport(kind);
     }catch(e){ tell('Export failed:\n\n'+e.message); }
     finally{ btn.textContent=label; all.forEach(b=>b.disabled=false);
              $('#expstate').textContent=''; }

@@ -71,3 +71,6 @@ data/**/*.json.bak
 # Frontal model (same as above, trained separately)
 dlc_frontal/
 dlc_project_frontal/
+
+# Studies removed in the labeler (moved here, not deleted)
+data/.trash/
