@@ -128,13 +128,13 @@
               border:1px solid #fff2; border-radius:10px; padding:18px 20px;
               width:min(460px,92vw); box-shadow:0 12px 40px #000a; }
   #dlg .msg { white-space:pre-wrap; line-height:1.45; margin-bottom:14px; }
-  #dlg input { width:100%; box-sizing:border-box; margin-bottom:14px;
+  #dlg input[type=text] { width:100%; box-sizing:border-box; margin-bottom:14px;
                padding:7px 9px; border-radius:6px; border:1px solid #fff3;
                background:#0003; color:inherit; font:inherit; }
   #dlg .btns { display:flex; gap:8px; justify-content:flex-end; }
   #dlg .chk { display:flex; gap:8px; align-items:flex-start; margin:-4px 0 14px;
               line-height:1.4; cursor:pointer; }
-  #dlg .chk input { margin-top:3px; }
+  #dlg .chk input { flex:none; margin:3px 0 0; }
   .task.thin .cnt { color:#2a1a00; background:var(--warn); font-weight:600; }
   .task.set .cnt { color:#052; background:var(--good); font-weight:600; }
   #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
@@ -504,7 +504,8 @@ function _dialog(message, {input=null, ok='OK', cancel='Cancel', check=null}={})
     if(box){ box.checked=!!check.checked; root.querySelector('.chk span').textContent=check.label; }
     // With a checkbox the answer is its state, or null for Cancel; every other
     // dialog answers as before.
-    const yes=()=> box ? {checked:box.checked} : (inp?inp.value:true);
+    const yes=()=> box ? (inp ? {value:inp.value, checked:box.checked} : {checked:box.checked})
+                       : (inp?inp.value:true);
     const no =()=> box ? null : (inp?null:false);
     const done=v=>{ root.classList.remove('on'); root.innerHTML='';
       document.removeEventListener('keydown',key,true); resolve(v); };
@@ -523,6 +524,23 @@ const ask     =(m,o)=>_dialog(m,o);                          // -> true / false
 const askText =(m,def='')=>_dialog(m,{input:def});           // -> string / null
 const tell    =m=>_dialog(m,{cancel:null});                  // -> resolves on OK
 const askCheck=(m,label,checked)=>_dialog(m,{check:{label,checked}}); // -> {checked} / null
+const askTextCheck=(m,def,label,checked)=>_dialog(m,{input:def, check:{label,checked}}); // -> {value,checked} / null
+
+// Name a new study, offering the settings of the one open now. Returns the
+// request body for /api/dataset/new, or null if cancelled.
+async function nameNewStudy(message, suggested){
+  const src=DATASETS.find(d=>d.name===dataset);
+  if(!src || !(src.settings||[]).length){
+    const name=await askText(message, suggested);
+    return name ? {name} : null;
+  }
+  const r=await askTextCheck(message, suggested,
+    `Use the same settings as “${src.name}”: the landmarks it collects, the strain read `
+    + `from each file name, and the anatomy check Auto-label runs. Leave ticked for more `
+    + `fish from the same rig.`, true);
+  if(!r || !r.value) return null;
+  return r.checked ? {name:r.value, settings_from:src.name} : {name:r.value};
+}
 
 // ---- undo history -----------------------------------------------------------
 // Every edit already ends in persistDraft(), so history is recorded there: the
@@ -2190,13 +2208,12 @@ async function uploadFiles(files){
 // Retained for callers that already have a gesture to spend; the menu uses
 // openFolderPicker instead so the dialog is not blocked.
 async function newStudy(){
-  const name=await askText('Name the new study.\n\n'
+  const body=await nameNewStudy('Name the new study.\n\n'
     + 'This creates an empty folder under data/ — a separate set of photographs '
-    + 'with its own landmarks and its own exports. Nothing is shared with the '
-    + 'studies you already have.');
-  if(!name) return;
+    + 'with its own landmarks and its own exports.', '');
+  if(!body) return;
   const r=await api('/api/dataset/new',{method:'POST',
-    headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   if(!r.ok){ toast(r.error||'could not create'); return; }
   await refreshDatasets();
   await pickDataset(r.name);
@@ -2302,11 +2319,11 @@ $('#addfolder').onchange=async e=>{
     // The folder already has a name, so use it rather than asking twice. The
     // prompt is pre-filled and editable, not a blank box.
     const top=(picked[0].webkitRelativePath||'').split('/')[0] || '';
-    const name=await askText('Name for this study — a folder under data/ with its own '
-      + 'landmarks and its own exports, sharing nothing with the others.', top);
-    if(!name) return;
+    const body=await nameNewStudy('Name for this study — a folder under data/ with its own '
+      + 'landmarks and its own exports.', top);
+    if(!body) return;
     const r=await api('/api/dataset/new',{method:'POST',
-      headers:{'Content-Type':'application/json'}, body:JSON.stringify({name})});
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     if(!r.ok){ toast(r.error||'could not create'); return; }
     await refreshDatasets();
     await pickDataset(r.name);

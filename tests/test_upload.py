@@ -288,3 +288,29 @@ def test_demo_mode_refuses_study_creation(rooted):
 
     assert code == 403
     assert not (root / "nope").exists()
+
+
+def test_a_new_study_can_take_the_settings_of_an_existing_one(rooted):
+    """More fish from the same rig want the same landmarks, strain rule and anatomy check."""
+    url, root = rooted
+    (root / "study" / "schema.json").write_text('{"group_from_filename": "_([A-Z]{2,4})_\\\\d+$"}')
+    (root / "study" / "plausibility.json").write_text('{"landmarks": {}}')
+    with urllib.request.urlopen(f"{url}/api/datasets") as r:
+        listed = {d["name"]: d for d in json.loads(r.read())["datasets"]}
+    assert listed["study"]["settings"] == ["schema.json", "plausibility.json"]
+
+    code, body = _post_json(url, "/api/dataset/new", {"name": "demo", "settings_from": "study"})
+    assert code == 200 and body["settings_copied"] == ["schema.json", "plausibility.json"]
+    for f in ("schema.json", "plausibility.json"):
+        assert (root / "demo" / f).read_text() == (root / "study" / f).read_text()
+
+    code, body = _post_json(url, "/api/dataset/new", {"name": "blank"})
+    assert code == 200 and body["settings_copied"] == []
+    assert not (root / "blank" / "schema.json").exists()
+
+
+def test_settings_from_a_study_that_does_not_exist_creates_nothing(rooted):
+    url, root = rooted
+    code, body = _post_json(url, "/api/dataset/new", {"name": "demo", "settings_from": "nope"})
+    assert code == 400 and "nope" in body["error"]
+    assert not (root / "demo").exists()
