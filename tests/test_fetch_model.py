@@ -100,3 +100,18 @@ def test_the_published_manifest_matches_the_scripts(tmp_path):
     for view, m in models.items():
         assert m["folder"] == {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}[view]
         assert m["url"].endswith("/" + m["file"]) and len(m["sha256"]) == 64
+
+
+def test_zips_already_on_disk_install_against_the_same_checksums(tmp_path, capsys):
+    z, entry = _package(tmp_path)
+    manifest = tmp_path / "models.json"
+    manifest.write_text(json.dumps({"models": {"frontal": dict(entry, url="https://example.invalid/x")}}))
+    root = tmp_path / "repo"
+    assert F.main(["--manifest", str(manifest), "--root", str(root), "--from", str(tmp_path),
+                   "--no-sam"]) == 0
+    assert (root / "dlc_project_frontal" / PROJECT / TRAIN / "snapshot-200.pt").is_file()
+    z.write_bytes(b"tampered")
+    root2 = tmp_path / "repo2"
+    assert F.main(["--manifest", str(manifest), "--root", str(root2), "--from", str(tmp_path),
+                   "--no-sam"]) == 1
+    assert "REFUSED" in capsys.readouterr().out
