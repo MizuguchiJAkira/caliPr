@@ -167,3 +167,22 @@ def test_specimen_list_carries_image_sizes(srv):
     url, study = srv
     [row] = _get(url, "/api/specimens")
     assert row["sizes"]["lateral"] == [1000, 400]
+
+
+def test_specimen_gaps_report_what_a_saved_fish_still_lacks():
+    from pathlib import Path as _P
+    schema = ls.build_schema({})
+    doc = {"lateral": {"keypoints": {"eye_anterior": [1, 1], "pectoral_insertion_upper": [2, 2]},
+                       "polygons": {"pectoral": [[0, 0]] * 20, "dorsal": [[0, 0]] * 5},
+                       "calibration": {"mode": "none"}},
+           "frontal": {"keypoints": {"mouth_left": [1, 1], "mouth_right": [5, 1]}},
+           "metadata": {"assist": {"unreviewed": ["eye_anterior"]}, "data_note": "fin damaged"}}
+    g = ls.specimen_gaps(doc, schema, [1000, 400], {"width": 1000, "height": 400})
+    assert "premaxilla_tip" in g["landmarks_missing"]
+    assert "pectoral_insertion_upper" not in g["landmarks_missing"]         # fin work, reported with fins
+    assert not any(n.endswith(("_base_anterior", "_base_posterior")) for n in g["landmarks_missing"])
+    assert g["no_scale"] and g["no_outline"] and g["frontal_no_scale"] and g["flagged"]
+    assert g["fins_thin"] == ["dorsal"] and set(g["fins_untraced"]) == {"pelvic", "anal"}
+    assert "pectoral" in g["fins_no_points"] and g["unreviewed"] == 1 and not g["misaligned"]
+    assert ls.specimen_gaps(doc, schema, [1450, 400], {"width": 1000, "height": 400})["misaligned"]
+    assert ls.specimen_gaps({"lateral": {}}, schema, None, None)["landmarks_missing"] == []
