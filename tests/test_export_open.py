@@ -51,7 +51,10 @@ def srv(tmp_path, monkeypatch):
     monkeypatch.setattr(ls, "_ROOT", results)
     (results / "scripts").symlink_to(SCRIPTS)
     shown = []
-    monkeypatch.setattr(ls, "show_on_this_computer", lambda path, how: shown.append((path, how)))
+    def record(path, how):
+        shown.append((path, how))
+        return how, None
+    monkeypatch.setattr(ls, "show_on_this_computer", record)
     ls.Handler.datasets = {"exportstudy": study}
     ls.Handler.default_dataset = "exportstudy"
     ls.Handler.images_dir = study
@@ -127,3 +130,25 @@ def test_a_failed_export_opens_nothing(srv):
         f.unlink()
     code, r = _post(url, "/api/export/sidecars?dataset=exportstudy")
     assert code == 500 and "nothing labelled" in r["error"] and shown == []
+
+
+def test_a_file_only_claude_would_open_is_shown_in_the_file_browser_instead(tmp_path):
+    """No spreadsheet app installed: macOS hands .xlsx to the Claude app, which asks
+    to attach it to a chat. Selecting it in Finder is the useful thing to do."""
+    wb = tmp_path / "measurements.xlsx"
+    wb.write_bytes(b"x")
+    how, note = ls.how_to_show(wb, "open", "/Applications/Claude.app")
+    assert how == "reveal" and "spreadsheet app" in note
+    how, note = ls.how_to_show(wb, "open", None)
+    assert how == "reveal" and "Nothing on this computer opens .xlsx" in note
+    assert ls.how_to_show(wb, "open", "/Applications/Numbers.app") == ("open", None)
+    assert ls.how_to_show(tmp_path, "open", None) == ("open", None)       # a folder opens in Finder
+    assert ls.how_to_show(wb, "reveal", "/Applications/Claude.app") == ("reveal", None)
+
+
+def test_the_page_is_told_why_a_workbook_was_not_opened(srv, monkeypatch):
+    url, results, shown = srv
+    monkeypatch.setattr(ls, "show_on_this_computer",
+                        lambda path, how: ("reveal", "no spreadsheet app"))
+    code, r = _post(url, "/api/export/sidecars?dataset=exportstudy")
+    assert r["shown"] == "reveal" and r["note"] == "no spreadsheet app"
