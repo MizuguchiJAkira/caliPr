@@ -66,7 +66,9 @@ gives the TXD specimens still to do.
 
 ## 3. Auto-label, then check what it flags
 
-**Auto-label** runs the trained model on the open specimen.
+**Auto-label** runs the trained model on the open specimen's current view. On
+the lateral view that is the landmark model; on the frontal view it is a separate
+model that places the two mouth corners.
 
 ![Auto-label](img/tutorial/3-auto-label.png)
 
@@ -94,6 +96,14 @@ Accepting is a deliberate keypress, never assumed from leaving a point alone.
 Those are different claims and the sidecar records them separately. `Z` undoes
 anything — an accept, a drag, a vertex — and **Clear all** empties the view in
 one step, also undoable.
+
+Each view keeps its own record of what was accepted, corrected and left
+unreviewed, and the record is saved with the fish. Reopening a saved fish brings
+it back, so points you never reviewed stay marked and `A` still walks them.
+
+On the frontal view, check both corners whatever their colour. On the seven fish
+held out from training, the worst corner pair was 1.7 mm off in mouth width at
+0.95 confidence, and the best was placed at 0.27.
 
 The first Auto-label of a session takes a few seconds while the model loads;
 after that it is about a second. **Auto-label all unlabelled** runs the whole

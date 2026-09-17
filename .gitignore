@@ -67,3 +67,7 @@ data/fishphenokey_request.md
 # Automatic backups written before a sidecar's coordinates are moved (git keeps
 # the history; these are a local safety net, not something to publish)
 data/**/*.json.bak
+
+# Frontal model (same as above, trained separately)
+dlc_frontal/
+dlc_project_frontal/
