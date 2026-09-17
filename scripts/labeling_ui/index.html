@@ -271,8 +271,14 @@
   #clipflags button.on { background:var(--warn); border-color:var(--warn); color:#2a1a00; font-weight:600; }
   #datanote { width:100%; background:#0e1218; border:1px solid var(--line); color:var(--fg);
     border-radius:5px; padding:5px 7px; font-size:11px; }
-  #main { position:relative; min-width:0; min-height:0; overflow:hidden; }
+  #main { position:relative; min-width:0; min-height:0; overflow:hidden; background:#0b0e12; }
   canvas { display:block; width:100%; height:100%; cursor:crosshair; background:#0b0e12; }
+  /* The photograph and everything drawn over it are separate layers, so image
+     adjustments can be a CSS filter on the photograph alone. Canvas's own filter
+     property does nothing in WebKit (Safari, DuckDuckGo), and would also recolour
+     the landmarks. */
+  #cvimg { position:absolute; left:0; top:0; pointer-events:none; background:transparent; }
+  #cv { position:relative; background:transparent; }
   #hud { position:absolute; top:10px; left:12px; background:#0d1117cc; padding:6px 10px;
     border-radius:6px; color:var(--mut); font-size:11px; pointer-events:none; }
   #toast { position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
@@ -406,6 +412,7 @@ ones to check.">Auto-label</button>
   </div>
   <div id="grip2" title="Drag to resize"></div>
   <div id="main">
+    <canvas id="cvimg"></canvas>
     <canvas id="cv"></canvas>
     <div id="hud"></div>
     <div id="toast"></div>
@@ -600,6 +607,7 @@ function clearAll(){
   toast(`Cleared ${n} on ${view} — Z to undo`);
 }
 const cv=$('#cv'), ctx=cv.getContext('2d');
+const cvi=$('#cvimg'), ictx=cvi.getContext('2d');   // the photograph, under cv
 
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
@@ -1340,22 +1348,21 @@ function regionBlank(c,x,y,w,h){
 function draw(){
   const r=cv.getBoundingClientRect();
   ctx.setTransform(1,0,0,1,0,0); ctx.clearRect(0,0,cv.width,cv.height);
+  ictx.setTransform(1,0,0,1,0,0); ictx.clearRect(0,0,cvi.width,cvi.height);
   if(imgW){
     const dw=imgW*vs.scale, dh=imgH*vs.scale, small = !!imgSmall && vs.scale<=USE_SMALL_BELOW;
-    ctx.imageSmoothingEnabled = small;       // smooth a shrink; crisp pixels when zoomed in
-    ctx.filter=imgFilter;
+    ictx.imageSmoothingEnabled = small;      // smooth a shrink; crisp pixels when zoomed in
     // A lost decode can also surface as an exception rather than an empty draw;
     // either way the photograph is missing, so both lead to the same recovery.
     let threw=false;
-    try{ ctx.drawImage(small?imgSmall:img, vs.ox, vs.oy, dw, dh); }catch(e){ threw=true; }
-    ctx.filter='none';
+    try{ ictx.drawImage(small?imgSmall:img, vs.ox, vs.oy, dw, dh); }catch(e){ threw=true; }
     // If the photograph was drawn and nothing appeared, the decode was lost:
     // reload the image rather than leave a black canvas. Bounded, so an image
     // that genuinely cannot be drawn does not reload forever.
     const now=performance.now();
     const due = now-lastBlankCheck >= BLANK_CHECK_MS;
     if(due) lastBlankCheck=now;
-    if((threw || due) && blankRetries<2 && cur && (threw || regionBlank(ctx, vs.ox, vs.oy, dw, dh))){
+    if((threw || due) && blankRetries<2 && cur && (threw || regionBlank(ictx, vs.ox, vs.oy, dw, dh))){
       blankRetries++;
       console.warn(`image drew blank (${small?'small copy':'original'}, scale ${vs.scale.toFixed(3)}); reloading it`);
       const keep={ox:vs.ox, oy:vs.oy, scale:vs.scale};
@@ -1763,6 +1770,7 @@ function updateImgFilter(){
   if(gray) parts.push('grayscale(1)');
   if(inv) parts.push('invert(1)');
   imgFilter = parts.length ? parts.join(' ') : 'none';
+  cvi.style.filter = parts.length ? imgFilter : '';
   $('#tGray').classList.toggle('on',gray);
   $('#tInv').classList.toggle('on',inv);
   const n=parts.length;
@@ -1887,7 +1895,8 @@ $('#hideExcl').checked = localStorage.getItem('calipr_hide_excl')==='1';
 
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
 function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
-  const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height; }
+  const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height;
+  cvi.width=r.width; cvi.height=r.height; cvi.style.width=r.width+'px'; cvi.style.height=r.height+'px'; }
 
 // ---- reference panel ----
 let refAnnot=new Image(), refBase=new Image(), refData=null, refMode='zoom';
