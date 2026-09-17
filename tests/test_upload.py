@@ -370,3 +370,85 @@ def test_demo_mode_refuses_removing_a_study(rooted):
     finally:
         ls.Handler.demo_mode = False
     assert code == 403 and (root / "study").is_dir()
+
+
+# --------------------------------------------------------------------------
+# a study's own landmarks, and what it calls them
+# --------------------------------------------------------------------------
+
+def _schema(url):
+    with urllib.request.urlopen(f"{url}/api/schema?dataset=study") as r:
+        return json.loads(r.read())
+
+
+def test_a_study_can_add_its_own_landmark(rooted):
+    url, root = rooted
+    code, body = _post_json(url, "/api/schema/keypoint?dataset=study",
+                            {"action": "add", "label": "Adipose fin base"})
+    assert code == 200 and body["ok"]
+    [added] = [k for k in body["schema"]["lateral"]["keypoints"] if k.get("custom")]
+    assert added["name"] == "adipose_fin_base" and added["label"] == "Adipose fin base"
+    assert json.loads((root / "study" / "schema.json").read_text())["extra_keypoints"][0]["name"] \
+        == "adipose_fin_base"
+    # it is offered on every specimen in the study, and nowhere else
+    assert added["name"] in [k["name"] for k in _schema(url)["lateral"]["keypoints"]]
+    assert "adipose_fin_base" not in [k.name for k in ls.KEYPOINTS]
+
+
+def test_a_landmark_is_renamed_for_the_study_without_changing_its_stored_name(rooted):
+    url, root = rooted
+    code, body = _post_json(url, "/api/schema/keypoint?dataset=study",
+                            {"action": "rename", "name": "premaxilla_tip", "label": "snout tip"})
+    assert code == 200
+    kp = {k["name"]: k for k in body["schema"]["lateral"]["keypoints"]}
+    assert kp["premaxilla_tip"]["label"] == "snout tip"      # shown
+    assert "premaxilla_tip" in kp                             # stored, and still that
+    prof = json.loads((root / "study" / "schema.json").read_text())
+    assert prof["labels"] == {"premaxilla_tip": "snout tip"}
+    # renaming back to its own name drops the override rather than storing a no-op
+    _post_json(url, "/api/schema/keypoint?dataset=study",
+               {"action": "rename", "name": "premaxilla_tip", "label": "premaxilla_tip"})
+    assert "labels" not in json.loads((root / "study" / "schema.json").read_text())
+
+
+def test_only_a_studys_own_landmark_can_be_removed_and_placed_ones_ask_first(rooted):
+    url, root = rooted
+    _post_json(url, "/api/schema/keypoint?dataset=study", {"action": "add", "label": "notch"})
+    code, body = _post_json(url, "/api/schema/keypoint?dataset=study",
+                            {"action": "remove", "name": "premaxilla_tip"})
+    assert code == 400 and "added for this study" in body["error"]
+
+    (root / "study" / "sidecars").mkdir(exist_ok=True)
+    (root / "study" / "sidecars" / "f1.json").write_text(
+        json.dumps({"fish_id": "f1", "lateral": {"keypoints": {"notch": [1, 2]}}}))
+    code, body = _post_json(url, "/api/schema/keypoint?dataset=study",
+                            {"action": "remove", "name": "notch"})
+    assert code == 409 and body["placed"] == 1
+    assert "notch" in [k["name"] for k in _schema(url)["lateral"]["keypoints"]]
+
+    code, body = _post_json(url, "/api/schema/keypoint?dataset=study",
+                            {"action": "remove", "name": "notch", "force": True})
+    assert code == 200
+    assert "notch" not in [k["name"] for k in _schema(url)["lateral"]["keypoints"]]
+    # the coordinates already saved are left alone, not edited out of the sidecar
+    assert json.loads((root / "study" / "sidecars" / "f1.json").read_text())["lateral"]["keypoints"]
+
+
+def test_a_nameless_landmark_is_refused(rooted):
+    url, _ = rooted
+    for payload in ({"action": "add", "label": "  "}, {"action": "rename", "name": "premaxilla_tip",
+                                                       "label": ""}):
+        assert _post_json(url, "/api/schema/keypoint?dataset=study", payload)[0] == 400
+    assert _post_json(url, "/api/schema/keypoint?dataset=study",
+                      {"action": "rename", "name": "nope", "label": "x"})[0] == 404
+
+
+def test_a_studys_own_landmark_is_a_landmark_not_a_ruler_point(rooted):
+    """It was listed among the ruler points too, and the ruler copy came first: clicking
+    it started a ruler task, so the point could not be placed at all."""
+    url, _ = rooted
+    _post_json(url, "/api/schema/keypoint?dataset=study", {"action": "add", "label": "adipose base"})
+    sch = _schema(url)["lateral"]
+    assert "adipose_base" in [k["name"] for k in sch["keypoints"]]
+    assert "adipose_base" not in [k["name"] for k in sch["ruler"]]
+    assert [k["name"] for k in sch["ruler"]] == ["ruler_point_a", "ruler_point_b"]

@@ -121,6 +121,11 @@
   .task .dot { width:9px; height:9px; border-radius:50%; background:#3a4553; flex:none; }
   .task.set .dot { background:var(--good); }
   .task .nm { flex:1; }
+  .task .rn { display:none; color:var(--mut); font-size:11px; padding:0 3px; }
+  .task:hover .rn { display:inline; }
+  .task .rn:hover { color:var(--accent); }
+  .addkp { padding:3px 14px 6px; font-size:11px; color:var(--mut); cursor:pointer; }
+  .addkp:hover { color:var(--accent); }
   .task .kind { color:var(--mut); font-size:10px; text-transform:uppercase; }
   /* vertex counter for fin outlines: amber until the outline is dense enough */
   .task .cnt { font-size:10px; font-variant-numeric:tabular-nums; color:var(--mut);
@@ -1197,14 +1202,18 @@ function buildTasks(){
     const count = target ? `<span class="cnt">${n}/${target}</span>`
                 : (pc!==undefined ? `<span class="cnt">${confText(pc)}</span>` : '');
     if(it.excluded) el.classList.add('excluded');
-    el.innerHTML=`<span class="dot"></span><span class="nm">${extra||it.name}</span>`+
-                 `${count}<span class="kind">${kind[0]}</span>`+
+    el.innerHTML=`<span class="dot"></span><span class="nm">${extra||it.label||it.name}</span>`+
+                 `${count}`+
+                 (kind==='ruler'?'':`<span class="rn" title="Rename for this study">✎</span>`)+
+                 `<span class="kind">${kind[0]}</span>`+
                  (kind==='ruler'?'':`<span class="ex" title="${it.excluded
                    ?'Put this landmark back in scope'
                    :'Not available or not relevant — leave it out of this study'}">${
                    it.excluded?'+':'×'}</span>`);
     const x=el.querySelector('.ex');
     if(x) x.onclick=ev=>{ ev.stopPropagation(); toggleExcluded(kind,it.name); };
+    const rn=el.querySelector('.rn');
+    if(rn) rn.onclick=ev=>{ ev.stopPropagation(); renameLandmark(it); };
     el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description,
                                target:it.target||0};
       if(retrace) zoomToFin(finOf(it.name));
@@ -1262,6 +1271,16 @@ function buildTasks(){
     box.appendChild(h);
     mine.forEach(([kind,it])=>mkTask(kind,it));
   }
+
+  // This study's own landmarks live at the end of their region, like any other;
+  // adding one is offered here, where the list ends.
+  const add=document.createElement('div');
+  add.className='addkp';
+  add.textContent='＋ add a landmark to this study';
+  add.title='A point collected on every specimen in this study. Saved and exported '
+          + 'as a coordinate — the 33 traits are defined in code and cannot use it.';
+  add.onclick=addLandmark;
+  box.appendChild(add);
 
   const tc=$('#taskcount');
   if(tc){ const all=[...box.querySelectorAll('.task')];
@@ -1360,6 +1379,58 @@ async function toggleExcluded(kind, name){
     toast((i>=0?'Restored ':'Excluded ')+name+(d?` — ${d} trait column(s) omitted from export`:''));
   }catch(e){ toast('Could not save that: '+e.message); }
 }
+// A landmark this study adds to the master schema. It appears on every specimen
+// here, is saved in the sidecar and exported to TPS. No trait is computed from it:
+// every trait is defined in code against a fixed name.
+async function addLandmark(){
+  const label=await askText('Name the landmark to add to “'+dataset+'”.\n\n'
+    + 'It is collected on every specimen in this study, saved with the labels and '
+    + 'written to the TPS export. The 33 measured traits are defined in code, so '
+    + 'none is computed from it.');
+  if(!label) return;
+  const r=await api('/api/schema/keypoint'+dsq(),{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'add', label, view})});
+  if(!r.ok){ await tell('Could not add it:\n\n'+(r.error||'?')); return; }
+  SCHEMA=r.schema; buildTasks(); showHint(); draw();
+  const made=(SCHEMA[view].keypoints||[]).filter(k=>k.custom).slice(-1)[0];
+  toast('Added '+(made?made.label:label)+' to this study');
+}
+// Renaming changes what this study calls a landmark, not the name it is stored
+// under: the traits, the model and every sidecar already saved refer to that.
+async function renameLandmark(it){
+  const label=await askText(`Rename “${it.label||it.name}” for this study.\n\n`
+    + (it.custom ? 'Leave the name empty to remove this landmark.\n\n' : '')
+    + `Saved and exported under its own name, ${it.name}, whatever it is called here.`,
+    it.label||it.name);
+  if(label===null) return;
+  const body = label.trim()===''
+    ? (it.custom ? {action:'remove', name:it.name} : null)
+    : {action:'rename', name:it.name, label:label.trim()};
+  if(!body){ toast('A name is needed'); return; }
+  let r=await api('/api/schema/keypoint'+dsq(),{method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  if(!r.ok && r.placed){
+    if(!await ask(`${it.name} is placed on ${r.placed} fish. Removing it from the study `
+      + `leaves those points in their sidecars, where nothing reads them. Remove it?`,
+      {ok:'Remove'})) return;
+    r=await api('/api/schema/keypoint'+dsq(),{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({...body, force:true})});
+  }
+  if(!r.ok){ await tell('Could not do that:\n\n'+(r.error||'?')); return; }
+  SCHEMA=r.schema;
+  if(activeTask && activeTask.name===it.name && body.action==='remove') activeTask=null;
+  buildTasks(); showHint(); draw();
+  toast(body.action==='remove' ? 'Removed '+it.name : 'Renamed to '+label.trim());
+}
+// What this study calls a landmark, for anything shown on screen. The stored name
+// is what everything else uses.
+function labelOf(name){
+  const sc=SCHEMA&&SCHEMA[view]; if(!sc) return name;
+  const it=[...(sc.keypoints||[]),...(sc.polygons||[]),...(sc.ruler||[])].find(x=>x.name===name);
+  return (it&&it.label)||name;
+}
 function showHint(){
   if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
     '<kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan';return;}
@@ -1369,7 +1440,7 @@ function showHint(){
     ? ` &nbsp;<b style="color:${n>=t.target?'var(--good)':'var(--warn)'}">${n}/${t.target} vertices</b>` +
       (n<t.target ? ' — sparse outlines read the fin small' : '')
     : '';
-  $('#hint').innerHTML=`<b>${t.name}</b> — ${t.hint||t.desc||''}` +
+  $('#hint').innerHTML=`<b>${labelOf(t.name)}</b> — ${t.hint||t.desc||''}` +
     (t.kind==='polygon'?' &nbsp;(trace vertices; <kbd>Enter</kbd>=finish. On a finished outline: click the line to insert a vertex, drag any vertex to move.)':'')
     + dens;
   drawRef();
@@ -1473,7 +1544,7 @@ function draw(){
       if(verts.length>=3) ctx.fill();
       verts.forEach(p=>dot(p,active?'#7fd0ff':'#4aa3ff',active?3:2.5));
       if(active){ let cx=0,cy=0; verts.forEach(p=>{cx+=p[0];cy+=p[1];});
-        label([cx/verts.length, cy/verts.length], nm); }   // name the selected polygon
+        label([cx/verts.length, cy/verts.length], labelOf(nm)); }   // name the selected polygon
     }
     // keypoints — only label the ACTIVE landmark or the one under the cursor,
     // so placed labels don't pile up and obscure the fish.
@@ -1501,7 +1572,7 @@ function draw(){
         ctx.beginPath(); ctx.arc(sx,sy,8,0,7);
         ctx.strokeStyle='#ffb454'; ctx.lineWidth=1.5; ctx.stroke(); }
       if(nm===(activeTask&&activeTask.name) || nm===hoverName)
-        label(p, c===undefined ? nm : `${nm} ${confText(c)}`); }
+        label(p, c===undefined ? labelOf(nm) : `${labelOf(nm)} ${confText(c)}`); }
     // ruler
     if(!only && m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);

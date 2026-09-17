@@ -256,6 +256,15 @@ def load_profile(images_dir: Path) -> dict:
         # "we do not collect this" and "the model is not good enough at it yet".
         "exclude_predicted_polygons": set(
             prof.get("exclude_predicted_polygons") or []),
+        # Landmarks this study adds to the master schema. They are coordinates
+        # only: every trait is defined in code against a fixed name, so nothing is
+        # computed from them -- they are labelled, saved, and exported.
+        "extra_keypoints": [k for k in (prof.get("extra_keypoints") or [])
+                            if isinstance(k, dict) and k.get("name")],
+        # What this study calls a landmark. Renaming changes only what is shown:
+        # the stored name is what the traits, the trained model and every sidecar
+        # already written refer to.
+        "labels": dict(prof.get("labels") or {}),
         "note": prof.get("note", ""),
     }
 
@@ -266,17 +275,32 @@ def build_schema(profile: dict | None = None) -> dict:
     profile = profile or {}
     drop_poly = profile.get("exclude_polygons") or set()
     drop_kp = profile.get("exclude_keypoints") or set()
+    extra = profile.get("extra_keypoints") or []
+    labels = profile.get("labels") or {}
 
     # Excluded landmarks are MARKED, not omitted: the labeler has to be able to
     # show them struck through and let someone put one back. Consumers that read
     # schema.json directly (the standalone build, the TPS export) still filter.
-    def kp(items, view):
-        return [
-            {"name": k.name, "description": k.description, "hint": k.labeling_hint,
+    def kp(items, view, extras=False):
+        out = [
+            {"name": k.name, "label": labels.get(k.name, k.name),
+             "description": k.description, "hint": k.labeling_hint,
              "excluded": k.name in drop_kp}
             for k in items
             if k.view == view
         ]
+        # This study's own landmarks, after the master ones, in the order added.
+        # Only among the landmarks: the ruler points are a different kind of task,
+        # and a landmark listed as one is placed as a ruler point, not a landmark.
+        out += [] if not extras else [
+            {"name": k["name"], "label": labels.get(k["name"], k.get("label") or k["name"]),
+             "description": k.get("description")
+                            or "Added for this study. Saved and exported as a coordinate; "
+                               "no trait is computed from it.",
+             "hint": k.get("hint") or "", "excluded": k["name"] in drop_kp, "custom": True}
+            for k in extra if (k.get("view") or "lateral") == view
+        ]
+        return out
 
     def poly(view):
         # `target` drives the vertex counter in the labeler. Fin areas read low
@@ -285,6 +309,7 @@ def build_schema(profile: dict | None = None) -> dict:
         return [
             {
                 "name": p.name,
+                "label": labels.get(p.name, p.name),
                 "description": p.description,
                 "hint": p.labeling_hint,
                 "target": (
@@ -326,12 +351,12 @@ def build_schema(profile: dict | None = None) -> dict:
         "fin_groups": fin_groups(),
         "lateral": {
             "polygons": poly(View.LATERAL),
-            "keypoints": kp(KEYPOINTS, View.LATERAL),
+            "keypoints": kp(KEYPOINTS, View.LATERAL, extras=True),
             "ruler": kp(CALIBRATION_KEYPOINTS, View.LATERAL),
         },
         "frontal": {
             "polygons": poly(View.FRONTAL),
-            "keypoints": kp(KEYPOINTS, View.FRONTAL),
+            "keypoints": kp(KEYPOINTS, View.FRONTAL, extras=True),
             # frontal ruler isn't in the schema's CALIBRATION_KEYPOINTS
             # (those are lateral-only), so synthesize a generic pair here.
             "ruler": [
@@ -708,6 +733,99 @@ class Handler(BaseHTTPRequestHandler):
         vals.sort()
         median = vals[len(vals) // 2] if vals else None
         return {"median_px_per_mm": median, "n": len(vals)}
+
+    def _edit_schema_keypoint(self):
+        """Add, rename or remove one of this study's own landmarks.
+
+        Adding extends the study's schema.json; the master schema is untouched, so
+        a custom landmark exists for this study and every specimen in it. Renaming
+        records what to call a landmark here -- for master landmarks the stored name
+        must not change, or the traits, the trained model and every sidecar already
+        saved would stop referring to the same point.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        action = data.get("action")
+        path = self.images_dir / "schema.json"
+        prof = {}
+        if path.is_file():
+            try:
+                prof = json.loads(path.read_text())
+            except Exception:
+                prof = {}
+        extra = prof.get("extra_keypoints") or []
+        labels = prof.get("labels") or {}
+        master = {k.name for k in KEYPOINTS} | {p.name for p in POLYGONS}
+        taken = master | {k["name"] for k in extra}
+
+        if action == "add":
+            label = str(data.get("label") or "").strip()
+            view = data.get("view") if data.get("view") in ("lateral", "frontal") else "lateral"
+            if not 1 <= len(label) <= 60:
+                return self._send(400, {"ok": False, "error": "give the landmark a name"})
+            base = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or "landmark"
+            name = base
+            i = 2
+            while name in taken:
+                name, i = f"{base}_{i}", i + 1
+            extra.append({"name": name, "label": label, "view": view,
+                          "hint": str(data.get("hint") or "")})
+            prof["extra_keypoints"] = extra
+        elif action == "rename":
+            name = str(data.get("name") or "")
+            label = str(data.get("label") or "").strip()
+            if name not in taken:
+                return self._send(404, {"ok": False, "error": f"no landmark {name!r}"})
+            if not 1 <= len(label) <= 60:
+                return self._send(400, {"ok": False, "error": "give the landmark a name"})
+            if label == name:
+                labels.pop(name, None)            # back to its own name
+            else:
+                labels[name] = label
+            for k in extra:
+                if k["name"] == name:
+                    k["label"] = label
+            prof["labels"] = labels
+        elif action == "remove":
+            name = str(data.get("name") or "")
+            if not any(k["name"] == name for k in extra):
+                return self._send(400, {"ok": False,
+                                        "error": "only a landmark added for this study can be removed; "
+                                                 "use the exclude list for the rest"})
+            placed = self._count_placed(name)
+            if placed and not data.get("force"):
+                return self._send(409, {"ok": False, "placed": placed,
+                                        "error": f"{name} is placed on {placed} fish"})
+            prof["extra_keypoints"] = [k for k in extra if k["name"] != name]
+            labels.pop(name, None)
+            prof["labels"] = labels
+        else:
+            return self._send(400, {"ok": False, "error": f"unknown action {action!r}"})
+
+        if not prof.get("labels"):
+            prof.pop("labels", None)
+        if not prof.get("extra_keypoints"):
+            prof.pop("extra_keypoints", None)
+        path.write_text(json.dumps(prof, indent=2) + "\n")
+        return self._send(200, {"ok": True, "schema": build_schema(load_profile(self.images_dir))})
+
+    def _count_placed(self, name: str) -> int:
+        """How many saved fish have this landmark placed, in either view."""
+        n = 0
+        for p in self.out_dir.glob("*.json"):
+            try:
+                doc = json.loads(p.read_text())
+            except Exception:
+                continue
+            if any(name in ((doc.get(v) or {}).get("keypoints") or {})
+                   for v in ("lateral", "frontal")):
+                n += 1
+        return n
 
     def _set_exclusions(self):
         """Record which landmarks and outlines this study does not collect.
@@ -1423,6 +1541,9 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/schema/exclude":
             return self._set_exclusions()
+
+        if route == "/api/schema/keypoint":
+            return self._edit_schema_keypoint()
 
         if route != "/api/save":
             return self._send(404, {"error": "unknown route"})

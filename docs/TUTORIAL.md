@@ -132,6 +132,19 @@ backlog in one pass. Each fish then opens with its points already placed and
 the first one selected, so `A` works from the first press; a **P** badge marks
 the ones still to review.
 
+### Landmarks of your own
+
+Every study collects the landmarks defined in the code. A study can also add its
+own: **＋ add a landmark to this study**, at the end of the list. It is then
+offered on every specimen in that study, saved with the labels, and written to the
+TPS export. No trait is computed from it — the 33 traits are defined in code
+against fixed names — and the model does not learn it.
+
+The **✎** on any landmark renames it for this study. That changes what the labeler
+and the TPS names file call it, never the name it is stored under: the traits, the
+trained model and every sidecar already saved refer to that name. Renaming one of
+your own to nothing removes it, and it asks first if the point is already placed.
+
 ---
 
 ## 4. Save, and export
