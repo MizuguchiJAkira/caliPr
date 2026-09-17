@@ -148,3 +148,13 @@ def test_mouth_corners_come_back_in_image_order():
     w._mouth_corners_in_image_order(kps, confs)
     assert kps == {"mouth_left": [100.0, 12.0], "mouth_right": [300.0, 10.0]}
     assert confs == {"mouth_left": 0.9, "mouth_right": 0.4}     # each follows its point
+
+
+def test_plausibility_bands_added_after_a_first_prediction_are_used(tmp_path):
+    pytest.importorskip("numpy")
+    w = _load("predict_worker")
+    image = tmp_path / "study" / "lateral" / "x_L.JPEG"
+    image.parent.mkdir(parents=True)
+    assert w._bands_for(image) is None
+    (tmp_path / "study" / "plausibility.json").write_text(json.dumps({"landmarks": {"a": [0, 1]}}))
+    assert w._bands_for(image) == {"landmarks": {"a": [0, 1]}}

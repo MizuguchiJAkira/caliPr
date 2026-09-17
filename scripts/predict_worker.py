@@ -303,9 +303,11 @@ class _Sam:
         return mask_to_polygon(masks[best].numpy(), BODY_VERTICES, scale)
 
 
-#: Plausibility bands, keyed by dataset directory. Read once per dataset: the
-#: worker is long-lived and the file only changes when someone refits it.
-_BANDS_CACHE: dict[str, dict | None] = {}
+#: Plausibility bands, keyed by dataset directory and the file's modification
+#: time. The worker is long-lived, so keying on the directory alone kept a study's
+#: first answer for the whole session: copy plausibility.json into a new study
+#: after its first Auto-label, or refit it, and nothing was checked until restart.
+_BANDS_CACHE: dict[tuple[str, int], dict | None] = {}
 
 
 def _bands_for(image: Path) -> dict | None:
@@ -315,9 +317,11 @@ def _bands_for(image: Path) -> dict | None:
     is two levels up. A dataset nobody has fitted returns None and is not checked
     — the right default for a taxon whose landmarks sit nowhere near a trout's.
     """
-    key = str(image.parent.parent)
+    dataset = image.parent.parent
+    f = dataset / "plausibility.json"
+    key = (str(dataset), f.stat().st_mtime_ns if f.is_file() else 0)
     if key not in _BANDS_CACHE:
-        _BANDS_CACHE[key] = plausibility.load(image.parent.parent)
+        _BANDS_CACHE[key] = plausibility.load(dataset)
     return _BANDS_CACHE[key]
 
 
