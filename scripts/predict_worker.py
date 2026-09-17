@@ -12,7 +12,7 @@ training interpreter and talks to it over pipes.
 
 Protocol — one JSON object per line, in and out::
 
-    {"image": "/abs/path/to/fish.JPEG", "polygons": true}
+    {"image": "/abs/path/to/fish.JPEG", "polygons": true, "view": "lateral"}
     {"ok": true, "fish_id": "...", "keypoints": {...}, "confidence": {...},
      "low_confidence": [...], "polygons": {"body_plus_caudal": [[x, y], ...]},
      "implausible": {"pelvic_tip": "why it cannot be there"},
@@ -23,6 +23,13 @@ them, checked against the dataset's own measured bands (see
 :mod:`fish_morpho.plausibility`). Those are absent from ``keypoints`` — a point
 the anatomy rules out is not offered, because a labeller can accept a flagged
 point but cannot un-see a confident one in the wrong place.
+
+``view`` picks the model. The lateral one is loaded at start, as before; the
+frontal one (mouth corners, trained separately in ``dlc_project_frontal``) only
+when a frontal image is first asked for. A frontal prediction has no outline and
+no plausibility check -- the bands describe positions along a fish's side -- and
+its two corners come back in image order, ``mouth_left`` the further left, which
+is how the model was trained to name them.
 
 Segment Anything is loaded lazily, on the first request that asks for polygons,
 because it costs several seconds and a keypoints-only pass should not pay for it.
@@ -319,38 +326,73 @@ def _emit(obj) -> None:
     sys.stdout.flush()
 
 
+class _Model:
+    """One trained DeepLabCut model: its config, snapshot, scale and landmarks."""
+
+    def __init__(self, project: Path | None, snapshot: Path | None,
+                 scale: float | None, view: str):
+        import ruamel.yaml
+
+        import predict_landmarks as pl
+
+        self.project = pl.find_project(project, view)
+        self.cfg, self.snapshot = pl.find_config_and_snapshot(self.project, snapshot)
+        self.scale = pl.training_scale(self.project, scale)
+        with open(self.cfg) as fh:
+            self.names = list(ruamel.yaml.YAML().load(fh)["metadata"]["bodyparts"])
+
+
+def _mouth_corners_in_image_order(kps: dict, confs: dict) -> None:
+    """``mouth_left`` is the corner further left in the image, as in training.
+
+    The heatmaps can still hand back the two the other way round on an unusual
+    head; mouth width is the distance between them either way, but a labeller
+    reviewing the points should see each where its name says.
+    """
+    a, b = kps.get("mouth_left"), kps.get("mouth_right")
+    if a and b and a[0] > b[0]:
+        kps["mouth_left"], kps["mouth_right"] = b, a
+        if "mouth_left" in confs and "mouth_right" in confs:
+            confs["mouth_left"], confs["mouth_right"] = confs["mouth_right"], confs["mouth_left"]
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="predict_worker")
     ap.add_argument("--project", type=Path, default=None)
     ap.add_argument("--snapshot", type=Path, default=None)
     ap.add_argument("--scale", type=float, default=None)
+    ap.add_argument("--frontal-project", type=Path, default=None)
     ap.add_argument("--device", default="mps")
     ap.add_argument("--min-confidence", type=float, default=0.6)
     args = ap.parse_args(argv)
 
     # Imported here, not at module scope: the ready/error handshake below should
     # report an import failure rather than the process dying before it speaks.
+    # find_project and friends raise SystemExit, which is not an Exception.
     try:
         import cv2
         import numpy as np
-        import ruamel.yaml
         from deeplabcut.pose_estimation_pytorch import apis
 
         import predict_landmarks as pl
 
-        project = pl.find_project(args.project)
-        cfg, snapshot = pl.find_config_and_snapshot(project, args.snapshot)
-        scale = pl.training_scale(project, args.scale)
-        yaml = ruamel.yaml.YAML()
-        with open(cfg) as fh:
-            conf = yaml.load(fh)
-        names = list(conf["metadata"]["bodyparts"])
-    except Exception as exc:
+        models = {"lateral": _Model(args.project, args.snapshot, args.scale, "lateral")}
+    except (Exception, SystemExit) as exc:
         _emit({"ready": False, "error": f"{type(exc).__name__}: {exc}"})
         return 1
+    lat = models["lateral"]
+    _emit({"ready": True, "model": lat.snapshot.name, "scale": lat.scale,
+           "landmarks": lat.names, "device": args.device})
 
-    _emit({"ready": True, "model": snapshot.name, "scale": scale,
-           "landmarks": names, "device": args.device})
+    def model_for(view: str) -> _Model:
+        if view not in models:
+            if view != "frontal":
+                raise ValueError(f"no model for the {view!r} view")
+            try:
+                models[view] = _Model(args.frontal_project, None, None, "frontal")
+            except SystemExit as exc:          # not an Exception; must not end the worker
+                raise RuntimeError(f"no frontal model: {exc}") from None
+        return models[view]
 
     tmp = Path(tempfile.mkdtemp(prefix="calipr_worker_"))
     for line in sys.stdin:
@@ -360,6 +402,8 @@ def main(argv=None) -> int:
         t0 = time.time()
         try:
             req = json.loads(line)
+            view = req.get("view") or "lateral"
+            m = model_for(view)
             src = Path(req["image"])
             if not src.is_file():
                 raise FileNotFoundError(src)
@@ -367,6 +411,7 @@ def main(argv=None) -> int:
             im = cv2.imread(str(src))
             if im is None:
                 raise ValueError(f"unreadable image: {src.name}")
+            scale = m.scale
             small = cv2.resize(im, None, fx=scale, fy=scale,
                                interpolation=cv2.INTER_AREA)
             # One image per call, in its own directory: the folder API is what is
@@ -376,17 +421,27 @@ def main(argv=None) -> int:
             cv2.imwrite(str(tmp / "frame.png"), small)
 
             res = apis.analyze_image_folder(
-                model_cfg=str(cfg), images=str(tmp),
-                snapshot_path=str(snapshot), device=args.device,
+                model_cfg=str(m.cfg), images=str(tmp),
+                snapshot_path=str(m.snapshot), device=args.device,
                 progress_bar=False)
             arr = np.asarray(next(iter(res.values()))["bodyparts"]).reshape(-1, 3)
 
-            kps, confs, low = {}, {}, []
-            for name, (x, y, c) in zip(names, arr):
+            kps, confs = {}, {}
+            for name, (x, y, c) in zip(m.names, arr):
                 kps[name] = [round(float(x) / scale, 1), round(float(y) / scale, 1)]
                 confs[name] = round(float(c), 3)
-                if c < args.min_confidence:
-                    low.append(name)
+
+            if view == "frontal":
+                _mouth_corners_in_image_order(kps, confs)
+                low = [n for n, c in confs.items() if c < args.min_confidence]
+                _emit({"ok": True, "fish_id": pl.stem_of(src), "image": src.name,
+                       "view": view, "keypoints": kps, "confidence": confs,
+                       "low_confidence": sorted(low), "polygons": {},
+                       "implausible": {}, "frame_warning": None,
+                       "model": m.snapshot.name,
+                       "elapsed": round(time.time() - t0, 2)})
+                continue
+            low = [n for n, c in confs.items() if c < args.min_confidence]
 
             polys = {}
             if req.get("polygons"):
@@ -434,7 +489,7 @@ def main(argv=None) -> int:
                    "keypoints": kps, "confidence": confs,
                    "low_confidence": sorted(low), "polygons": polys,
                    "implausible": bad, "frame_warning": frame_warning,
-                   "model": snapshot.name,
+                   "view": view, "model": m.snapshot.name,
                    "elapsed": round(time.time() - t0, 2)})
         except Exception as exc:
             _emit({"ok": False, "error": f"{type(exc).__name__}: {exc}"})

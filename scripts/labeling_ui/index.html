@@ -433,14 +433,22 @@ let SCHEMA=null, SPECS=[], cur=null, view='lateral', activeTask=null, hoverName=
 //                measured as a distance rather than just noted
 //   accepted   — explicitly confirmed by a keypress, never inferred from inaction
 //   corrected  — moved by hand; from/to/px recorded
-let pred={conf:{}, orig:{}, model:null, low:new Set(),
-          accepted:new Set(), corrected:{}, polys:new Set()};
-function clearPred(){
-  pred={conf:{}, orig:{}, model:null, low:new Set(),
-        accepted:new Set(), corrected:{}, polys:new Set(),
-        dropped:{}, frameWarning:null};
-  const e=$('#autostat'); if(e) e.textContent='';
+// One record per view. The landmark names do not overlap, but the record does: a
+// single one shared by both views was replaced whole by a frontal Auto-label, and
+// the lateral points it had marked unreviewed would then have saved as hand labels.
+// `pred` is the open view's record; setView() repoints it.
+const blankPred=()=>({conf:{}, orig:{}, model:null, low:new Set(),
+                      accepted:new Set(), corrected:{}, polys:new Set(),
+                      dropped:{}, frameWarning:null, at:null});
+let predBy={lateral:blankPred(), frontal:blankPred()};
+let pred=predBy.lateral;
+function clearPred(v){                // one view, or every view when none is named
+  if(v) predBy[v]=blankPred(); else predBy={lateral:blankPred(), frontal:blankPred()};
+  pred=predBy[view];
+  const e=$('#autostat'); if(e && (!v || v===view)) e.textContent='';
 }
+// An unreviewed point saved before its confidence was recorded has none to show.
+const confText=c=> c==null ? '?' : c.toFixed(2);
 function unreviewed(){ return Object.keys(pred.conf).length; }
 let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
 let DATASETS=[], dataset='';        // which study's photographs are open
@@ -568,7 +576,7 @@ function clearAll(){
           +(m.ruler.a?1:0)+(m.ruler.b?1:0);
   if(!n){ toast('Nothing placed on this view'); return; }
   model[view]=emptyView();
-  if(view==='lateral') clearPred();
+  clearPred(view);
   persistDraft(); buildTasks(); renderAutoStat(); showHint(); draw(); updateCalRead();
   toast(`Cleared ${n} on ${view} — Z to undo`);
 }
@@ -637,19 +645,59 @@ const draftKey=id=>'calipr_draft_'+id;
 // and coming back turned every predicted point the ordinary colour: the review
 // looked finished when nothing had been reviewed, which is worse than losing the
 // colouring — it loses the distinction between checked and merely present.
+function _predOne(p){
+  if(!p.model) return null;
+  return {conf:p.conf, orig:p.orig, model:p.model,
+          low:[...p.low], accepted:[...p.accepted],
+          corrected:p.corrected, polys:[...p.polys],
+          dropped:p.dropped, frameWarning:p.frameWarning, at:p.at};
+}
 function predToJSON(){
-  if(!pred.model) return null;
-  return {conf:pred.conf, orig:pred.orig, model:pred.model,
-          low:[...pred.low], accepted:[...pred.accepted],
-          corrected:pred.corrected, polys:[...pred.polys],
-          dropped:pred.dropped, frameWarning:pred.frameWarning};
+  const lateral=_predOne(predBy.lateral), frontal=_predOne(predBy.frontal);
+  return (lateral||frontal) ? {lateral, frontal} : null;
+}
+function _predFrom(d){
+  if(!d || !d.model) return blankPred();
+  return {conf:d.conf||{}, orig:d.orig||{}, model:d.model,
+          low:new Set(d.low||[]), accepted:new Set(d.accepted||[]),
+          corrected:d.corrected||{}, polys:new Set(d.polys||[]),
+          dropped:d.dropped||{}, frameWarning:d.frameWarning||null, at:d.at||null};
 }
 function predFromJSON(d){
-  if(!d || !d.model){ clearPred(); return; }
-  pred={conf:d.conf||{}, orig:d.orig||{}, model:d.model,
-        low:new Set(d.low||[]), accepted:new Set(d.accepted||[]),
-        corrected:d.corrected||{}, polys:new Set(d.polys||[]),
-        dropped:d.dropped||{}, frameWarning:d.frameWarning||null};
+  // A draft from before the views were separated holds one flat record, and
+  // Auto-label only ran on lateral then.
+  predBy = (d && d.model) ? {lateral:_predFrom(d), frontal:blankPred()}
+         : {lateral:_predFrom(d&&d.lateral), frontal:_predFrom(d&&d.frontal)};
+  pred=predBy[view];
+}
+// The review record saved with a fish, read back when it is reopened. Without
+// this, reopening a saved auto-labelled fish started with no record, and saving
+// it again -- to fix a ruler span, say -- wrote the file without one: every point
+// still where the model put it then trained as a hand label. HRN_10, HRN_16 and
+// HRN_28 lost theirs that way.
+function predFromAssist(meta){
+  for(const [v,key] of [['lateral','assist'],['frontal','assist_frontal']]){
+    const a=(meta||{})[key], kps=model[v].keypoints;
+    if(!a || !a.model || !Object.keys(kps).length) continue;
+    const p=blankPred();
+    p.model=a.model; p.at=a.predicted_at||null;
+    p.accepted=new Set((a.accepted||[]).filter(n=>kps[n]));
+    p.corrected=a.corrected||{};
+    p.polys=new Set((a.polygons_from_model||[]).filter(n=>model[v].polygons[n]));
+    const confs=a.unreviewed_confidence||{};
+    for(const n of (a.unreviewed||[])){
+      if(!kps[n]) continue;
+      p.conf[n]=(confs[n]==null) ? null : confs[n];
+      if(p.conf[n]==null || p.conf[n]<0.6) p.low.add(n);
+    }
+    for(const n of Object.keys(kps)){
+      const c=p.corrected[n];
+      if(c && c.from) p.orig[n]=[c.from[0],c.from[1]];
+      else if(p.conf[n]!==undefined || p.accepted.has(n)) p.orig[n]=[kps[n][0],kps[n][1]];
+    }
+    predBy[v]=p;
+  }
+  pred=predBy[view];
 }
 
 function persistDraft(){ if(!cur||!model)return;
@@ -882,6 +930,7 @@ async function selectSpec(s){
       else if(a.status==='content_changed') toast(`${shortId(s.id)} ${v}: ${a.detail}`);
     }
     ingest(sc);
+    predFromAssist(sc.metadata);
     model._placed_on={};  // (base recorded above)
     for(const [v,a] of Object.entries(al))
       if(a.status!=='size_changed' && a.current) model._placed_on[v]=[a.current.width,a.current.height];
@@ -923,7 +972,7 @@ async function selectSpec(s){
   resetHistory();           // undo never reaches back into the previous fish
   // A predicted fish opens on its first point waiting for review, so A works
   // from the first press. Done last: setView() above clears the selection.
-  if(pred.model && view==='lateral' && !activeTask){
+  if(pred.model && !activeTask){
     const first=nextPending(null);
     if(first){ pickByName('keypoint', first); draw(); }
   }
@@ -977,10 +1026,11 @@ function loadImage(){
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
 function setView(v){ view=v; $('#viewPick').value=v; blankRetries=0;
+  pred=predBy[v]; renderAutoStat();
   if(!cur){ activeTask=null; buildTasks(); showHint(); draw(); return Promise.resolve(); }
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
-  activeTask=null; return loadImage(); }
+  activeTask=null; showHint(); return loadImage(); }
 
 function buildTasks(){
   const box=$('#tasks'); box.innerHTML='';
@@ -1001,15 +1051,15 @@ function buildTasks(){
     // Predicted keypoints carry the model's confidence into the list. A point
     // that has been corrected or explicitly accepted leaves pred.conf and reads
     // as reviewed.
-    const pc = (kind==='keypoint' && view==='lateral') ? pred.conf[it.name] : undefined;
-    const unsure   = pc!==undefined && pc < 0.6;
+    const pc = kind==='keypoint' ? pred.conf[it.name] : undefined;
+    const unsure   = pc!==undefined && (pc==null || pc < 0.6);
     const reviewed = set && pred.model && pc===undefined
                      && (pred.accepted.has(it.name) || pred.corrected[it.name]!==undefined);
     el.className='task'+(set?' set':'')+(target&&n&&n<target?' thin':'')
       +(unsure?' unsure':'')+(reviewed?' reviewed':'')
       +(activeTask&&activeTask.name===it.name&&activeTask.kind===kind?' active':'');
     const count = target ? `<span class="cnt">${n}/${target}</span>`
-                : (pc!==undefined ? `<span class="cnt">${pc.toFixed(2)}</span>` : '');
+                : (pc!==undefined ? `<span class="cnt">${confText(pc)}</span>` : '');
     if(it.excluded) el.classList.add('excluded');
     el.innerHTML=`<span class="dot"></span><span class="nm">${extra||it.name}</span>`+
                  `${count}<span class="kind">${kind[0]}</span>`+
@@ -1282,7 +1332,7 @@ function draw(){
       ctx.strokeStyle=active?'#7fd0ff':'#4aa3ff88'; ctx.lineWidth=active?2.5:1.5; ctx.stroke();
       // An outline the model drew is tinted green until it is edited, the same
       // language the keypoints use for "placed by the model, not yet yours".
-      const fromModel = view==='lateral' && pred.polys.has(nm);
+      const fromModel = pred.polys.has(nm);
       ctx.fillStyle = fromModel ? '#37c8711f'
                     : (active?'#7fd0ff2e':'#4aa3ff1a');
       if(verts.length>=3) ctx.fill();
@@ -1298,10 +1348,10 @@ function draw(){
       // An unreviewed prediction is drawn by the model's own confidence: green
       // where it is sure, orange where it is not. Touching the point returns it
       // to the normal colour, so what stays coloured is what still needs a look.
-      const c = (view==='lateral') ? pred.conf[nm] : undefined;
-      const isAcc = view==='lateral' && pred.accepted.has(nm);
-      const isCor = view==='lateral' && pred.corrected[nm]!==undefined;
-      const fill = c!==undefined ? (c>=0.6?'#37c871':'#ffb454')
+      const c = pred.conf[nm];
+      const isAcc = pred.accepted.has(nm);
+      const isCor = pred.corrected[nm]!==undefined;
+      const fill = c!==undefined ? (c!=null && c>=0.6?'#37c871':'#ffb454')
                  : isAcc ? '#2f8f57'          // confirmed: muted green, work done
                  : kpc;                        // corrected or hand-placed
       dot(p, fill, c===undefined ? 3.5 : 4.5);
@@ -1311,12 +1361,12 @@ function draw(){
           ctx.beginPath(); ctx.moveTo(ox,oy); ctx.lineTo(nx,ny);
           ctx.strokeStyle='#ff5d6c66'; ctx.lineWidth=1; ctx.stroke();
           ctx.beginPath(); ctx.arc(ox,oy,2,0,7); ctx.fillStyle='#ff5d6c66'; ctx.fill(); } }
-      if(c!==undefined && c<0.6){            // ring the ones worth checking
+      if(c!==undefined && (c==null || c<0.6)){   // ring the ones worth checking
         const [sx,sy]=toScr(p[0],p[1]);
         ctx.beginPath(); ctx.arc(sx,sy,8,0,7);
         ctx.strokeStyle='#ffb454'; ctx.lineWidth=1.5; ctx.stroke(); }
       if(nm===(activeTask&&activeTask.name) || nm===hoverName)
-        label(p, c===undefined ? nm : `${nm} ${c.toFixed(2)}`); }
+        label(p, c===undefined ? nm : `${nm} ${confText(c)}`); }
     // ruler
     if(!only && m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
@@ -1543,7 +1593,7 @@ window.addEventListener('keydown',e=>{
     if(retrace && activeTask && activeTask.kind==='keypoint'){   // fin review keeps its own walk
       e.preventDefault();
       if(acceptPoint(activeTask.name)){ toast('Accepted '+activeTask.name); advance(); }
-    } else if(view==='lateral' && pred.model){
+    } else if(pred.model){
       // Accept the point in hand, then go straight to the next one waiting. On a
       // point you just dragged, A only moves on: the drag already recorded it as
       // corrected, which is stronger evidence than accepting.
@@ -1875,7 +1925,7 @@ setRefMin(localStorage.getItem('calipr_ref_min')==='1');
 
 function reviewed(name){          // the human MOVED this point
   if(pred.conf[name]===undefined) return;
-  const from=pred.orig[name], to=(model.lateral.keypoints||{})[name];
+  const from=pred.orig[name], to=(model[view].keypoints||{})[name];
   if(from && to){
     pred.corrected[name]={from:[from[0],from[1]], to:[to[0],to[1]],
                           px:+Math.hypot(to[0]-from[0], to[1]-from[1]).toFixed(1),
@@ -1891,7 +1941,7 @@ function reviewed(name){          // the human MOVED this point
 // middle of the list, and an accepted point trains -- walking into them would
 // have A accepting fin points by habit. Click a fin row to review one.
 function nextPending(fromName){
-  const all=((SCHEMA.lateral||{}).keypoints||[]).map(k=>k.name);
+  const all=((SCHEMA[view]||{}).keypoints||[]).map(k=>k.name);
   const pending=all.filter(n=>pred.conf[n]!==undefined && !finOf(n));
   if(!pending.length) return null;
   const at=all.indexOf(fromName);
@@ -1958,44 +2008,57 @@ async function unlock(){
 // Auto-label button and by opening a fish a batch already predicted, so both
 // arrive identically -- same colouring, same review tracking, same exclusion from
 // training until a person accepts or moves each point.
-function applyPrediction(r){
-  pred={conf:r.confidence||{}, orig:{}, model:r.model||null,
+function applyPrediction(r, v='lateral'){
+  const p=blankPred();
+  Object.assign(p, {conf:r.confidence||{}, model:r.model||null,
         low:new Set(r.low_confidence||[]),
         dropped:r.implausible||{}, frameWarning:r.frame_warning||null,
-        accepted:new Set(), corrected:{}, polys:new Set()};
+        at:new Date().toISOString()});
   for(const [nm,poly] of Object.entries(r.polygons||{})){
     if(!Array.isArray(poly) || poly.length<3) continue;
-    model.lateral.polygons[nm]=poly.map(q=>[Math.round(q[0]),Math.round(q[1])]);
-    pred.polys.add(nm);
+    model[v].polygons[nm]=poly.map(q=>[Math.round(q[0]),Math.round(q[1])]);
+    p.polys.add(nm);
   }
   for(const [nm,pt] of Object.entries(r.keypoints||{})){
     const q=[Math.round(pt[0]),Math.round(pt[1])];
-    model.lateral.keypoints[nm]=q;
-    pred.orig[nm]=[q[0],q[1]];        // frozen: the correction is measured from here
+    model[v].keypoints[nm]=q;
+    p.orig[nm]=[q[0],q[1]];           // frozen: the correction is measured from here
   }
+  predBy[v]=p;
+  if(v===view) pred=p;
 }
 $('#autolabel').onclick=async()=>{
   if(!cur){ toast('Pick a specimen first'); return; }
   await refreshAuth();
   if(AUTH.required && !AUTH.unlocked){ if(!await unlock()) return; }
-  if(view!=='lateral'){ toast('Auto-label works on the lateral view'); return; }
-  const placed=Object.keys(model.lateral.keypoints).length;
+  // The view and fish at the click: the answer is applied to those even if the
+  // labeller has moved on by the time it arrives.
+  const s=cur, v=view;
+  const placed=Object.keys(model[v].keypoints).length;
   if(placed && !await ask(
-      `${placed} landmark(s) are already placed on this specimen.\n\n`+
+      `${placed} landmark(s) are already placed on this specimen's ${v} view.\n\n`+
       `Auto-label will overwrite them with the model's. Continue?`)) return;
   const btn=$('#autolabel'); const was=btn.textContent;
   btn.disabled=true; btn.textContent='Predicting…';
   $('#autostat').textContent='running the model (first run loads it, ~5s)…';
   try{
-    const r=await api('/api/predict/'+encodeURIComponent(cur.id)+dsq());
+    const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()
+                      +(v==='frontal'?'&view=frontal':''));
+    if(cur!==s){ return; }                 // another fish was opened meanwhile
     if(!r.ok){ toast('Auto-label unavailable: '+(r.error||'?'));
-               $('#autostat').textContent=''; return; }
-    applyPrediction(r);
+               renderAutoStat(); return; }
+    // A server started before frontal Auto-label existed ignores the view and
+    // answers with lateral landmarks, which would land on the frontal image.
+    if((r.view||'lateral')!==v){ renderAutoStat();
+      await tell(`The labeler server is older than this page and cannot auto-label the `
+        + `${v} view. Restart it (Ctrl-C, then run it again) and reload. Nothing was placed.`);
+      return; }
+    applyPrediction(r, v);
     persistDraft();
     // Send the labeller straight to the least trustworthy point rather than
     // making them hunt for it.
     const first=(r.low_confidence||[])[0];
-    if(first) pickByName('keypoint',first);
+    if(first && view===v) pickByName('keypoint',first);
     buildTasks(); renderAutoStat(); draw();
     const nlow=(r.low_confidence||[]).length;
     // A cached result reports 0.0s, which is falsy — say "cached" rather than "?".
@@ -2294,33 +2357,41 @@ $('#save').onclick=async()=>{
   syncCompromise();
   const strain=(cur.id.match(/_([A-Z]{2,4})_\d+$/)||[])[1]||'';
   const out={fish_id:cur.id, metadata:{strain, source:'hand-labeled'}};
-  if(pred.model){
-    const n=unreviewed(), total=Object.keys(model.lateral.keypoints).length;
-    if(n>=total && total>0){
-      // Saving a prediction with nothing touched would launder model output
-      // into the training set, where it teaches the model its own mistakes.
-      if(!await ask(`Every landmark here is still exactly where the model put `+
-        `them — nothing has been checked.\n\nSaving now records this as a hand `+
-        `label and it WILL be used for training. Save anyway?`)) return;
-    }
-    // Per-landmark provenance. The three states are kept apart deliberately:
-    // a corrected point is independent evidence, an accepted one is a human
-    // agreeing with a suggestion they were shown, and an unreviewed one is
-    // nothing at all. Collapsing them would make the weakest look like the
-    // strongest.
-    out.metadata.assisted_by=pred.model;
-    out.metadata.assist={
-      model: pred.model,
-      accepted: [...pred.accepted].sort(),
-      corrected: pred.corrected,
-      unreviewed: Object.keys(pred.conf).sort(),
-      // Outlines the model drew and the human left as-is. Same caveat as an
-      // accepted point: agreement with a suggestion, not an independent trace.
-      polygons_from_model: [...pred.polys].sort(),
-      predicted_at: new Date().toISOString(),
-    };
-    out.metadata.unreviewed_predictions=Object.keys(pred.conf).sort();
+  const untouched=['lateral','frontal'].filter(v=>{
+    const p=predBy[v], total=Object.keys(model[v].keypoints).length;
+    return p.model && total>0 && Object.keys(p.conf).length>=total;
+  });
+  if(untouched.length){
+    // Saving a prediction with nothing touched would launder model output
+    // into the training set, where it teaches the model its own mistakes.
+    if(!await ask(`Every ${untouched.join(' and ')} landmark here is still exactly `+
+      `where the model put it — nothing has been checked.\n\nSaving now records `+
+      `this as a hand label and it WILL be used for training. Save anyway?`)) return;
   }
+  // Per-landmark provenance. The three states are kept apart deliberately:
+  // a corrected point is independent evidence, an accepted one is a human
+  // agreeing with a suggestion they were shown, and an unreviewed one is
+  // nothing at all. Collapsing them would make the weakest look like the
+  // strongest. Lateral keeps its original key; frontal has its own.
+  const assistOf=p=>({
+    model: p.model,
+    accepted: [...p.accepted].sort(),
+    corrected: p.corrected,
+    unreviewed: Object.keys(p.conf).sort(),
+    // Kept so a reopened fish can still show which unreviewed points were unsure.
+    unreviewed_confidence: Object.fromEntries(Object.entries(p.conf).sort()),
+    // Outlines the model drew and the human left as-is. Same caveat as an
+    // accepted point: agreement with a suggestion, not an independent trace.
+    polygons_from_model: [...p.polys].sort(),
+    predicted_at: p.at || new Date().toISOString(),
+  });
+  if(predBy.lateral.model){
+    out.metadata.assist=assistOf(predBy.lateral);
+    out.metadata.unreviewed_predictions=Object.keys(predBy.lateral.conf).sort();
+  }
+  if(predBy.frontal.model) out.metadata.assist_frontal=assistOf(predBy.frontal);
+  const by=predBy.lateral.model||predBy.frontal.model;
+  if(by) out.metadata.assisted_by=by;
   if(model.data_note) out.metadata.data_note=model.data_note;
   if(model.exclude&&model.exclude.length) out.metadata.exclude_traits=model.exclude;
   for(const v of ['lateral','frontal']){

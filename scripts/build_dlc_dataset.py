@@ -107,16 +107,21 @@ def find_image(images: Path, fid: str, recorded: str | None = None):
     return None
 
 
-def unreviewed(data: dict) -> set[str]:
-    """Landmarks a sidecar holds that no person ever looked at.
+def unreviewed(data: dict, view: str = "lateral") -> set[str]:
+    """Landmarks a sidecar holds for ``view`` that no person ever looked at.
 
     Auto-label places every landmark. A labeller who reviews the ones they care
     about and saves leaves the rest exactly where the model put them, and the
     save warning only fires when *nothing* was touched. Those points are the
     model's output in a hand label's file. They are recorded in
-    ``metadata.assist.unreviewed``; this is what reads that record back.
+    ``metadata.assist.unreviewed`` for the lateral view and
+    ``metadata.assist_frontal.unreviewed`` for the frontal one; this is what
+    reads that record back. The two are separate because the landmark names are:
+    a frontal record read as lateral would exclude nothing, and silently.
     """
     meta = data.get("metadata") or {}
+    if view == "frontal":
+        return set((meta.get("assist_frontal") or {}).get("unreviewed") or [])
     names = set((meta.get("assist") or {}).get("unreviewed") or [])
     names |= set(meta.get("unreviewed_predictions") or [])
     return names
@@ -150,23 +155,24 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
                   f"photograph — repair with scripts/realign_labels.py --fish {fid}")
             continue
         kps = dict((data.get(_VIEW) or {}).get("keypoints") or {})
-        if _VIEW == "frontal":
-            kps, swapped = mouth_corners_in_image_order(kps)
-            if swapped:
-                print(f"  {fid}: mouth corners were labelled right-to-left; "
-                      f"trained in image order (the sidecar is not changed)")
         # Same principle as skipping a predicted sidecar, one landmark at a time:
         # a point nobody accepted or moved is the model's guess, and training on
         # it teaches the model to agree with itself. It becomes absent -- NaN in
         # the frame -- which is how a landmark nobody placed is already handled.
         # Accepted points stay: pressing A is a person looking and agreeing.
-        stale = unreviewed(data) & set(kps)
+        stale = unreviewed(data, _VIEW) & set(kps)
         if stale:
             for name in stale:
                 kps.pop(name)
             dropped_total += len(stale)
             print(f"  {fid}: {len(stale)} unreviewed landmark(s) left out — "
                   f"{', '.join(sorted(stale))}")
+        # After the unreviewed are removed: their names are the sidecar's, not image order.
+        if _VIEW == "frontal":
+            kps, swapped = mouth_corners_in_image_order(kps)
+            if swapped:
+                print(f"  {fid}: mouth corners were labelled right-to-left; "
+                      f"trained in image order (the sidecar is not changed)")
         if not kps:
             print(f"  SKIP {fid}: no {_VIEW} keypoints")
             continue

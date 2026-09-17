@@ -28,3 +28,14 @@ def test_accepted_and_corrected_are_not_unreviewed():
 
 def test_hand_label_with_no_assist_record_is_untouched():
     assert B.unreviewed({"metadata": {"source": "hand-labeled"}}) == set()
+
+
+def test_each_view_reads_only_its_own_record():
+    """A frontal record read as lateral would exclude nothing, and silently."""
+    d = {"metadata": {"assist": {"unreviewed": ["pelvic_tip"]},
+                      "unreviewed_predictions": ["anal_tip"],
+                      "assist_frontal": {"unreviewed": ["mouth_left"],
+                                         "accepted": ["mouth_right"]}}}
+    assert B.unreviewed(d, "lateral") == {"pelvic_tip", "anal_tip"}
+    assert B.unreviewed(d, "frontal") == {"mouth_left"}
+    assert B.unreviewed({"metadata": {"assist": {"unreviewed": ["x"]}}}, "frontal") == set()
