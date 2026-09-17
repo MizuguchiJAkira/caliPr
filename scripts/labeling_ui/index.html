@@ -53,6 +53,19 @@
   #specsearch:focus { outline:none; border-color:var(--accent); }
   #specsearch::-webkit-search-cancel-button { cursor:pointer; }
   #speccount { font-size:10px; color:var(--mut); white-space:nowrap; }
+  #cmdbtn { padding:2px 7px; font-size:11px; font-family:ui-monospace,Menlo,monospace; }
+  #specsearchrow { position:relative; }
+  #cmdkey { display:none; position:absolute; left:6px; right:6px; top:100%; z-index:30;
+    background:var(--panel,#10151c); border:1px solid #2b3644; border-radius:6px;
+    box-shadow:0 8px 24px #0009; max-height:340px; overflow:auto; padding:4px 0; font-size:11px; }
+  #cmdkey.on { display:block; }
+  #cmdkey .hd { padding:3px 10px 5px; color:var(--mut); font-size:10px; border-bottom:1px solid #2b3644; margin-bottom:3px; }
+  #cmdkey .row { display:grid; grid-template-columns:92px 1fr auto; gap:8px; padding:4px 10px; cursor:pointer; align-items:baseline; }
+  #cmdkey .row:hover, #cmdkey .row.sel { background:#1e2732; }
+  #cmdkey .c { font-family:ui-monospace,Menlo,monospace; color:var(--accent); }
+  #cmdkey .d { color:var(--fg); opacity:.85; }
+  #cmdkey .n { color:var(--mut); font-variant-numeric:tabular-nums; }
+  #cmdkey .row.zero .n { opacity:.5; }
   #speccount.filtered { color:var(--accent); }
   .spec { padding:5px 14px; cursor:pointer; display:flex; justify-content:space-between;
     gap:6px; border-left:3px solid transparent; }
@@ -382,9 +395,11 @@ instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
     </div>
     <div id="uprog"><span class="ptext"></span><div class="ptrack"><div class="pfill"></div></div></div>
     <div id="specsearchrow">
-      <input id="specsearch" type="search" placeholder="find specimen  (/)"
+      <input id="specsearch" type="search" placeholder="find specimen  (/)  ·  type / for commands"
              autocomplete="off" spellcheck="false">
+      <button id="cmdbtn" title="Search commands">/</button>
       <span id="speccount"></span>
+      <div id="cmdkey"></div>
     </div>
     <div id="specWrap"></div>
     <details id="dcsec"><summary>data note / compromise <span id="dcstate"></span></summary>
@@ -883,6 +898,44 @@ function statusWords(s){
   return w.join(' ');
 }
 
+// Search commands: type /noscale, /fins, ... in the search box. They combine with
+// each other and with text, so "/noscale txd" is the TXD fish with no scale.
+// Each is answered from what the server reports a saved fish still lacks.
+const G = s => s.gaps || {};
+const SEARCH_COMMANDS = [
+  {cmd:'todo',        desc:'nothing labelled yet',                              test:s=>!s.lateral_done},
+  {cmd:'done',        desc:'body landmarks all placed',                         test:s=>s.lateral_done && !(G(s).landmarks_missing||[]).length},
+  {cmd:'missing',     desc:'started, but body landmarks missing',               test:s=>s.lateral_done && (G(s).landmarks_missing||[]).length>0},
+  {cmd:'noscale',     desc:'no ruler scale — measures in pixels',               test:s=>!!G(s).no_scale},
+  {cmd:'nooutline',   desc:'body outline not traced',                           test:s=>!!G(s).no_outline},
+  {cmd:'fins',        desc:'a fin untraced, under 16 points, or missing base/tip', test:s=>s.lateral_done && !!((G(s).fins_untraced||[]).length || (G(s).fins_thin||[]).length || (G(s).fins_no_points||[]).length)},
+  {cmd:'finsdone',    desc:'every fin traced densely, with base and tip',       test:s=>!!s.fins_done},
+  {cmd:'nofrontal',   desc:'mouth corners not placed',                          test:s=>!!s.frontal && !s.frontal_done},
+  {cmd:'frontalscale',desc:'mouth corners placed, but no frontal ruler',        test:s=>!!G(s).frontal_no_scale},
+  {cmd:'unreviewed',  desc:'Auto-label points never accepted or moved',         test:s=>(G(s).unreviewed||0)>0},
+  {cmd:'predicted',   desc:'predicted and waiting to be opened',                test:s=>!!s.predicted && !s.lateral_done},
+  {cmd:'unsaved',     desc:'unsaved work in this browser',                      test:s=>!!loadDraft(s.id)},
+  {cmd:'flagged',     desc:'has a data note or excluded traits',                test:s=>!!G(s).flagged},
+  {cmd:'misaligned',  desc:'saved labels do not fit the photo',                 test:s=>!!G(s).misaligned},
+  {cmd:'heldout',     desc:'held out from model training',                      test:s=>!!s.heldout},
+  {cmd:'subset',      desc:'stratified subset — label these first',             test:s=>!!s.suggested},
+];
+const commandNamed = name => SEARCH_COMMANDS.find(c=>c.cmd===name);
+// Why a fish matched, shown on hover in the list, so "/fins" says which fin.
+function gapText(s){
+  const g=G(s), out=[];
+  if((g.landmarks_missing||[]).length) out.push('missing: '+g.landmarks_missing.join(', '));
+  if(g.no_scale) out.push('no scale');
+  if(g.no_outline) out.push('no body outline');
+  if((g.fins_untraced||[]).length) out.push('untraced: '+g.fins_untraced.join(', '));
+  if((g.fins_thin||[]).length) out.push('under 16 points: '+g.fins_thin.join(', '));
+  if((g.fins_no_points||[]).length) out.push('no base/tip: '+g.fins_no_points.join(', '));
+  if(g.frontal_no_scale) out.push('no frontal ruler');
+  if(g.unreviewed) out.push(g.unreviewed+' unreviewed');
+  if(g.misaligned) out.push('labels do not fit photo');
+  return out.join(' · ');
+}
+
 async function loadSpecs(){
   SPECS=await api('/api/specimens'+dsq());
   renderLegend();          // counts live on the key's rows now
@@ -911,7 +964,22 @@ function renderSpecList(){
   // "TXD_4" finds Salvelinus_fontinalis_TXD_4 — nobody types the genus. Spaces
   // are ANDed, so "hrn 4" narrows twice rather than matching nothing.
   const q=(specQuery||'').trim().toLowerCase();
-  const terms=q?q.split(/\s+/):[];
+  const all=q?q.split(/\s+/):[];
+  // "/name" terms are commands; a bare "/" (the key being opened) filters nothing.
+  // A command still being typed (the last term, a prefix of a real one) filters
+  // nothing yet rather than reporting "no such command" mid-word.
+  const typing=t=>t===all[all.length-1] && !commandNamed(t.slice(1))
+                  && SEARCH_COMMANDS.some(c=>c.cmd.startsWith(t.slice(1)));
+  const cmds=all.filter(t=>t.startsWith('/') && t.length>1 && !typing(t)).map(t=>t.slice(1));
+  const unknown=cmds.filter(c=>!commandNamed(c));
+  const terms=all.filter(t=>!t.startsWith('/'));
+  if(unknown.length){
+    const cnt0=$('#speccount'); if(cnt0){ cnt0.textContent='?'; cnt0.classList.add('filtered'); }
+    w.innerHTML='<div style="padding:10px;color:var(--mut);font-size:11px">'
+      + `no command /${unknown[0].replace(/</g,'&lt;')} — type <b>/</b> to see them.</div>`;
+    return;
+  }
+  if(cmds.length) shown = shown.filter(s=>cmds.every(c=>commandNamed(c).test(s)));
   if(terms.length){
     shown = shown.filter(s=>{
       // Ids match as substrings, so "TXD_4" finds TXD_40..49 as well as TXD_4.
@@ -922,17 +990,18 @@ function renderSpecList(){
       return terms.every(t=>hay.includes(t)||words.has(t));
     });
   }
+  const filtering = terms.length || cmds.length;
   const cnt=$('#speccount');
   if(cnt){
-    cnt.textContent = terms.length ? `${shown.length}/${SPECS.length}`
-                                   : `${SPECS.length}`;
-    cnt.classList.toggle('filtered', !!terms.length);
+    cnt.textContent = filtering ? `${shown.length}/${SPECS.length}`
+                                : `${SPECS.length}`;
+    cnt.classList.toggle('filtered', !!filtering);
   }
-  if(terms.length && !shown.length){
+  if(filtering && !shown.length){
     w.innerHTML='<div style="padding:10px;color:var(--mut);font-size:11px">'
       + `nothing matches “${q.replace(/</g,'&lt;')}”.<br>`
-      + 'Try a catalog number, or a word like <b>todo</b>, <b>labelled</b>, '
-      + '<b>heldout</b>, <b>fins</b>.</div>';
+      + 'Try a catalog number, or type <b>/</b> for commands like <b>/todo</b>, '
+      + '<b>/noscale</b>, <b>/fins</b>.</div>';
     return;
   }
   shown.forEach(s=>{
@@ -954,6 +1023,7 @@ function renderSpecList(){
       ?`<span class="mk s on" title="stratified subset: one per collection lot, label these first">S</span>`:'';
     const P=(s.predicted&&!s.lateral_done)
       ?`<span class="mk p on" title="already predicted — opens with the model's points to review">P</span>`:'';
+    const why=gapText(s); if(why) d.title=why;
     d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span>`+
                 `<span class="st">${S}${P}${H}${L}${F}${V}</span>`;
     d.onclick=()=>selectSpec(s);
@@ -2237,18 +2307,55 @@ $('#autolabel').onclick=async()=>{
 };
 (function wireSearch(){
   const box=$('#specsearch'); if(!box) return;
-  let t=null;
+  const key=$('#cmdkey');
+  let t=null, sel=0, rows=[];
+  // The command being typed: the last term, when it starts with "/".
+  const partial=()=>{ const m=/(^|\s)\/(\S*)$/.exec(box.value); return m ? m[2].toLowerCase() : null; };
+  function renderKey(){
+    const p=partial();
+    if(p===null){ key.classList.remove('on'); return; }
+    rows=SEARCH_COMMANDS.filter(c=>c.cmd.startsWith(p));
+    if(!rows.length){ key.classList.remove('on'); return; }
+    sel=Math.min(sel, rows.length-1);
+    key.innerHTML='<div class="hd">commands — combine them, and with text: <b>/noscale txd</b> · ↑↓ Enter</div>'
+      + rows.map((c,i)=>{ const n=SPECS.filter(c.test).length;
+          return `<div class="row${i===sel?' sel':''}${n?'':' zero'}" data-i="${i}">`
+            + `<span class="c">/${c.cmd}</span><span class="d">${c.desc}</span><span class="n">${n}</span></div>`; }).join('');
+    key.querySelectorAll('.row').forEach(r=>{
+      r.onmousedown=e=>{ e.preventDefault(); complete(rows[+r.dataset.i]); };
+    });
+    key.classList.add('on');
+  }
+  function complete(c){
+    box.value=box.value.replace(/(^|\s)\/\S*$/, `$1/${c.cmd} `);
+    specQuery=box.value; sel=0; renderSpecList(); renderKey(); box.focus();
+  }
   box.addEventListener('input',()=>{                 // debounced: 131 rows re-render
+    sel=0; renderKey();
     clearTimeout(t); t=setTimeout(()=>{ specQuery=box.value; renderSpecList(); },90);
   });
+  box.addEventListener('focus',renderKey);
+  box.addEventListener('blur',()=>setTimeout(()=>key.classList.remove('on'),120));
   box.addEventListener('keydown',e=>{
-    if(e.key==='Escape'){ box.value=''; specQuery=''; renderSpecList(); box.blur(); }
+    const open=key.classList.contains('on');
+    if(open && (e.key==='ArrowDown'||e.key==='ArrowUp')){
+      e.preventDefault(); sel=(sel+(e.key==='ArrowDown'?1:rows.length-1))%rows.length; renderKey(); return;
+    }
+    if(open && (e.key==='Enter'||e.key==='Tab')){ e.preventDefault(); complete(rows[sel]); return; }
+    if(e.key==='Escape'){
+      if(open){ key.classList.remove('on'); return; }
+      box.value=''; specQuery=''; renderSpecList(); box.blur();
+    }
     if(e.key==='Enter'){                              // jump to the only match
       e.preventDefault();
       const first=$('#specWrap').querySelector('.spec');
       if(first) first.click();
     }
   });
+  $('#cmdbtn').onclick=()=>{
+    if(!/(^|\s)\/\S*$/.test(box.value)) box.value=(box.value.trim()?box.value.trim()+' ':'')+'/';
+    box.focus(); renderKey();
+  };
   window.addEventListener('keydown',e=>{
     if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     if(e.key==='/'){ e.preventDefault(); box.focus(); box.select(); }

@@ -508,6 +508,48 @@ class Predictor:
                 return {"ok": False, "error": f"bad predictor reply: {exc}"}
 
 
+def specimen_gaps(data: dict, schema: dict, size, recorded) -> dict:
+    """What a saved fish still lacks, measured against what its study collects."""
+    lat = data.get("lateral") or {}
+    fro = data.get("frontal") or {}
+    kps, polys = lat.get("keypoints") or {}, lat.get("polygons") or {}
+    meta = data.get("metadata") or {}
+    wanted_poly = {p["name"]: p for p in schema["lateral"]["polygons"] if not p["excluded"]}
+    fin_kp = {k["name"]: g["fin"] for g in schema.get("fin_groups") or [] for k in g["keypoints"]}
+    # Body landmarks only: fin bases and tips are fin work, reported with the fins,
+    # and the fin-base endpoints are derived from a traced outline, not clicked.
+    wanted_kp = [k["name"] for k in schema["lateral"]["keypoints"]
+                 if not k["excluded"] and k["name"] not in fin_kp
+                 and not re.search(r"_base_(anterior|posterior)$", k["name"])]
+
+    def scaled(block: dict) -> bool:
+        cal = block.get("calibration") or {}
+        return (cal.get("mode") == "ticks" and bool(cal.get("px_per_mm"))) or (
+            cal.get("mode") == "manual" and bool(cal.get("known_mm")))
+
+    fins_thin = [n for n in FIN_POLYGONS if n in wanted_poly and polys.get(n)
+                 and len(polys[n]) < FIN_POLYGON_TARGET_VERTICES]
+    fins_untraced = [n for n in FIN_POLYGONS if n in wanted_poly and not polys.get(n)]
+    fins_no_points = sorted({fin for name, fin in fin_kp.items()
+                             if fin in wanted_poly and name not in kps})
+    assist = (meta.get("assist") or {}), (meta.get("assist_frontal") or {})
+    started = bool(kps or polys)
+    return {
+        "landmarks_missing": [n for n in wanted_kp if n not in kps] if started else [],
+        "no_outline": started and "body_plus_caudal" in wanted_poly
+                      and len(polys.get("body_plus_caudal") or []) < 3,
+        "fins_thin": fins_thin if started else [],
+        "fins_untraced": fins_untraced if started else [],
+        "fins_no_points": fins_no_points if started else [],
+        "no_scale": started and not scaled(lat),
+        "frontal_no_scale": bool(fro.get("keypoints")) and not scaled(fro),
+        "unreviewed": sum(len(a.get("unreviewed") or []) for a in assist),
+        "flagged": bool(meta.get("exclude_traits") or meta.get("data_note")),
+        "misaligned": bool(recorded and size and started
+                           and [recorded.get("width"), recorded.get("height")] != list(size)),
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     datasets: dict[str, Path] = {}
     default_dataset: str = ""
@@ -552,6 +594,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _specimens(self):
+        schema = build_schema(load_profile(self.images_dir))
+        manifest = image_identity.load_manifest(self.images_dir)
         lat = list_images(self.images_dir / "lateral")
         fro = list_images(self.images_dir / "frontal")
         all_ids = []
@@ -569,9 +613,12 @@ class Handler(BaseHTTPRequestHandler):
             # Report lateral and frontal completion separately — a saved
             # sidecar says nothing about whether mouth width was collected.
             lat_done = fro_done = fins_done = False
+            gaps: dict = {}
             if sidecar.is_file():
                 try:
                     data = json.loads(sidecar.read_text())
+                    gaps = specimen_gaps(data, schema, current_size(path),
+                                         image_identity.recorded_for(data, manifest, fid, "lateral"))
                     block = data.get("lateral") or {}
                     polys = block.get("polygons") or {}
                     lat_done = bool((block.get("keypoints") or {}) or polys)
@@ -608,6 +655,8 @@ class Handler(BaseHTTPRequestHandler):
                 "lateral_done": lat_done,
                 "frontal_done": fro_done,
                 "fins_done": fins_done,
+                # What a labelled fish still lacks, for the search box's commands.
+                "gaps": gaps,
                 "heldout": fid in HELDOUT,
                 "suggested": fid in suggested,
                 # Size of each view's image as it is on disk now. A draft records

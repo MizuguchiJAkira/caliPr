@@ -74,3 +74,7 @@ dlc_project_frontal/
 
 # Studies removed in the labeler (moved here, not deleted)
 data/.trash/
+
+# Fin outline training crops and models (derived; scripts/build_fin_dataset.py)
+fin_seg/
+fin_seg_runs/
