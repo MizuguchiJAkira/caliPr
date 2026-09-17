@@ -368,20 +368,61 @@ FILE_BROWSER = ("Finder" if sys.platform == "darwin"
                 else "File Explorer" if sys.platform.startswith("win") else "the file manager")
 
 
-def show_on_this_computer(path: Path, how: str) -> None:
-    """Open ``path`` in its default app (``how="open"``) or select it in the file
-    browser (``how="reveal"``)."""
+#: Apps that take a file as a chat attachment rather than showing it. The
+#: Claude desktop app registers itself for .xlsx, and on a Mac with no spreadsheet
+#: app it is the default: opening an export then asked whether to attach it.
+NOT_VIEWERS = ("Claude.app",)
+
+
+def default_app(path: Path) -> str | None:
+    """The app macOS would open ``path`` with, or None if nothing opens it."""
+    js = ("ObjC.import('AppKit');var u=$.NSWorkspace.sharedWorkspace"
+          f".URLForApplicationToOpenURL($.NSURL.fileURLWithPath({json.dumps(str(path))}));"
+          "u.isNil()?'':u.path.js")
+    r = subprocess.run(["osascript", "-l", "JavaScript", "-e", js],
+                       capture_output=True, text=True, timeout=15)
+    return r.stdout.strip() or None
+
+
+def how_to_show(path: Path, how: str, app: str | None) -> tuple[str, str | None]:
+    """Whether to open ``path`` or only select it, given the app that would open it.
+
+    Returns (how, note): a file is only opened when a real viewer would open it;
+    otherwise it is selected in the file browser, and the note says why.
+    """
+    if how != "open" or path.is_dir():
+        return how, None
+    kind = path.suffix or "these"
+    if app is None:
+        return "reveal", (f"Nothing on this computer opens {kind} files, so it is shown in "
+                          f"{FILE_BROWSER} instead. Install an app for them to open it.")
+    if Path(app).name in NOT_VIEWERS:
+        return "reveal", (f"This computer would open {kind} files in {Path(app).stem}, which "
+                          f"offers them to a chat instead of showing them, so it is shown in "
+                          f"{FILE_BROWSER} instead. Install a spreadsheet app (Numbers, Excel "
+                          f"or LibreOffice) to open it directly.")
+    return "open", None
+
+
+def show_on_this_computer(path: Path, how: str) -> tuple[str, str | None]:
+    """Open ``path`` in its default app, or select it in the file browser.
+
+    Returns what was actually done and, if that differs from what was asked, why.
+    """
     if sys.platform == "darwin":
+        how, note = how_to_show(path, how, default_app(path) if how == "open" and path.is_file() else "")
         subprocess.run(["open", "-R", str(path)] if how == "reveal" else ["open", str(path)],
                        check=True, capture_output=True, timeout=30)
-    elif sys.platform.startswith("win"):
+        return how, note
+    if sys.platform.startswith("win"):
         if how == "reveal":
             subprocess.Popen(["explorer", f"/select,{path}"])   # exits 1 even on success
         else:
             os.startfile(str(path))                             # noqa: S606 -- local file we wrote
-    else:
-        subprocess.run(["xdg-open", str(path.parent if how == "reveal" else path)],
-                       check=True, capture_output=True, timeout=30)
+        return how, None
+    subprocess.run(["xdg-open", str(path.parent if how == "reveal" else path)],
+                   check=True, capture_output=True, timeout=30)
+    return how, None
 
 
 class Predictor:
@@ -770,12 +811,12 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             rel = str(out["show"])
         try:
-            show_on_this_computer(out["show"], out["how"])
+            shown, note = show_on_this_computer(out["show"], out["how"])
         except Exception as exc:
             return self._send(200, {"ok": True, "path": rel, "shown": None,
                                     "error": f"could not open it here: {exc}"})
-        return self._send(200, {"ok": True, "path": rel, "shown": out["how"],
-                                "shown_in": FILE_BROWSER})
+        return self._send(200, {"ok": True, "path": rel, "shown": shown,
+                                "shown_in": FILE_BROWSER, "note": note})
 
     #: What a photograph may be. Extension alone is not enough — a .jpg that is
     #: not a JPEG produces a specimen that silently fails to load later, so the

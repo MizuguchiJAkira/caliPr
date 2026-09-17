@@ -1871,7 +1871,8 @@ document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
       // A server started before exports opened themselves has no such route.
       if(r.error==='unknown route'){ await downloadExport(kind); return; }
       if(!r.ok){ await tell('Export failed:\n\n'+(r.error||'?')); return; }
-      if(r.shown==='open') toast('Opened '+r.path);
+      if(r.note) await tell('Saved '+r.path+'\n\n'+r.note);
+      else if(r.shown==='open') toast('Opened '+r.path);
       else if(r.shown==='reveal') toast('Saved '+r.path+' — shown in '+(r.shown_in||'Finder'));
       else await downloadExport(kind);
     }catch(e){ tell('Export failed:\n\n'+e.message); }
