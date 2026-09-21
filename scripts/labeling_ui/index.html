@@ -1250,35 +1250,12 @@ function buildTasks(){
   // Region grouping, always expanded. Headers are separators for scanning, not
   // controls: landmarking is a click-through task and the flow auto-advances, so
   // anything that has to be opened before it can be used is pure friction.
-  // A scheme carries its own grouping; caliPr's is by where the landmark sits.
-  const byGroup = (sc.keypoints||[]).some(k=>k.group);
-  const REGIONS = byGroup
-    ? [['ruler', n=>/^ruler_/.test(n)],
-       ...[...new Set((sc.keypoints||[]).map(k=>k.group))].map(g=>
-         [g, n=>((sc.keypoints||[]).find(k=>k.name===n)||{}).group===g]),
-       ['other', ()=>true]]
-    : [
-    ['ruler',    n=>/^ruler_/.test(n)],
-    ['head',     n=>/^(eye_|premaxilla|maxilla|lower_jaw|operculum|snout)/.test(n)],
-    ['pectoral', n=>/^pectoral/.test(n)],
-    ['peduncle', n=>/^(peduncle|caudal)/.test(n)],
-    ['dorsal',   n=>/^dorsal/.test(n)],
-    ['pelvic',   n=>/^pelvic/.test(n)],
-    ['anal',     n=>/^anal/.test(n)],
-    ['body',     ()=>true],
-  ];
-  const all=[...(sc.ruler||[]).map(i=>['ruler',i]),
-             ...(sc.keypoints||[]).map(i=>['keypoint',i]),
-             ...(sc.polygons||[]).map(i=>['polygon',i])];
+  const groups=groupedTasks();
   const isSet=([kind,it])=>kind==='polygon'
       ? ((m.polygons[it.name]||[]).length >= Math.max(3, it.target||0))
       : kind==='ruler' ? !!(m.ruler[it.name==='ruler_point_a'?'a':'b'])
       : !!m.keypoints[it.name];
-  const used=new Set();
-  for(const [label,test] of REGIONS){
-    const mine=all.filter(([k,it])=>!used.has(it.name) && test(it.name));
-    if(!mine.length) continue;
-    mine.forEach(([,it])=>used.add(it.name));
+  for(const [label,mine] of groups){
     const done=mine.filter(isSet).length;
     const h=document.createElement('div');
     h.className='grouphdr'+(done===mine.length?' done':'');
@@ -1695,10 +1672,45 @@ function undo(){
 }
 function pickByName(kind,name){const it=(SCHEMA[view][kind==='ruler'?'ruler':kind+'s']||[]).find(x=>x.name===name);
   if(it){activeTask={kind,name,hint:it.hint,desc:it.description};showHint();buildTasks();}}
-function taskOrder(){
+// The list as it is shown: regions down the fish, front to back. A scheme carries
+// its own grouping; caliPr's is by where the landmark sits, and the order is the
+// order someone works in — head, pectoral, dorsal, pelvic, anal, then the peduncle
+// and caudal at the back.
+function regionsFor(sc){
+  if((sc.keypoints||[]).some(k=>k.group))
+    return [['ruler', n=>/^ruler_/.test(n)],
+            ...[...new Set((sc.keypoints||[]).map(k=>k.group))].map(g=>
+              [g, n=>((sc.keypoints||[]).find(k=>k.name===n)||{}).group===g]),
+            ['other', ()=>true]];
+  return [
+    ['ruler',    n=>/^ruler_/.test(n)],
+    ['head',     n=>/^(eye_|premaxilla|maxilla|lower_jaw|operculum|snout)/.test(n)],
+    ['pectoral', n=>/^pectoral/.test(n)],
+    ['dorsal',   n=>/^dorsal/.test(n)],
+    ['pelvic',   n=>/^pelvic/.test(n)],
+    ['anal',     n=>/^anal/.test(n)],
+    ['peduncle', n=>/^(peduncle|caudal)/.test(n)],
+    ['body',     ()=>true],
+  ];
+}
+// [[region, [[kind, item], ...]], ...] in the order the list shows them.
+function groupedTasks(){
   const sc=SCHEMA[view];
-  return [...sc.ruler.map(x=>['ruler',x]), ...sc.keypoints.map(x=>['keypoint',x]),
-          ...sc.polygons.map(x=>['polygon',x])];
+  const all=[...(sc.ruler||[]).map(i=>['ruler',i]),
+             ...(sc.keypoints||[]).map(i=>['keypoint',i]),
+             ...(sc.polygons||[]).map(i=>['polygon',i])];
+  const used=new Set(), out=[];
+  for(const [label,test] of regionsFor(sc)){
+    const mine=all.filter(([k,it])=>!used.has(it.name) && test(it.name));
+    if(!mine.length) continue;
+    mine.forEach(([,it])=>used.add(it.name));
+    out.push([label, mine]);
+  }
+  return out;
+}
+// Flat, same order: what A walks and what placing a point advances through.
+function taskOrder(){
+  return groupedTasks().flatMap(([,items])=>items);
 }
 // Move to the NEXT task in list order — not the next empty one. Landmarks are
 // often skipped deliberately (obscured, damaged, not applicable), and jumping
@@ -1863,11 +1875,13 @@ window.addEventListener('keydown',e=>{
       const took = here ? acceptPoint(here) : false;
       const next = nextPending(here);
       if(next){ pickByName('keypoint', next); draw();
-                toast((took?`Accepted ${here} → `:'') + next); }
+                // Fin tips are where the model is least reliable, so say when the
+                // walk reaches one rather than letting it pass as another point.
+                const fin=finOf(next);
+                toast((took?`Accepted ${here} → `:'') + labelOf(next)
+                      + (fin?` — ${fin.fin} fin, the model's least reliable`:'')); }
       else { activeTask=null; showHint(); buildTasks(); draw();
-             const fins=Object.keys(pred.conf).filter(n=>finOf(n)).length;
-             toast((took?`Accepted ${here} · `:'') + 'all points reviewed'
-                   + (fins?` · ${fins} fin left alone`:'')); }
+             toast((took?`Accepted ${here} · `:'') + 'all points reviewed'); }
     }
   }
   if(retrace && (e.key==='f'||e.key==='F')){ e.preventDefault(); nextFin(); }
@@ -2293,15 +2307,15 @@ function reviewed(name){          // the human MOVED this point
   pred.accepted.delete(name);
   delete pred.conf[name]; pred.low.delete(name); renderAutoStat();
 }
-// The next predicted point still waiting for a look: list order, after the one
-// in hand, wrapping round so nothing is stranded above. Reviewed points, the
-// ruler and outlines are passed over, so each A lands somewhere it can act.
-// Fins are passed over too. They are out of scope for review, they sit in the
-// middle of the list, and an accepted point trains -- walking into them would
-// have A accepting fin points by habit. Click a fin row to review one.
+// The next predicted point still waiting for a look: the order of the list on
+// screen, after the one in hand, wrapping round so nothing is stranded above.
+// Reviewed points, the ruler and outlines are passed over, so each A lands
+// somewhere it can act. Fin landmarks are walked like the rest -- they used to be
+// skipped, which made A stop dead after the peduncle, since everything left is a
+// fin. They are the model's weakest points, so the toast names the fin.
 function nextPending(fromName){
-  const all=((SCHEMA[view]||{}).keypoints||[]).map(k=>k.name);
-  const pending=all.filter(n=>pred.conf[n]!==undefined && !finOf(n));
+  const all=taskOrder().filter(([k])=>k==='keypoint').map(([,it])=>it.name);
+  const pending=all.filter(n=>pred.conf[n]!==undefined);
   if(!pending.length) return null;
   const at=all.indexOf(fromName);
   return pending.find(n=>all.indexOf(n)>at) || pending[0];
