@@ -2453,11 +2453,20 @@ function applyPrediction(r, v='lateral'){
         low:new Set(r.low_confidence||[]),
         dropped:r.implausible||{}, frameWarning:r.frame_warning||null,
         at:new Date().toISOString()});
+  // An outline already there, that the model did not draw, is somebody's work.
+  // A fin takes twenty clicks to trace; replacing one with a prediction because
+  // Auto-label was pressed again would be the single most expensive thing this
+  // button could do. The model's outline is a starting point for a fin nobody
+  // has traced, never a replacement for one somebody has.
+  const kept=[];
   for(const [nm,poly] of Object.entries(r.polygons||{})){
     if(!Array.isArray(poly) || poly.length<3) continue;
+    const there=model[v].polygons[nm];
+    if(there && there.length>=3 && !predBy[v].polys.has(nm)){ kept.push(nm); continue; }
     model[v].polygons[nm]=poly.map(q=>[Math.round(q[0]),Math.round(q[1])]);
     p.polys.add(nm);
   }
+  if(kept.length) toast('Kept your outline of '+kept.join(', '));
   for(const [nm,pt] of Object.entries(r.keypoints||{})){
     const q=[Math.round(pt[0]),Math.round(pt[1])];
     model[v].keypoints[nm]=q;
