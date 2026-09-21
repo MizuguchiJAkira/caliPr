@@ -1175,7 +1175,7 @@ function loadImage(){
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
 function setView(v){ view=v; $('#viewPick').value=v; blankRetries=0;
-  pred=predBy[v]; renderAutoStat();
+  pred=predBy[v]; renderAutoStat(); applyCachedPrediction(v);
   if(!cur){ activeTask=null; buildTasks(); showHint(); draw(); return Promise.resolve(); }
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
@@ -2396,6 +2396,22 @@ async function unlock(){
   toast(r.error||'wrong passphrase');
   return false;
 }
+// A view the batch already predicted opens with those points in place, the same
+// way the lateral view does. Only on a view with nothing of yours on it -- never
+// over a draft, a saved label or a prediction already applied -- and nothing is
+// written just by looking.
+async function applyCachedPrediction(v){
+  const s=cur;
+  if(!s || v!=='frontal' || !s.predicted_frontal || !model) return;
+  if(predBy[v].model || Object.keys(model[v].keypoints).length) return;
+  try{
+    const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()+'&view='+v);
+    if(!r || !r.ok || cur!==s || view!==v) return;                 // a later click wins
+    if(predBy[v].model || Object.keys(model[v].keypoints).length) return;
+    applyPrediction(r, v);
+    buildTasks(); renderAutoStat(); draw();
+  }catch(e){}
+}
 // Put a prediction onto the open fish as unreviewed model output. Shared by the
 // Auto-label button and by opening a fish a batch already predicted, so both
 // arrive identically -- same colouring, same review tracking, same exclusion from
@@ -2660,11 +2676,21 @@ $('#autoall').onclick=async()=>{
 
   await refreshAuth();
   if(AUTH.required && !AUTH.unlocked){ if(!await unlock()) return; }
-  const todo=SPECS.filter(s=>!s.lateral_done);
-  if(!todo.length){ toast('Every specimen is already labelled'); return; }
-  if(!await ask(`Run the model over ${todo.length} unlabelled specimen(s)?\n\n`+
-              `Results are cached so reviewing them is instant. Nothing is saved `+
-              `as a label — you still review and save each one.`)) return;
+  // Both views. The frontal has its own model and its own gap: a fish can be
+  // fully landmarked on the lateral and still have no mouth corners, which is
+  // most of them, and the batch used to skip those because their lateral is done.
+  const todo=[
+    ...SPECS.filter(s=>!s.lateral_done).map(s=>({s, view:'lateral'})),
+    ...(SCHEMA.frontal && (SCHEMA.frontal.keypoints||[]).length
+        ? SPECS.filter(s=>s.frontal && !s.frontal_done).map(s=>({s, view:'frontal'})) : []),
+  ];
+  if(!todo.length){ toast('Every specimen is labelled on both views'); return; }
+  const nlat=todo.filter(t=>t.view==='lateral').length, nfro=todo.length-nlat;
+  if(!await ask(`Run the model over `
+      + [nlat?`${nlat} unlabelled specimen(s)`:'', nfro?`${nfro} frontal view(s) with no mouth corners`:'']
+        .filter(Boolean).join(' and ') + `?\n\n`
+      + `Results are cached so reviewing them is instant. Nothing is saved `
+      + `as a label — you still review and save each one.`)) return;
 
   batchRunning=true; batchCancel=false;
   const label=btn.textContent;
@@ -2672,12 +2698,13 @@ $('#autoall').onclick=async()=>{
   let done=0, failed=0;
   progress(0, todo.length, `predicting 1/${todo.length}`);
   try{
-    for(const sp of todo){
+    for(const {s:sp, view:v} of todo){
       if(batchCancel) break;
       progress(done+failed, todo.length,
-               `predicting ${done+failed+1}/${todo.length} — ${shortId(sp.id)}`);
+               `predicting ${done+failed+1}/${todo.length} — ${shortId(sp.id)} ${v}`);
       try{
-        const r=await api('/api/predict/'+encodeURIComponent(sp.id)+dsq());
+        const r=await api('/api/predict/'+encodeURIComponent(sp.id)+dsq()
+                          +(v==='frontal'?'&view=frontal':''));
         if(r.ok) done++;
         else { failed++; if(r.locked){ toast('Locked — stopping'); break; } }
       }catch(e){ failed++; }
