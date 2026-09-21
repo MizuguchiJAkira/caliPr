@@ -1,0 +1,146 @@
+{
+  "fish_id": "Salvelinus_fontinalis_HRN_33",
+  "metadata": {
+    "strain": "HRN",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "caudal_base",
+        "dorsal_base_center",
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "lower_jaw_tip",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "pectoral_insertion_upper",
+        "peduncle_narrowest_dorsal",
+        "peduncle_narrowest_ventral",
+        "pelvic_base_center",
+        "pelvic_tip",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "dorsal_tip": {
+          "from": [
+            1952,
+            1612
+          ],
+          "to": [
+            1854,
+            1586
+          ],
+          "px": 101.4,
+          "conf": 0.455
+        }
+      },
+      "unreviewed": [
+        "anal_base_center"
+      ],
+      "unreviewed_confidence": {
+        "anal_base_center": 0.246
+      },
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-21T15:10:13.705Z"
+    },
+    "unreviewed_predictions": [
+      "anal_base_center"
+    ],
+    "assisted_by": "snapshot-best-170.pt",
+    "data_note": "Anal fin hardly visible",
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:29",
+        "view": "lateral",
+        "dx": 1231,
+        "points": 17,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ],
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "11a953c7a389f5731cafbe9a951cbe3f4b8b35faa190e4e152fc45722afc57ab"
+      }
+    }
+  },
+  "lateral": {
+    "keypoints": {
+      "eye_anterior": [
+        1832.0,
+        1853.0
+      ],
+      "eye_posterior": [
+        1965.0,
+        1849.0
+      ],
+      "eye_dorsal": [
+        1894.0,
+        1801.0
+      ],
+      "eye_ventral": [
+        1907.0,
+        1910.0
+      ],
+      "premaxilla_tip": [
+        1740.0,
+        1895.0
+      ],
+      "maxilla_mandible_intersection": [
+        1840.0,
+        1966.0
+      ],
+      "lower_jaw_tip": [
+        1742.0,
+        1914.0
+      ],
+      "operculum_posterior": [
+        2249.0,
+        1968.0
+      ],
+      "pectoral_insertion_upper": [
+        2175.0,
+        2070.0
+      ],
+      "peduncle_narrowest_dorsal": [
+        4027.0,
+        1777.0
+      ],
+      "peduncle_narrowest_ventral": [
+        4022.0,
+        1924.0
+      ],
+      "caudal_base": [
+        4062.0,
+        1855.0
+      ],
+      "dorsal_base_center": [
+        3002.0,
+        1649.0
+      ],
+      "dorsal_tip": [
+        3085.0,
+        1586.0
+      ],
+      "pelvic_base_center": [
+        2933.0,
+        2140.0
+      ],
+      "pelvic_tip": [
+        3062.0,
+        2080.0
+      ],
+      "pectoral_ray_tip": [
+        2603.0,
+        2115.0
+      ]
+    },
+    "calibration": {
+      "mode": "none",
+      "notes": "no scale reference placed"
+    }
+  }
+}

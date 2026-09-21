@@ -1,0 +1,218 @@
+{
+  "fish_id": "Salvelinus_fontinalis_ASN_9",
+  "metadata": {
+    "strain": "ASN",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "anal_base_center",
+        "anal_tip",
+        "caudal_base",
+        "dorsal_base_center",
+        "dorsal_tip",
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "lower_jaw_tip",
+        "maxilla_mandible_intersection",
+        "pectoral_insertion_upper",
+        "pectoral_ray_tip",
+        "peduncle_narrowest_dorsal",
+        "peduncle_narrowest_ventral",
+        "pelvic_base_center",
+        "pelvic_tip",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "operculum_posterior": {
+          "from": [
+            1006,
+            1619
+          ],
+          "to": [
+            1047,
+            1574
+          ],
+          "px": 60.9,
+          "conf": 0.816
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-21T15:08:37.603Z"
+    },
+    "unreviewed_predictions": [],
+    "assisted_by": "snapshot-best-170.pt",
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:23",
+        "view": "lateral",
+        "dx": 1411,
+        "points": 35,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ],
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "2a3a4f230234e4836f9b67b0534826fe0f775bc58b5da5afa894666f6f7b07cf"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2332.0,
+          1766.0
+        ],
+        [
+          2414.0,
+          1752.0
+        ],
+        [
+          2487.0,
+          1747.0
+        ],
+        [
+          2574.0,
+          1755.0
+        ],
+        [
+          2665.0,
+          1771.0
+        ],
+        [
+          2765.0,
+          1799.0
+        ],
+        [
+          2845.0,
+          1837.0
+        ],
+        [
+          2870.0,
+          1885.0
+        ],
+        [
+          2819.0,
+          1921.0
+        ],
+        [
+          2721.0,
+          1945.0
+        ],
+        [
+          2608.0,
+          1939.0
+        ],
+        [
+          2530.0,
+          1920.0
+        ],
+        [
+          2441.0,
+          1889.0
+        ],
+        [
+          2399.0,
+          1872.0
+        ],
+        [
+          2381.0,
+          1835.0
+        ],
+        [
+          2355.0,
+          1794.0
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1849.0,
+        1393.0
+      ],
+      "eye_posterior": [
+        2036.0,
+        1388.0
+      ],
+      "eye_dorsal": [
+        1944.0,
+        1311.0
+      ],
+      "eye_ventral": [
+        1948.0,
+        1462.0
+      ],
+      "premaxilla_tip": [
+        1720.0,
+        1440.0
+      ],
+      "maxilla_mandible_intersection": [
+        1838.0,
+        1567.0
+      ],
+      "lower_jaw_tip": [
+        1712.0,
+        1488.0
+      ],
+      "operculum_posterior": [
+        2458.0,
+        1574.0
+      ],
+      "pectoral_insertion_upper": [
+        2326.0,
+        1767.0
+      ],
+      "pectoral_ray_tip": [
+        2869.0,
+        1887.0
+      ],
+      "peduncle_narrowest_dorsal": [
+        5293.0,
+        1474.0
+      ],
+      "peduncle_narrowest_ventral": [
+        5328.0,
+        1672.0
+      ],
+      "caudal_base": [
+        5344.0,
+        1569.0
+      ],
+      "dorsal_base_center": [
+        3555.0,
+        1240.0
+      ],
+      "dorsal_tip": [
+        3599.0,
+        1193.0
+      ],
+      "pelvic_base_center": [
+        3505.0,
+        2090.0
+      ],
+      "pelvic_tip": [
+        3658.0,
+        1852.0
+      ],
+      "anal_base_center": [
+        4498.0,
+        1887.0
+      ],
+      "anal_tip": [
+        4879.0,
+        1838.0
+      ]
+    },
+    "calibration": {
+      "mode": "none",
+      "notes": "no scale reference placed"
+    }
+  }
+}

@@ -1,0 +1,335 @@
+{
+  "fish_id": "Salvelinus_fontinalis_ASN_43",
+  "metadata": {
+    "strain": "ASN",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "anal_tip",
+        "caudal_base",
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "lower_jaw_tip",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "pectoral_insertion_upper",
+        "pectoral_ray_tip",
+        "peduncle_narrowest_dorsal",
+        "peduncle_narrowest_ventral",
+        "pelvic_base_center",
+        "pelvic_tip",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "anal_base_center": {
+          "from": [
+            3709,
+            1876
+          ],
+          "to": [
+            3721,
+            1886
+          ],
+          "px": 15.6,
+          "conf": 0.761
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-17T15:30:19.148Z"
+    },
+    "unreviewed_predictions": [],
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "e94da23d2401154af920dfd71f2381e6d67537c7ebd88739f62adefdc58fb034"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2137,
+          1932
+        ],
+        [
+          2200,
+          1919
+        ],
+        [
+          2273,
+          1916
+        ],
+        [
+          2323,
+          1931
+        ],
+        [
+          2364,
+          1951
+        ],
+        [
+          2403,
+          1985
+        ],
+        [
+          2449,
+          2005
+        ],
+        [
+          2482,
+          2038
+        ],
+        [
+          2495,
+          2075
+        ],
+        [
+          2486,
+          2107
+        ],
+        [
+          2438,
+          2114
+        ],
+        [
+          2374,
+          2105
+        ],
+        [
+          2302,
+          2073
+        ],
+        [
+          2257,
+          2041
+        ],
+        [
+          2201,
+          2008
+        ],
+        [
+          2173,
+          1985
+        ],
+        [
+          2160,
+          1963
+        ]
+      ],
+      "pelvic": [
+        [
+          2936,
+          2075
+        ],
+        [
+          2910,
+          2049
+        ],
+        [
+          2877,
+          2026
+        ],
+        [
+          2852,
+          1980
+        ],
+        [
+          2847,
+          1929
+        ],
+        [
+          2865,
+          1889
+        ],
+        [
+          2888,
+          1865
+        ],
+        [
+          2909,
+          1888
+        ],
+        [
+          2920,
+          1925
+        ],
+        [
+          2943,
+          1956
+        ],
+        [
+          2966,
+          2003
+        ],
+        [
+          2991,
+          2032
+        ],
+        [
+          2998,
+          2057
+        ],
+        [
+          2963,
+          2073
+        ]
+      ],
+      "anal": [
+        [
+          3535,
+          1973
+        ],
+        [
+          3609,
+          1936
+        ],
+        [
+          3675,
+          1902
+        ],
+        [
+          3757,
+          1877
+        ],
+        [
+          3843,
+          1847
+        ],
+        [
+          3902,
+          1830
+        ],
+        [
+          3918,
+          1842
+        ],
+        [
+          3908,
+          1856
+        ],
+        [
+          3939,
+          1858
+        ],
+        [
+          3961,
+          1868
+        ],
+        [
+          3970,
+          1897
+        ],
+        [
+          3958,
+          1917
+        ],
+        [
+          3918,
+          1936
+        ],
+        [
+          3809,
+          1962
+        ],
+        [
+          3677,
+          1976
+        ],
+        [
+          3559,
+          1977
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1725,
+        1717
+      ],
+      "eye_posterior": [
+        1878,
+        1703
+      ],
+      "eye_dorsal": [
+        1800,
+        1647
+      ],
+      "eye_ventral": [
+        1814,
+        1762
+      ],
+      "premaxilla_tip": [
+        1603,
+        1772
+      ],
+      "maxilla_mandible_intersection": [
+        1706,
+        1837
+      ],
+      "lower_jaw_tip": [
+        1595,
+        1814
+      ],
+      "operculum_posterior": [
+        2206,
+        1801
+      ],
+      "pectoral_insertion_upper": [
+        2134,
+        1928
+      ],
+      "pectoral_ray_tip": [
+        2467,
+        2056
+      ],
+      "peduncle_narrowest_dorsal": [
+        4172,
+        1579
+      ],
+      "peduncle_narrowest_ventral": [
+        4193,
+        1718
+      ],
+      "caudal_base": [
+        4207,
+        1647
+      ],
+      "pelvic_base_center": [
+        2948,
+        2075
+      ],
+      "pelvic_tip": [
+        2881,
+        1858
+      ],
+      "anal_base_center": [
+        3721,
+        1886
+      ],
+      "anal_tip": [
+        3958,
+        1889
+      ],
+      "anal_base_anterior": [
+        3528,
+        1975
+      ],
+      "anal_base_posterior": [
+        3903,
+        1828
+      ]
+    },
+    "calibration": {
+      "mode": "none",
+      "notes": "no scale reference placed"
+    }
+  }
+}

@@ -1,0 +1,297 @@
+{
+  "fish_id": "Salvelinus_fontinalis_ASN_48",
+  "metadata": {
+    "strain": "ASN",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "lower_jaw_tip",
+        "maxilla_mandible_intersection",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "operculum_posterior": {
+          "from": [
+            1413,
+            1831
+          ],
+          "to": [
+            1213,
+            1769
+          ],
+          "px": 209.4,
+          "conf": 0.162
+        },
+        "pectoral_insertion_upper": {
+          "from": [
+            1274,
+            1863
+          ],
+          "to": [
+            1188,
+            1850
+          ],
+          "px": 87,
+          "conf": 0.35
+        },
+        "peduncle_narrowest_dorsal": {
+          "from": [
+            2477,
+            1435
+          ],
+          "to": [
+            2429,
+            1431
+          ],
+          "px": 48.2,
+          "conf": 0.233
+        },
+        "caudal_base": {
+          "from": [
+            2519,
+            1456
+          ],
+          "to": [
+            2497,
+            1451
+          ],
+          "px": 22.6,
+          "conf": 0.216
+        },
+        "pelvic_base_center": {
+          "from": [
+            2628,
+            1496
+          ],
+          "to": [
+            2523,
+            1517
+          ],
+          "px": 107.1,
+          "conf": 0.299
+        },
+        "pelvic_tip": {
+          "from": [
+            2836,
+            1347
+          ],
+          "to": [
+            2196,
+            1657
+          ],
+          "px": 711.1,
+          "conf": 0.229
+        },
+        "peduncle_narrowest_ventral": {
+          "from": [
+            2185,
+            1757
+          ],
+          "to": [
+            2538,
+            1518
+          ],
+          "px": 426.3,
+          "conf": 0.224
+        },
+        "anal_base_center": {
+          "from": [
+            2297,
+            1754
+          ],
+          "to": [
+            2273,
+            1764
+          ],
+          "px": 26,
+          "conf": 0.473
+        }
+      },
+      "unreviewed": [
+        "dorsal_base_center"
+      ],
+      "unreviewed_confidence": {
+        "dorsal_base_center": 0.191
+      },
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-17T16:23:09.188Z"
+    },
+    "unreviewed_predictions": [
+      "dorsal_base_center"
+    ],
+    "assisted_by": "snapshot-best-170.pt",
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:20",
+        "view": "lateral",
+        "dx": 998,
+        "points": 35,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ],
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "075b11072dc231a4914a52adb7978a4e6aa5cebbb5a456f97fd3b9436c4728cc"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "anal": [
+        [
+          3162.0,
+          1861.0
+        ],
+        [
+          3199.0,
+          1856.0
+        ],
+        [
+          3246.0,
+          1838.0
+        ],
+        [
+          3305.0,
+          1808.0
+        ],
+        [
+          3360.0,
+          1773.0
+        ],
+        [
+          3399.0,
+          1744.0
+        ],
+        [
+          3418.0,
+          1719.0
+        ],
+        [
+          3405.0,
+          1722.0
+        ],
+        [
+          3410.0,
+          1711.0
+        ],
+        [
+          3399.0,
+          1704.0
+        ],
+        [
+          3384.0,
+          1709.0
+        ],
+        [
+          3369.0,
+          1704.0
+        ],
+        [
+          3368.0,
+          1687.0
+        ],
+        [
+          3271.0,
+          1764.0
+        ],
+        [
+          3211.0,
+          1815.0
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1895.0,
+        1634.0
+      ],
+      "eye_posterior": [
+        2017.0,
+        1647.0
+      ],
+      "eye_dorsal": [
+        1966.0,
+        1591.0
+      ],
+      "eye_ventral": [
+        1961.0,
+        1679.0
+      ],
+      "premaxilla_tip": [
+        1809.0,
+        1668.0
+      ],
+      "maxilla_mandible_intersection": [
+        1894.0,
+        1729.0
+      ],
+      "lower_jaw_tip": [
+        1816.0,
+        1687.0
+      ],
+      "operculum_posterior": [
+        2211.0,
+        1769.0
+      ],
+      "pectoral_insertion_upper": [
+        2186.0,
+        1850.0
+      ],
+      "peduncle_narrowest_dorsal": [
+        3427.0,
+        1431.0
+      ],
+      "peduncle_narrowest_ventral": [
+        3534.0,
+        1504.0
+      ],
+      "caudal_base": [
+        3495.0,
+        1451.0
+      ],
+      "dorsal_base_center": [
+        1040.0,
+        97.0
+      ],
+      "pelvic_base_center": [
+        2825.0,
+        1986.0
+      ],
+      "pelvic_tip": [
+        2911.0,
+        1975.0
+      ],
+      "anal_base_center": [
+        3271.0,
+        1764.0
+      ],
+      "pectoral_ray_tip": [
+        2474.0,
+        1783.0
+      ],
+      "anal_tip": [
+        3415.0,
+        1721.0
+      ],
+      "anal_base_anterior": [
+        3160.0,
+        1858.0
+      ],
+      "anal_base_posterior": [
+        3369.0,
+        1689.0
+      ]
+    },
+    "calibration": {
+      "mode": "none",
+      "notes": "no scale reference placed"
+    }
+  }
+}

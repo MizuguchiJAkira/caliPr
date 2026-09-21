@@ -33,6 +33,10 @@ data/cornell_raw/*.JPG
 data/cornell_raw/*.jpg
 data/cornell/lateral/
 data/cornell/frontal/
+# The crops the study kept before it moved to one photograph per fish, and the
+# predictions made against them. Kept on disk so nothing is lost; not history.
+data/cornell/.crops-before-*/
+data/cornell/.migration/
 
 # Pipeline outputs
 results/
