@@ -87,7 +87,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import grouping
+from . import grouping, schemes
 from .export import ExportRecord, export_to_xlsx
 from .validation import summarise, validate
 from .landmark_config import (
@@ -606,8 +606,12 @@ def run(
         log.warning("%d validation warning(s) — see the Validation sheet",
                     counts["warning"])
 
+    # The study's own landmark order and names, so the Landmarks sheet reads the
+    # same as the TPS export and the labeler.
+    lm_order, lm_labels = schemes.study_landmarks(images_dir.parent)
     return export_to_xlsx(
         records, output_path, drop_traits=drop_traits, issues=issues,
+        landmarks=lm_order, landmark_labels=lm_labels,
         provenance={
             "dataset": images_dir.parent.name,
             "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"),
