@@ -175,6 +175,21 @@ Under the **Landmarks** header, **scheme** chooses what a study collects:
 | **caliPr (23 landmarks, 33 traits)** | the default: what the traits, the trained model and this tutorial use |
 | **BGNN 2D body landmarks (23)** | the Fish-AIR / BGNN shape landmarks, in their numbered order |
 
+**＋ new scheme…**, the dropdown's last entry, starts one of your own — empty, or
+from the landmarks of the scheme you are on. It is offered to every study, because
+a scheme is a protocol: the point of row N meaning a particular landmark is that it
+means it in every study that follows it.
+
+The two that come with caliPr are read-only. Adding a point to a published
+protocol would make your files stop matching everyone else's under that name,
+which is the one thing a named scheme exists to prevent — so the ＋ button offers
+a copy instead, and the copy records what it came from.
+
+In a scheme of your own, **＋ add a landmark** appends one, numbered after every
+point already there. Points are never inserted and never removed: TPS identifies a
+landmark by its row, so renumbering would silently redefine every file already
+exported. Renaming only changes what it is called.
+
 A study on another scheme asks for that scheme's points, in its numbering, and
 exports them to TPS in that order — which is what geomorph reads. No trait is
 computed there: every trait is defined in code against caliPr's landmarks, and a

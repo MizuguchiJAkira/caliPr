@@ -162,6 +162,19 @@ def test_an_upload_is_not_split_into_two_images(srv, tmp_path):
     assert not (study / "frontal").exists() and not (study / "originals").exists()
 
 
+def test_a_study_named_the_plain_way_works_too(srv, tmp_path):
+    """A folder dropped on the page has files named for the fish alone, with no
+    _L suffix. Auto-label always accepted that; nothing else here did, so those
+    studies got no head-on view and no frame at all."""
+    url, study, _ = srv
+    for p in (study / "lateral").glob("*"):
+        p.rename(p.with_name(f"{FID}.JPEG"))
+    _, fr = _json(url, f"/api/frame/{FID}?dataset=study")
+    assert fr["size"] == [1200, 400] and fr["frontal"][2] > 0
+    code, _, ctype = _get(url, f"/img/frontal/{FID}.JPEG?dataset=study")
+    assert code == 200 and ctype == "image/jpeg"
+
+
 def test_the_labeler_can_ask_where_the_head_on_view_sits(srv):
     """So it opens the frontal tab on the mirror, not on a fraction of the frame."""
     url, _, _ = srv

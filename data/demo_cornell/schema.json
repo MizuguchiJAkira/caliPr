@@ -1,0 +1,13 @@
+{
+  "note": "Alewife: pelvic and anal fin OUTLINES are not traced \u2014 no contrast on the pelvic, the anal frays. All fin keypoints ARE collected, including base endpoints, which give fin base lengths and caudal peduncle length without an outline.",
+  "exclude_polygons": [
+    "body_plus_caudal"
+  ],
+  "exclude_keypoints": [
+    "dorsal_base_anterior",
+    "dorsal_base_center",
+    "dorsal_base_posterior",
+    "dorsal_tip"
+  ],
+  "single_photo": true
+}
