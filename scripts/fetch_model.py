@@ -9,9 +9,10 @@ SHA-256, so a truncated or altered download is refused rather than loaded.
     python scripts/fetch_model.py --views frontal
     python scripts/fetch_model.py --from ~/Downloads   # zips already on disk
 
-Each model is unpacked to ``dlc_project/`` or ``dlc_project_frontal/``, which is
-where the labeler looks. An existing model folder of the same name is never
-replaced: it may be one trained here.
+The landmark models unpack to ``dlc_project/`` or ``dlc_project_frontal/``, and
+the fin outliner is a single file that lands at ``fin_seg_runs/``. Whichever it
+is, anything already installed under that name is never replaced: it may be one
+trained here.
 
 Auto-label also needs the training stack, installed separately from the labeler:
 
@@ -94,7 +95,41 @@ def _sha256(path: Path) -> str:
     return h.hexdigest()
 
 
+def install_file(view: str, entry: dict, root: Path) -> bool:
+    """A model that is one file, not a project: download, check, put it in place.
+
+    The fin outliner is a single ``.pt``. It has no project directory and no
+    configs naming the machine it was trained on, so none of the unpacking below
+    applies to it -- which is why it could not be published at all until this
+    existed.
+    """
+    dest = root / entry["path"]
+    if dest.exists():
+        print(f"{view}: already installed at {dest.relative_to(root)} — left as it is")
+        return True
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    part = dest.with_suffix(dest.suffix + ".part")
+    print(f"{view}: downloading {entry['file']} ({entry['bytes'] / 1e6:.0f} MB)")
+    try:
+        _download(entry["url"], part, entry["bytes"])
+        digest = _sha256(part)
+        if digest != entry["sha256"]:
+            print(f"{view}: REFUSED — the download does not match its recorded checksum "
+                  f"(got {digest[:12]}…, expected {entry['sha256'][:12]}…). Nothing installed.")
+            return False
+        part.replace(dest)
+        print(f"{view}: installed {dest.relative_to(root)}")
+        return True
+    finally:
+        part.unlink(missing_ok=True)
+
+
 def install(view: str, entry: dict, root: Path) -> bool:
+    # Two shapes of model live in the manifest: a DeepLabCut project, which
+    # arrives as a zip and needs its configs repointed at this machine, and a
+    # single file, which needs none of that.
+    if entry.get("path"):
+        return install_file(view, entry, root)
     folder = root / entry["folder"]
     dest = folder / entry["project"]
     if dest.exists():
@@ -157,7 +192,8 @@ def fetch_sam(root: Path) -> None:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="fetch_model")
-    ap.add_argument("--views", nargs="+", choices=["lateral", "frontal"])
+    ap.add_argument("--views", nargs="+",
+                    help="which models to fetch (default: every published one)")
     ap.add_argument("--manifest", type=Path, default=MANIFEST)
     ap.add_argument("--root", type=Path, default=_ROOT, help="where to install (the repository)")
     ap.add_argument("--from", dest="source", type=Path,
