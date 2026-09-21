@@ -1221,11 +1221,17 @@ function buildTasks(){
 
   // This study's own landmarks live at the end of their region, like any other;
   // adding one is offered here, where the list ends.
+  const onScheme=(SCHEMA.schemes||[]).find(s=>s.name===SCHEMA.scheme && s.name!=='calipr');
   const add=document.createElement('div');
   add.className='addkp';
-  add.textContent='＋ add a landmark to this study';
-  add.title='A point collected on every specimen in this study. Saved and exported '
-          + 'as a coordinate — the 33 traits are defined in code and cannot use it.';
+  add.textContent = onScheme ? `＋ add a landmark to ${onScheme.title}`
+                             : '＋ add a landmark to this study';
+  add.title = onScheme
+    ? 'Appended to the scheme, after every point already in it, and collected by '
+    + 'every study that follows the scheme. Never inserted: TPS identifies a '
+    + 'landmark by its row.'
+    : 'A point collected on every specimen in this study. Saved and exported '
+    + 'as a coordinate — the 33 traits are defined in code and cannot use it.';
   add.onclick=addLandmark;
   box.appendChild(add);
 
@@ -1274,13 +1280,15 @@ function renderSchemePicker(){
   if(!sel||!SCHEMA) return;
   const list=SCHEMA.schemes||[];
   sel.innerHTML=list.map(s=>`<option value="${s.name}"${s.name===SCHEMA.scheme?' selected':''}>`
-    + `${s.title}</option>`).join('');
+    + `${s.title}${s.editable?' ·yours':''}</option>`).join('')
+    + '<option value="__new__">＋ new scheme…</option>';
   const cur=list.find(s=>s.name===SCHEMA.scheme);
   note.textContent = SCHEMA.traits ? '' : '— no traits; export .tps';
   note.title = cur && cur.note || '';
 }
 $('#schemepick').onchange=async e=>{
   const name=e.target.value, was=SCHEMA.scheme;
+  if(name==='__new__'){ e.target.value=was; await newScheme(); return; }
   if(name===was){ return; }
   const to=(SCHEMA.schemes||[]).find(s=>s.name===name)||{title:name};
   const keeps=SPECS.filter(s=>s.labeled).length;
@@ -1321,8 +1329,55 @@ async function toggleExcluded(kind, name){
 // A landmark this study adds to the master schema. It appears on every specimen
 // here, is saved in the sidecar and exported to TPS. No trait is computed from it:
 // every trait is defined in code against a fixed name.
+// A scheme of your own. It is written beside the studies rather than inside
+// one, because a scheme is a protocol: the whole point of row N meaning a
+// particular landmark is that it means it in every study that follows it.
+async function newScheme(){
+  const title=await askText('Name the new landmark scheme.\n\n'
+    + 'It is a list of points to collect, in the order they are numbered. No trait '
+    + 'is computed for a scheme — a study on one exports coordinates (.tps) rather '
+    + 'than measurements.');
+  if(!title) return;
+  const from=(SCHEMA.schemes||[]).find(s=>s.name===SCHEMA.scheme);
+  let copy=null;
+  if(from){
+    const r=await askCheck(`Start “${title}” from the landmarks of ${from.title}?`,
+      `Copy its ${from.landmarks||23} landmarks, in its numbering, as a starting point. `
+      + `Untick to start empty.`, true);
+    if(!r) return;
+    if(r.checked) copy=from.name;
+  }
+  const made=await api('/api/schemes/new'+dsq(),{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({title, copy_from:copy})});
+  if(!made.ok){ await tell('Could not create it:\n\n'+(made.error||'?')); return; }
+  const r=await api('/api/schema/scheme'+dsq(),{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({scheme:made.scheme})});
+  if(!r.ok){ await tell('Made the scheme, but could not switch to it:\n\n'+(r.error||'?')); return; }
+  SCHEMA=r.schema; activeTask=null;
+  renderSchemePicker(); buildTasks(); showHint(); draw();
+  toast('“'+title+'” created — this study now collects it');
+}
 async function addLandmark(){
-  const label=await askText('Name the landmark to add to “'+dataset+'”.\n\n'
+  // On a scheme, the landmark has to go into the scheme: a study following one
+  // collects its points and nothing else, so a landmark added to the study
+  // would be written down and never asked for.
+  const sc=(SCHEMA.schemes||[]).find(s=>s.name===SCHEMA.scheme);
+  const onScheme=sc && sc.name!=='calipr';
+  if(onScheme && !sc.editable){
+    await tell(`${sc.title} is a published protocol, so it is not edited here.\n\n`
+      + `Adding a point to it would make this lab's files stop matching everyone `
+      + `else's under that name. Make a new scheme from it instead — the dropdown's `
+      + `last entry — and add to that.`);
+    return;
+  }
+  const label=await askText(onScheme
+    ? `Name the landmark to add to “${sc.title}”.\n\n`
+      + `It is appended as number ${(sc.landmarks||0)+1}, after every point already `
+      + `in the scheme. Points are never inserted: TPS identifies a landmark by its `
+      + `row, so renumbering would redefine every file already exported.`
+    : 'Name the landmark to add to “'+dataset+'”.\n\n'
     + 'It is collected on every specimen in this study, saved with the labels and '
     + 'written to the TPS export. The 33 measured traits are defined in code, so '
     + 'none is computed from it.');
@@ -1331,9 +1386,9 @@ async function addLandmark(){
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'add', label, view})});
   if(!r.ok){ await tell('Could not add it:\n\n'+(r.error||'?')); return; }
-  SCHEMA=r.schema; buildTasks(); showHint(); draw();
-  const made=(SCHEMA[view].keypoints||[]).filter(k=>k.custom).slice(-1)[0];
-  toast('Added '+(made?made.label:label)+' to this study');
+  SCHEMA=r.schema; renderSchemePicker(); buildTasks(); showHint(); draw();
+  const made=(SCHEMA[view].keypoints||[]).slice(-1)[0];
+  toast('Added '+(made?made.label:label)+(onScheme?' to '+sc.title:' to this study'));
 }
 // Renaming changes what this study calls a landmark, not the name it is stored
 // under: the traits, the model and every sidecar already saved refer to that.
