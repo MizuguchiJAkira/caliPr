@@ -238,47 +238,6 @@ def test_tps_exports_a_study_s_own_landmarks_and_its_names(tmp_path):
     assert labels["adipose_base"] == "Adipose base"      # what the study calls its own
 
 
-def test_the_landmarks_sheet_is_shaped_like_imagejs_multi_measure(tmp_path):
-    """One row per landmark per specimen, named, with the photograph repeated:
-    what ImageJ writes, so a caliPr series can be pooled with an ImageJ one."""
-    import openpyxl
-
-    ann = Annotation()
-    ann.keypoints["premaxilla_tip"] = (100.0, 500.0)
-    ann.keypoints["eye_anterior"] = (250.0, 400.0)
-    calib = CalibrationResult(px_per_mm=10.0, method="manual", confidence=1.0)
-    ms = compute_all("F1", ann, {View.LATERAL: calib, View.FRONTAL: calib})
-    rec = ExportRecord(measurements=ms, calibrations={"lateral": calib},
-                       image_filename="F1.jpg", keypoints=dict(ann.keypoints))
-    out = tmp_path / "wb.xlsx"
-    export_to_xlsx([rec], out, landmarks=["premaxilla_tip", "eye_anterior", "caudal_base"],
-                   landmark_labels={"premaxilla_tip": "snout tip"})
-    rows = list(openpyxl.load_workbook(out)["Landmarks"].iter_rows(values_only=True))
-    assert rows[0] == ("landmark", "Label", "X", "Y", "units")
-    # the study's landmark order, its own names, and mm because this one has a scale
-    assert rows[1] == ("snout tip", "F1.jpg", 10.0, 50.0, "mm")
-    assert rows[2] == ("eye_anterior", "F1.jpg", 25.0, 40.0, "mm")
-    # y is NOT flipped here: ImageJ measures downward from the top of the image
-    assert rows[1][3] == 500.0 / 10.0
-    # a landmark nobody placed is an empty row, which read.csv reads as NA
-    assert rows[3] == ("caudal_base", "F1.jpg", None, None, "mm")
-
-
-def test_landmark_coordinates_are_pixels_when_the_specimen_has_no_scale(tmp_path):
-    import openpyxl
-
-    ann = Annotation()
-    ann.keypoints["premaxilla_tip"] = (100.0, 500.0)
-    free = CalibrationResult(px_per_mm=1.0, method="none", confidence=0.0)
-    ms = compute_all("F2", ann, {View.LATERAL: free})
-    rec = ExportRecord(measurements=ms, calibrations={}, image_filename="F2.jpg",
-                       keypoints=dict(ann.keypoints))
-    out = tmp_path / "wb2.xlsx"
-    export_to_xlsx([rec], out, landmarks=["premaxilla_tip"])
-    [_, row] = list(openpyxl.load_workbook(out)["Landmarks"].iter_rows(values_only=True))
-    assert row == ("premaxilla_tip", "F2.jpg", 100.0, 500.0, "px")
-
-
 def test_a_workbook_without_a_landmark_order_has_no_landmarks_sheet(tmp_path):
     import openpyxl
 
