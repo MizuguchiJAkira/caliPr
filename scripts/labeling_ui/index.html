@@ -1662,13 +1662,16 @@ function undo(){
   if(!activeTask){ toast('Select the landmark you want to undo'); return; }
   const m=model[view], t=activeTask;
   if(t.kind==='polygon'){ const arr=m.polygons[t.name];
-    if(arr&&arr.length){ arr.pop(); if(!arr.length) delete m.polygons[t.name]; toast('Removed a vertex of '+t.name); }
+    if(arr&&arr.length){ arr.pop(); pred.polys.delete(t.name);
+      if(!arr.length){ delete m.polygons[t.name]; forgetPrediction(t.name); }
+      toast('Removed a vertex of '+t.name); }
     else toast(t.name+': no vertex to undo'); }
-  else if(t.kind==='keypoint'){ if(m.keypoints[t.name]){ delete m.keypoints[t.name]; toast('Cleared '+t.name); }
+  else if(t.kind==='keypoint'){ if(m.keypoints[t.name]){ delete m.keypoints[t.name];
+      forgetPrediction(t.name); toast('Cleared '+t.name); }
     else toast(t.name+' isn’t placed'); }
   else if(t.kind==='ruler'){ const k=t.name==='ruler_point_a'?'a':'b';
     if(m.ruler[k]){ m.ruler[k]=undefined; toast('Cleared '+t.name); } else toast(t.name+' isn’t placed'); }
-  hoverName=null; persistDraft(); buildTasks(); showHint(); draw();
+  hoverName=null; persistDraft(); buildTasks(); renderAutoStat(); showHint(); draw();
 }
 function pickByName(kind,name){const it=(SCHEMA[view][kind==='ruler'?'ruler':kind+'s']||[]).find(x=>x.name===name);
   if(it){activeTask={kind,name,hint:it.hint,desc:it.description};showHint();buildTasks();}}
@@ -1895,9 +1898,12 @@ $('#undo').onclick=undoAction;
 $('#clearall').onclick=clearAll;
 $('#finish').onclick=()=>{advance();buildTasks();draw();};
 $('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
-  if(activeTask.kind==='keypoint')delete m.keypoints[activeTask.name];
-  else if(activeTask.kind==='polygon')delete m.polygons[activeTask.name];
-  else m.ruler[activeTask.name==='ruler_point_a'?'a':'b']=undefined; persistDraft();buildTasks();draw();};
+  if(activeTask.kind==='keypoint'){ delete m.keypoints[activeTask.name];
+    forgetPrediction(activeTask.name); }
+  else if(activeTask.kind==='polygon'){ delete m.polygons[activeTask.name];
+    forgetPrediction(activeTask.name); }
+  else m.ruler[activeTask.name==='ruler_point_a'?'a':'b']=undefined;
+  persistDraft();buildTasks();renderAutoStat();draw();};
 $('#fit').onclick=()=>{fit();draw();};
 $('#rtoggle').onclick=async()=>{
   retrace=!retrace;
@@ -2319,6 +2325,19 @@ function nextPending(fromName){
   if(!pending.length) return null;
   const at=all.indexOf(fromName);
   return pending.find(n=>all.indexOf(n)>at) || pending[0];
+}
+// A point that is gone has no prediction to review: clearing one has to take its
+// confidence, its place in the A walk and its accepted/corrected record with it.
+// Otherwise the row keeps showing a confidence for a landmark that is not there,
+// A walks to it and "accepts" nothing, and the save records it as reviewed.
+function forgetPrediction(name){
+  if(!pred.model) return false;
+  const had = pred.conf[name]!==undefined || pred.accepted.has(name)
+              || pred.corrected[name]!==undefined || pred.polys.has(name);
+  delete pred.conf[name]; delete pred.orig[name]; delete pred.corrected[name];
+  pred.low.delete(name); pred.accepted.delete(name); pred.polys.delete(name);
+  delete (pred.dropped||{})[name];
+  return had;
 }
 function acceptPoint(name){       // the human LOOKED and agrees
   if(!name || pred.conf[name]===undefined) return false;
@@ -2783,23 +2802,28 @@ $('#save').onclick=async()=>{
   // agreeing with a suggestion they were shown, and an unreviewed one is
   // nothing at all. Collapsing them would make the weakest look like the
   // strongest. Lateral keeps its original key; frontal has its own.
-  const assistOf=p=>({
+  // Only points that are actually on the fish: a landmark cleared while an older
+  // draft still carried its prediction must not be saved as reviewed.
+  const assistOf=(p,v)=>{
+    const placed=n=>model[v].keypoints[n]!==undefined || model[v].polygons[n]!==undefined;
+    return {
     model: p.model,
-    accepted: [...p.accepted].sort(),
-    corrected: p.corrected,
-    unreviewed: Object.keys(p.conf).sort(),
+    accepted: [...p.accepted].filter(placed).sort(),
+    corrected: Object.fromEntries(Object.entries(p.corrected).filter(([n])=>placed(n))),
+    unreviewed: Object.keys(p.conf).filter(placed).sort(),
     // Kept so a reopened fish can still show which unreviewed points were unsure.
-    unreviewed_confidence: Object.fromEntries(Object.entries(p.conf).sort()),
+    unreviewed_confidence: Object.fromEntries(
+      Object.entries(p.conf).filter(([n])=>placed(n)).sort()),
     // Outlines the model drew and the human left as-is. Same caveat as an
     // accepted point: agreement with a suggestion, not an independent trace.
-    polygons_from_model: [...p.polys].sort(),
+    polygons_from_model: [...p.polys].filter(placed).sort(),
     predicted_at: p.at || new Date().toISOString(),
-  });
+  };};
   if(predBy.lateral.model){
-    out.metadata.assist=assistOf(predBy.lateral);
-    out.metadata.unreviewed_predictions=Object.keys(predBy.lateral.conf).sort();
+    out.metadata.assist=assistOf(predBy.lateral,'lateral');
+    out.metadata.unreviewed_predictions=out.metadata.assist.unreviewed;
   }
-  if(predBy.frontal.model) out.metadata.assist_frontal=assistOf(predBy.frontal);
+  if(predBy.frontal.model) out.metadata.assist_frontal=assistOf(predBy.frontal,'frontal');
   const by=predBy.lateral.model||predBy.frontal.model;
   if(by) out.metadata.assisted_by=by;
   if(model.data_note) out.metadata.data_note=model.data_note;
