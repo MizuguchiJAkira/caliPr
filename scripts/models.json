@@ -22,6 +22,24 @@
       "snapshot": "snapshot-200.pt",
       "scale": 0.3,
       "landmarks": 2
+    },
+    "fins": {
+      "file": "calipr-trout-fins-2026-09-21.pt",
+      "url": "https://github.com/MizuguchiJAkira/caliPr/releases/download/models-2026-09-17/calipr-trout-fins-2026-09-21.pt",
+      "sha256": "22a94ca8d3b51865d628a4cd09597eb86d2d643115b7f53afeb32a0bf663b061",
+      "bytes": 96143527,
+      "path": "fin_seg_runs/fin_segmenter.pt",
+      "fins": [
+        "pectoral",
+        "anal"
+      ],
+      "crop": {
+        "half_w_sl": 0.17,
+        "half_h_sl": 0.085,
+        "w": 448,
+        "h": 224
+      },
+      "trained_on": 116
     }
   }
 }
