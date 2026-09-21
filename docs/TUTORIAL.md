@@ -113,6 +113,9 @@ starting from (3.2% and 4.6% median area error, inside the spread between two
 tracings of the same fin). The dorsal and pelvic are not offered; trace those
 yourself. The sidebar lists what still needs review.
 
+Auto-label never replaces an outline you traced. Press it twice and it redraws
+its own outline, keeps yours, and says which it kept.
+
 A predicted outline is drawn differently from one you traced and is **never
 accepted by `A`** — `A` walks landmarks only. Drag its vertices onto the fin, click
 the line to insert one, or press `Z` to take one away. Any of those marks the
