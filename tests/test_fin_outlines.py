@@ -101,6 +101,29 @@ def test_the_frontal_view_is_not_asked_for_fins(srv):
     assert asked[-1] == []
 
 
+def test_a_cache_made_without_the_outliner_is_not_served_forever(srv):
+    """Otherwise the first Auto-label a machine ever ran decides, permanently,
+    that this fish has no fins -- and fetching the outliner later changes nothing,
+    because a cached entry with no outlines looks like one where it found none."""
+    url, study, asked = srv
+    (study / "schema.json").write_text(json.dumps({"exclude_polygons": ["pectoral", "anal"]}))
+    _json(url, f"/api/predict/{FID}?dataset=study")
+    assert asked[-1] == []
+    cached = json.loads((study / "sidecars_auto" / f"{FID}.json").read_text())
+    assert cached["metadata"]["fins_asked"] == []
+
+    # the outliner arrives: the entry is re-predicted rather than served
+    (study / "schema.json").write_text(json.dumps({}))
+    got = _json(url, f"/api/predict/{FID}?dataset=study")
+    assert asked[-1] == ["pectoral", "anal"]
+    assert set(got["polygons"]) == {"pectoral", "anal"}
+
+    # and an entry that did ask for them is still served from cache
+    before = len(asked)
+    _json(url, f"/api/predict/{FID}?dataset=study")
+    assert len(asked) == before
+
+
 def test_an_outline_the_model_drew_is_not_trained_on(tmp_path):
     """The whole point of the flag. An outline nobody redrew is this model's own
     output; training on it teaches the next one to repeat what it gets wrong."""
