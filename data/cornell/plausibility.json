@@ -1,37 +1,53 @@
 {
-  "fish": 46,
+  "fish": 60,
   "margin": 0.5,
   "landmarks": {
     "anal_base_anterior": {
-      "n": 1
+      "n": 18,
+      "axial": [
+        0.5588,
+        0.7351
+      ],
+      "axial_observed": [
+        0.6028,
+        0.691
+      ]
     },
     "anal_base_center": {
-      "n": 6,
+      "n": 17,
       "axial": [
-        0.6368,
-        0.7379
+        0.6183,
+        0.7934
       ],
       "axial_observed": [
         0.662,
-        0.7126
+        0.7496
       ]
     },
     "anal_base_posterior": {
-      "n": 1
+      "n": 18,
+      "axial": [
+        0.6875,
+        0.8462
+      ],
+      "axial_observed": [
+        0.7272,
+        0.8065
+      ]
     },
     "anal_tip": {
-      "n": 6,
+      "n": 21,
       "axial": [
-        0.7021,
-        0.817
+        0.6875,
+        0.8607
       ],
       "axial_observed": [
         0.7308,
-        0.7882
+        0.8174
       ]
     },
     "caudal_base": {
-      "n": 46,
+      "n": 60,
       "axial": [
         0.773,
         0.9672
@@ -42,35 +58,51 @@
       ]
     },
     "dorsal_base_anterior": {
-      "n": 2
-    },
-    "dorsal_base_center": {
-      "n": 7,
+      "n": 17,
       "axial": [
-        0.426,
-        0.5042
+        0.3557,
+        0.4323
       ],
       "axial_observed": [
-        0.446,
-        0.4842
+        0.3757,
+        0.4123
+      ]
+    },
+    "dorsal_base_center": {
+      "n": 21,
+      "axial": [
+        0.4019,
+        0.5242
+      ],
+      "axial_observed": [
+        0.4325,
+        0.4937
       ]
     },
     "dorsal_base_posterior": {
-      "n": 2
-    },
-    "dorsal_tip": {
-      "n": 7,
+      "n": 17,
       "axial": [
-        0.4298,
-        0.5544
+        0.4243,
+        0.6389
       ],
       "axial_observed": [
-        0.461,
-        0.5232
+        0.4779,
+        0.5852
+      ]
+    },
+    "dorsal_tip": {
+      "n": 22,
+      "axial": [
+        0.4106,
+        0.5862
+      ],
+      "axial_observed": [
+        0.4545,
+        0.5423
       ]
     },
     "eye_anterior": {
-      "n": 46,
+      "n": 60,
       "axial": [
         -0.0024,
         0.1048
@@ -81,18 +113,18 @@
       ]
     },
     "eye_dorsal": {
-      "n": 46,
+      "n": 60,
       "axial": [
-        0.0205,
-        0.1222
+        0.0198,
+        0.1225
       ],
       "axial_observed": [
-        0.046,
+        0.0455,
         0.0968
       ]
     },
     "eye_posterior": {
-      "n": 46,
+      "n": 60,
       "axial": [
         -0.0157,
         0.1686
@@ -103,18 +135,18 @@
       ]
     },
     "eye_ventral": {
-      "n": 46,
+      "n": 60,
       "axial": [
-        0.0323,
-        0.1149
+        0.0316,
+        0.1151
       ],
       "axial_observed": [
-        0.0529,
+        0.0525,
         0.0942
       ]
     },
     "lower_jaw_tip": {
-      "n": 43,
+      "n": 57,
       "axial": [
         -0.0224,
         0.028
@@ -125,7 +157,7 @@
       ]
     },
     "maxilla_mandible_intersection": {
-      "n": 46,
+      "n": 60,
       "axial": [
         -0.0021,
         0.0995
@@ -136,7 +168,7 @@
       ]
     },
     "operculum_posterior": {
-      "n": 46,
+      "n": 60,
       "axial": [
         0.1309,
         0.2691
@@ -147,29 +179,29 @@
       ]
     },
     "pectoral_insertion_upper": {
-      "n": 7,
+      "n": 20,
       "axial": [
-        0.126,
-        0.2362
+        0.1027,
+        0.2737
       ],
       "axial_observed": [
-        0.1536,
-        0.2086
+        0.1454,
+        0.2309
       ]
     },
     "pectoral_ray_tip": {
-      "n": 7,
+      "n": 19,
       "axial": [
-        0.2474,
-        0.3357
+        0.2407,
+        0.3543
       ],
       "axial_observed": [
-        0.2695,
-        0.3137
+        0.2691,
+        0.3259
       ]
     },
     "peduncle_narrowest_dorsal": {
-      "n": 46,
+      "n": 60,
       "axial": [
         0.7608,
         0.9486
@@ -180,7 +212,7 @@
       ]
     },
     "peduncle_narrowest_ventral": {
-      "n": 46,
+      "n": 60,
       "axial": [
         0.7487,
         0.9683
@@ -191,18 +223,18 @@
       ]
     },
     "pelvic_base_center": {
-      "n": 6,
+      "n": 20,
       "axial": [
-        0.4028,
-        0.4905
+        0.4022,
+        0.4924
       ],
       "axial_observed": [
         0.4247,
-        0.4686
+        0.4698
       ]
     },
     "pelvic_tip": {
-      "n": 6,
+      "n": 19,
       "axial": [
         0.3528,
         0.6064
@@ -213,7 +245,7 @@
       ]
     },
     "premaxilla_tip": {
-      "n": 44,
+      "n": 58,
       "axial": [
         -0.0207,
         0.044
@@ -226,98 +258,442 @@
   },
   "relative": {
     "dorsal": {
-      "n": 7,
+      "n": 21,
       "base": "dorsal_base_center",
       "tip": "dorsal_tip",
       "dx": [
-        -2.699,
-        3.319
+        -3.79,
+        5.139
       ],
       "dx_observed": [
         -0.442,
-        1.062
+        1.79
       ],
       "dy": [
-        -2.525,
-        2.174
+        -3.562,
+        2.796
       ],
       "dy_observed": [
-        -0.763,
+        -1.178,
         0.412
       ]
     },
     "anal": {
-      "n": 6,
+      "n": 17,
       "base": "anal_base_center",
       "tip": "anal_tip",
       "dx": [
-        0.382,
-        2.582
+        0.054,
+        2.989
       ],
       "dx_observed": [
-        1.207,
-        1.757
+        1.154,
+        1.888
       ],
       "dy": [
-        -0.847,
-        1.066
+        -2.121,
+        2.535
       ],
       "dy_observed": [
-        -0.13,
-        0.348
+        -0.375,
+        0.789
       ]
     },
     "pelvic": {
-      "n": 6,
+      "n": 19,
       "base": "pelvic_base_center",
       "tip": "pelvic_tip",
       "dx": [
-        -3.712,
-        5.625
+        -4.666,
+        6.197
       ],
       "dx_observed": [
-        -0.21,
+        -0.592,
         2.124
       ],
       "dy": [
-        -4.403,
-        3.977
+        -5.42,
+        4.587
       ],
       "dy_observed": [
-        -1.261,
+        -1.667,
         0.835
       ]
     },
     "pectoral": {
-      "n": 7,
+      "n": 18,
       "base": "pectoral_insertion_upper",
       "tip": "pectoral_ray_tip",
       "dx": [
-        -0.609,
-        5.287
+        -0.725,
+        5.479
       ],
       "dx_observed": [
         1.602,
-        3.076
+        3.153
       ],
       "dy": [
-        -1.135,
-        2.458
+        -1.994,
+        3.569
       ],
       "dy_observed": [
-        0.213,
-        1.111
+        0.092,
+        1.483
       ]
     }
   },
+  "along": {
+    "anchor": [
+      "eye_anterior",
+      "caudal_base"
+    ],
+    "fish": 128,
+    "landmarks": {
+      "anal_base_anterior": {
+        "n": 53,
+        "band": [
+          0.639,
+          0.8412
+        ],
+        "observed": [
+          0.6896,
+          0.7906
+        ]
+      },
+      "anal_base_center": {
+        "n": 77,
+        "band": [
+          0.6743,
+          0.9219
+        ],
+        "observed": [
+          0.7362,
+          0.86
+        ]
+      },
+      "anal_base_posterior": {
+        "n": 53,
+        "band": [
+          0.5876,
+          1.0325
+        ],
+        "observed": [
+          0.6988,
+          0.9213
+        ]
+      },
+      "anal_tip": {
+        "n": 83,
+        "band": [
+          0.775,
+          1.0083
+        ],
+        "observed": [
+          0.8333,
+          0.95
+        ]
+      },
+      "caudal_base": {
+        "n": 128,
+        "band": [
+          0.98,
+          1.02
+        ],
+        "observed": [
+          1.0,
+          1.0
+        ]
+      },
+      "dorsal_base_anterior": {
+        "n": 44,
+        "band": [
+          0.3849,
+          0.4818
+        ],
+        "observed": [
+          0.4091,
+          0.4576
+        ]
+      },
+      "dorsal_base_center": {
+        "n": 80,
+        "band": [
+          0.4284,
+          0.5994
+        ],
+        "observed": [
+          0.4711,
+          0.5566
+        ]
+      },
+      "dorsal_base_posterior": {
+        "n": 44,
+        "band": [
+          0.4671,
+          0.7379
+        ],
+        "observed": [
+          0.5348,
+          0.6702
+        ]
+      },
+      "dorsal_tip": {
+        "n": 79,
+        "band": [
+          0.4113,
+          0.6988
+        ],
+        "observed": [
+          0.4832,
+          0.6269
+        ]
+      },
+      "eye_anterior": {
+        "n": 128,
+        "band": [
+          -0.02,
+          0.02
+        ],
+        "observed": [
+          0.0,
+          0.0
+        ]
+      },
+      "eye_dorsal": {
+        "n": 128,
+        "band": [
+          -0.0685,
+          0.0849
+        ],
+        "observed": [
+          -0.0301,
+          0.0465
+        ]
+      },
+      "eye_posterior": {
+        "n": 128,
+        "band": [
+          -0.1277,
+          0.1479
+        ],
+        "observed": [
+          -0.0588,
+          0.079
+        ]
+      },
+      "eye_ventral": {
+        "n": 128,
+        "band": [
+          -0.0687,
+          0.0856
+        ],
+        "observed": [
+          -0.0301,
+          0.047
+        ]
+      },
+      "lower_jaw_tip": {
+        "n": 124,
+        "band": [
+          -0.1323,
+          0.0076
+        ],
+        "observed": [
+          -0.0973,
+          -0.0274
+        ]
+      },
+      "maxilla_mandible_intersection": {
+        "n": 127,
+        "band": [
+          -0.1074,
+          0.0788
+        ],
+        "observed": [
+          -0.0608,
+          0.0322
+        ]
+      },
+      "operculum_posterior": {
+        "n": 126,
+        "band": [
+          0.0545,
+          0.2865
+        ],
+        "observed": [
+          0.1125,
+          0.2285
+        ]
+      },
+      "pectoral_insertion_upper": {
+        "n": 82,
+        "band": [
+          0.0907,
+          0.2623
+        ],
+        "observed": [
+          0.1336,
+          0.2194
+        ]
+      },
+      "pectoral_ray_tip": {
+        "n": 77,
+        "band": [
+          0.1618,
+          0.4293
+        ],
+        "observed": [
+          0.2287,
+          0.3625
+        ]
+      },
+      "peduncle_narrowest_dorsal": {
+        "n": 127,
+        "band": [
+          0.9329,
+          1.0313
+        ],
+        "observed": [
+          0.9575,
+          1.0067
+        ]
+      },
+      "peduncle_narrowest_ventral": {
+        "n": 128,
+        "band": [
+          0.9469,
+          1.0502
+        ],
+        "observed": [
+          0.9727,
+          1.0244
+        ]
+      },
+      "pelvic_base_center": {
+        "n": 78,
+        "band": [
+          0.3825,
+          0.6475
+        ],
+        "observed": [
+          0.4487,
+          0.5813
+        ]
+      },
+      "pelvic_tip": {
+        "n": 78,
+        "band": [
+          0.3529,
+          0.729
+        ],
+        "observed": [
+          0.4469,
+          0.635
+        ]
+      },
+      "premaxilla_tip": {
+        "n": 126,
+        "band": [
+          -0.1267,
+          -0.0011
+        ],
+        "observed": [
+          -0.0953,
+          -0.0325
+        ]
+      }
+    },
+    "eye_span_observed": [
+      0.0476,
+      0.0819
+    ]
+  },
+  "order": {
+    "checked": [
+      {
+        "a": "eye_dorsal",
+        "b": "eye_ventral",
+        "axis": "y",
+        "relation": "below",
+        "n": 131
+      },
+      {
+        "a": "premaxilla_tip",
+        "b": "lower_jaw_tip",
+        "axis": "y",
+        "relation": "below",
+        "n": 127
+      },
+      {
+        "a": "eye_posterior",
+        "b": "operculum_posterior",
+        "axis": "x",
+        "relation": "behind",
+        "n": 129
+      },
+      {
+        "a": "operculum_posterior",
+        "b": "caudal_base",
+        "axis": "x",
+        "relation": "behind",
+        "n": 126
+      },
+      {
+        "a": "peduncle_narrowest_dorsal",
+        "b": "peduncle_narrowest_ventral",
+        "axis": "y",
+        "relation": "below",
+        "n": 128
+      },
+      {
+        "a": "dorsal_base_anterior",
+        "b": "dorsal_base_center",
+        "axis": "x",
+        "relation": "behind",
+        "n": 43
+      },
+      {
+        "a": "dorsal_base_center",
+        "b": "dorsal_base_posterior",
+        "axis": "x",
+        "relation": "behind",
+        "n": 43
+      },
+      {
+        "a": "pelvic_base_center",
+        "b": "anal_base_center",
+        "axis": "x",
+        "relation": "behind",
+        "n": 72
+      }
+    ],
+    "refused": [
+      {
+        "a": "eye_anterior",
+        "b": "eye_posterior",
+        "axis": "x",
+        "relation": "behind",
+        "n": 129,
+        "contradicted_by": 2
+      },
+      {
+        "a": "anal_base_anterior",
+        "b": "anal_base_posterior",
+        "axis": "x",
+        "relation": "behind",
+        "n": 52,
+        "contradicted_by": 1
+      }
+    ]
+  },
   "outline": {
-    "n": 46,
+    "n": 60,
     "fill": [
       0.497,
-      0.724
+      0.73
     ],
     "aspect": [
-      3.33,
+      3.15,
       5.49
     ]
   }
