@@ -88,10 +88,15 @@ def view_image(images_dir: Path, fid: str, view: str) -> Path | None:
     both views: the mirror's head-on view is part of the same frame, so the two
     share an image and a coordinate system.
     """
+    # The Cornell rig's crops carry a _L or _F suffix; a folder someone dropped
+    # on the page does not, and its files are named for the fish alone. Auto-label
+    # has always accepted both, and this did not -- so on a study named the plain
+    # way, everything that asks a question about a fish's photograph here (where
+    # the head-on view sits, which file to serve) answered "no such fish".
     folder = images_dir / view
     suffix = "_L" if view == "lateral" else "_F"
     for p in list_images(folder).values():
-        if p.stem == f"{fid}{suffix}":
+        if p.stem in (f"{fid}{suffix}", fid):
             return p
     if view == "frontal" and load_profile(images_dir).get("single_photo"):
         return view_image(images_dir, fid, "lateral")
@@ -857,6 +862,112 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, {"ok": True, "scheme": name,
                                 "schema": build_schema(load_profile(self.images_dir))})
 
+    def _new_scheme(self):
+        """Start a landmark scheme of your own, optionally from one that exists.
+
+        A scheme defined in code is a published protocol and is never edited here:
+        adding a point to it would make this lab's files stop matching everyone
+        else's under that protocol's name, which is the one thing a named scheme
+        exists to prevent. Copying it says plainly that what follows is a
+        different scheme, and the copy records what it came from.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        title = str(data.get("title") or "").strip()
+        if not 1 <= len(title) <= 80:
+            return self._send(400, {"ok": False, "error": "give the scheme a name"})
+        base = re.sub(r"[^a-z0-9]+", "_", title.lower()).strip("_") or "scheme"
+        name, i = base, 2
+        while name in schemes.all_schemes() or name == schemes.DEFAULT:
+            name, i = f"{base}_{i}", i + 1
+
+        src = data.get("copy_from")
+        landmarks: list = []
+        note = "Defined in this labeler."
+        source = ""
+        if src and src != schemes.DEFAULT:
+            got = schemes.get(src)
+            if not got:
+                return self._send(404, {"ok": False, "error": f"no scheme {src!r}"})
+            landmarks = [tuple(k) for k in got["landmarks"]]
+            source = f"copied from {got['title']}"
+            note = (f"Started as a copy of {got['title']} and diverges from it as soon as "
+                    f"a landmark is added, so its files are not that protocol's files.")
+        elif src == schemes.DEFAULT:
+            # caliPr's own landmarks as a starting point. The copy is a plain list
+            # of points like any other scheme: no trait follows it across.
+            landmarks = [(k.name, k.name.replace("_", " "), "caliPr", k.labeling_hint or "")
+                         for k in KEYPOINTS if k.view == View.LATERAL]
+            source = "copied from caliPr's own landmarks"
+            note = ("Started as a copy of caliPr's landmarks. No trait is computed for a "
+                    "scheme, so these are coordinates only.")
+        doc = {"title": title, "source": source, "note": note,
+               "view": "lateral", "landmarks": landmarks}
+        try:
+            schemes.save(name, doc)
+        except Exception as exc:
+            return self._send(500, {"ok": False, "error": f"could not write the scheme: {exc}"})
+        return self._send(200, {"ok": True, "scheme": name,
+                                "schemes": schemes.listing()})
+
+    def _edit_scheme_keypoint(self, scheme: str, data: dict):
+        """Append a landmark to a scheme of your own, or rename one.
+
+        **Appended, never inserted.** TPS identifies a landmark by its row, so
+        putting one in the middle would silently redefine every file already
+        exported under this scheme -- including other people's, if they follow it.
+        Adding at the end leaves rows 1..N meaning exactly what they meant.
+
+        Removal is refused for the same reason: taking one out renumbers
+        everything after it.
+        """
+        doc = schemes.get(scheme)
+        if not doc:
+            return self._send(404, {"ok": False, "error": f"no scheme {scheme!r}"})
+        if not doc.get("editable"):
+            return self._send(409, {
+                "ok": False, "builtin": True,
+                "error": f"{doc['title']} is a published protocol, so it is not edited here. "
+                         f"Make a copy of it and add to that."})
+        landmarks = [tuple(k) for k in doc["landmarks"]]
+        action = data.get("action")
+        if action == "add":
+            label = str(data.get("label") or "").strip()
+            if not 1 <= len(label) <= 60:
+                return self._send(400, {"ok": False, "error": "give the landmark a name"})
+            base = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_") or "landmark"
+            taken = {k[0] for k in landmarks}
+            name, i = base, 2
+            while name in taken:
+                name, i = f"{base}_{i}", i + 1
+            landmarks.append((name, label, str(data.get("group") or "added"),
+                              str(data.get("hint") or "")))
+        elif action == "rename":
+            name = str(data.get("name") or "")
+            label = str(data.get("label") or "").strip()
+            if not any(k[0] == name for k in landmarks):
+                return self._send(404, {"ok": False, "error": f"no landmark {name!r}"})
+            if not 1 <= len(label) <= 60:
+                return self._send(400, {"ok": False, "error": "give the landmark a name"})
+            landmarks = [(k[0], label, k[2], k[3]) if k[0] == name else k for k in landmarks]
+        elif action == "remove":
+            return self._send(409, {
+                "ok": False,
+                "error": "a scheme numbers its landmarks, and TPS identifies one by its "
+                         "row — removing this one would renumber every landmark after it "
+                         "and silently redefine every file already exported. Rename it "
+                         "instead, or start a new scheme."})
+        else:
+            return self._send(400, {"ok": False, "error": f"unknown action {action!r}"})
+        schemes.save(scheme, dict(doc, landmarks=landmarks))
+        return self._send(200, {"ok": True,
+                                "schema": build_schema(load_profile(self.images_dir))})
+
     def _edit_schema_keypoint(self):
         """Add, rename or remove one of this study's own landmarks.
 
@@ -874,6 +985,12 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
         action = data.get("action")
+        # A study following a scheme collects that scheme's landmarks and nothing
+        # else, so a landmark added here has to go into the scheme or it would be
+        # written down and never asked for.
+        prof0 = load_profile(self.images_dir)
+        if schemes.get(prof0.get("scheme")):
+            return self._edit_scheme_keypoint(prof0["scheme"], data)
         path = self.images_dir / "schema.json"
         prof = {}
         if path.is_file():
@@ -1746,6 +1863,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/schema/scheme":
             return self._set_scheme()
+        if route == "/api/schemes/new":
+            return self._new_scheme()
 
         if route != "/api/save":
             return self._send(404, {"error": "unknown route"})
@@ -1881,10 +2000,15 @@ def main(argv=None) -> int:
         Handler.default_dataset = base.name
         if args.out:
             Handler.datasets[base.name] = base
+        schemes.use_data_root(base.parent)
     else:
         Handler.data_root = args.data_root.resolve()
         Handler.data_root.mkdir(parents=True, exist_ok=True)
         Handler.datasets = discover_datasets(Handler.data_root)
+        # Schemes of your own live beside the studies, not inside one: a scheme is
+        # a protocol, and row N means the same landmark in every study that
+        # follows it.
+        schemes.use_data_root(Handler.data_root)
         # An empty data/ is a first run, not an error. Refusing to start here
         # left a new user with no way in at all: the button that creates the
         # first study is inside the page the server would not serve.

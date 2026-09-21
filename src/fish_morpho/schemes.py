@@ -21,6 +21,9 @@ numbered in the protocol, each with what to click.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 #: Landmark order is the protocol's numbering. Do not reorder: TPS identifies a
 #: landmark by its row, so renumbering silently redefines every exported file.
 BGNN_2D = {
@@ -80,7 +83,63 @@ BGNN_2D = {
     ],
 }
 
-SCHEMES: dict[str, dict] = {"bgnn_2d": BGNN_2D}
+#: Schemes defined in code: published protocols, and read-only for that reason.
+#: Adding a point to one would make this lab's exports stop matching everyone
+#: else's files under the same protocol's name, which is the one thing a named
+#: scheme exists to prevent. Adding to one copies it instead -- see :func:`save`.
+BUILTIN: dict[str, dict] = {"bgnn_2d": BGNN_2D}
+
+#: Schemes someone made here, one JSON file each. They live beside the studies
+#: rather than inside one, because a scheme is a protocol: the whole point of
+#: row N meaning the same landmark is that it means it in every study that
+#: follows it, not just the one it was first drawn up for.
+USER_DIR_NAME = "schemes"
+_user_root: Path | None = None
+
+
+def use_data_root(root) -> None:
+    """Where user-defined schemes live: ``<root>/schemes/``."""
+    global _user_root
+    _user_root = Path(root) / USER_DIR_NAME if root else None
+
+
+def _user_dir() -> Path | None:
+    return _user_root
+
+
+def _valid(doc: dict) -> bool:
+    # An empty landmark list is valid: a scheme starts empty when it is not
+    # copied from one, and is filled a point at a time. Requiring at least one
+    # made a new scheme vanish from the list the moment it was created.
+    lms = doc.get("landmarks")
+    return bool(doc.get("title") and isinstance(lms, list)
+                and all(isinstance(k, (list, tuple)) and len(k) == 4 for k in lms))
+
+
+def user_schemes() -> dict[str, dict]:
+    """Every scheme defined here, by name. A malformed file is skipped, not raised:
+    one bad file must not stop the labeler listing the rest."""
+    out: dict[str, dict] = {}
+    d = _user_dir()
+    if d is None or not d.is_dir():
+        return out
+    for path in sorted(d.glob("*.json")):
+        try:
+            doc = json.loads(path.read_text())
+        except Exception:
+            continue
+        if _valid(doc):
+            doc = dict(doc, landmarks=[tuple(k) for k in doc["landmarks"]], editable=True)
+            out[path.stem] = doc
+    return out
+
+
+def all_schemes() -> dict[str, dict]:
+    """Built-in and user-defined together. A user file never shadows a built-in."""
+    out = dict(user_schemes())
+    out.update(BUILTIN)
+    return out
+
 
 #: What a study is using when it names no scheme: caliPr's own, the one every
 #: trait is defined against.
@@ -91,18 +150,33 @@ def get(name: str | None) -> dict | None:
     """The named scheme, or None for caliPr's own."""
     if not name or name == DEFAULT:
         return None
-    return SCHEMES.get(name)
+    return all_schemes().get(name)
 
 
 def listing() -> list[dict]:
     """Every scheme a study can be switched to, caliPr's own first."""
     out = [{"name": DEFAULT, "title": "caliPr (23 landmarks, 33 traits)",
-            "landmarks": None,
+            "landmarks": None, "editable": False,
             "note": "The scheme the traits, the trained model and the tutorial use."}]
     out += [{"name": k, "title": v["title"], "landmarks": len(v["landmarks"]),
-             "note": v["note"], "source": v.get("source", "")}
-            for k, v in SCHEMES.items()]
+             "note": v.get("note", ""), "source": v.get("source", ""),
+             "editable": bool(v.get("editable"))}
+            for k, v in sorted(all_schemes().items(),
+                               key=lambda kv: (bool(kv[1].get("editable")), kv[0]))]
     return out
+
+
+def save(name: str, doc: dict) -> Path:
+    """Write a user-defined scheme. Only ever called for an editable one."""
+    d = _user_dir()
+    if d is None:
+        raise RuntimeError("no data root set for user schemes")
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / f"{name}.json"
+    keep = {k: v for k, v in doc.items() if k != "editable"}
+    keep["landmarks"] = [list(k) for k in doc["landmarks"]]
+    path.write_text(json.dumps(keep, indent=2) + "\n")
+    return path
 
 
 def keypoints(name: str, view: str) -> list[dict]:
