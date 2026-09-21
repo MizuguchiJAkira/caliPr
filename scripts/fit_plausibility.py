@@ -86,6 +86,31 @@ def main(argv=None) -> int:
         else:
             print(f"  {name:30}{entry['n']:4}   — too few to measure")
 
+    along = bands.get("along") or {}
+    print(f"\n{along.get('fish', 0)} labelled fish carried both "
+          f"{' and '.join(along.get('anchor') or [])}\n")
+    print(f"{'landmark':32}{'n':>4}{'band (eye to caudal base)':>30}")
+    for name, entry in sorted((along.get("landmarks") or {}).items(),
+                              key=lambda kv: kv[1].get("band", [9])[0]):
+        if entry.get("band"):
+            lo, hi = entry["band"]
+            obs = entry["observed"]
+            print(f"  {name:30}{entry['n']:4}   {lo:.3f} – {hi:.3f}"
+                  f"   (seen {obs[0]:.3f} – {obs[1]:.3f})")
+        else:
+            print(f"  {name:30}{entry['n']:4}   — too few to measure")
+
+    order = bands.get("order") or {}
+    print(f"\n{len(order.get('checked') or [])} order claims the labels bear out:")
+    for c in order.get("checked") or []:
+        print(f"  {c['b']} {c['relation']} {c['a']}  (n={c['n']})")
+    for c in order.get("refused") or []:
+        # Not a formality. Each of these is a fish whose labels say the opposite
+        # of a claim about anatomy, and one of the two is wrong.
+        print(f"  REFUSED: {c['b']} {c['relation']} {c['a']} — "
+              f"{c['contradicted_by']} labelled fish say otherwise (of "
+              f"{c['n'] + c['contradicted_by']})")
+
     if args.dry_run:
         print("\n--dry-run: nothing written")
         return 0
