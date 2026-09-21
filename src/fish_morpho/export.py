@@ -64,6 +64,8 @@ def export_to_xlsx(
     drop_traits: Iterable[str] = (),
     issues: Sequence = None,
     provenance: dict | None = None,
+    landmarks: Sequence[str] | None = None,
+    landmark_labels: dict[str, str] | None = None,
 ) -> Path:
     """Write ``records`` to an xlsx workbook at ``output_path``.
 
@@ -80,6 +82,8 @@ def export_to_xlsx(
     * ``Shape`` — Mosimann log-shape variables, each length divided by the
       geometric mean of all lengths and logged. The size correction to use when
       comparing groups that may differ in size; see ``_write_shape_sheet``.
+    * ``Landmarks`` — one row per landmark per specimen, as ImageJ's Multi-Measure
+      writes them, so the coordinates can be read straight into geomorph.
     * ``QC`` — calibration method / confidence / notes per view, plus a
       ``missing_landmarks`` column summarizing any gaps.
     * ``Validation`` — the checks from :mod:`fish_morpho.validation`, most
@@ -102,6 +106,10 @@ def export_to_xlsx(
 
     shape_sheet = wb.create_sheet("Shape")
     _write_shape_sheet(shape_sheet, records, list(metadata_columns), drop)
+
+    if landmarks:
+        _write_landmarks_sheet(wb.create_sheet("Landmarks"), records,
+                               list(landmarks), landmark_labels or {})
 
     qc_sheet = wb.create_sheet("QC")
     _write_qc_sheet(qc_sheet, records)
@@ -430,6 +438,46 @@ def _trait_unit(code: str):
         if t.code == code:
             return t.unit
     return None
+
+
+def _write_landmarks_sheet(sheet: Worksheet, records: Sequence[ExportRecord],
+                           order: list[str], labels: dict[str, str]) -> None:
+    """Coordinates in the shape ImageJ's Multi-Measure writes, for geomorph.
+
+    One row per landmark per specimen, the landmark named in the first column and
+    the photograph repeated in ``Label``, in the study's landmark order so row N
+    means the same point in every specimen.
+
+    **Image coordinates, as ImageJ gives them**: x to the right, y DOWNWARD from
+    the top of the photograph, in millimetres where the specimen has a scale and
+    in pixels where it does not -- which the ``units`` column states per row, since
+    one study can hold both. The TPS export flips y into Cartesian instead, because
+    that is what ``readland.tps`` expects; these two conventions are mirror images
+    of each other, so do not mix the two files in one analysis.
+
+    A landmark nobody placed gets an empty row rather than a made-up coordinate:
+    ``read.csv`` reads that as NA, which is what ``estimate.missing`` wants.
+    """
+    sheet.append(["landmark", "Label", "X", "Y", "units"])
+    header_font = Font(bold=True)
+    header_fill = PatternFill("solid", fgColor="E6E6E6")
+    for col in range(1, 6):
+        cell = sheet.cell(row=1, column=col)
+        cell.font, cell.fill = header_font, header_fill
+    for rec in _ordered(records):
+        calib = rec.calibrations.get("lateral")
+        ppm = calib.px_per_mm if calib and calib.px_per_mm else None
+        units = "mm" if ppm else "px"
+        for name in order:
+            point = rec.keypoints.get(name)
+            label = labels.get(name, name)
+            if point is None:
+                sheet.append([label, rec.image_filename, None, None, units])
+                continue
+            x, y = (point[0] / ppm, point[1] / ppm) if ppm else (point[0], point[1])
+            sheet.append([label, rec.image_filename, round(float(x), 3),
+                          round(float(y), 3), units])
+    sheet.freeze_panes = "A2"
 
 
 def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:

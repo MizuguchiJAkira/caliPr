@@ -120,3 +120,48 @@ def keypoints(name: str, view: str) -> list[dict]:
 def order(name: str, view: str = "lateral") -> tuple[str, ...]:
     """Landmark names in the order TPS rows must follow."""
     return tuple(k["name"] for k in keypoints(name, view))
+
+
+def study_landmarks(dataset_dir, view: str = "lateral") -> tuple[tuple[str, ...], dict[str, str]]:
+    """What a study collects, in the order its exports must use, and its names.
+
+    One answer for every consumer -- the workbook, the TPS folder, the labeler --
+    so a study's landmarks cannot mean one thing in one export and another
+    elsewhere. Returns (order, labels): the landmark names in order, and what this
+    study calls each one where that differs from the name.
+
+    A study following another protocol exports that protocol's landmarks in its
+    numbering. Otherwise it is caliPr's own, minus anything the study does not
+    collect, plus any landmark it added for itself.
+    """
+    import json
+    from pathlib import Path
+
+    from .landmark_config import KEYPOINTS, View
+
+    doc: dict = {}
+    if dataset_dir is not None:
+        path = Path(dataset_dir) / "schema.json"
+        if path.is_file():
+            try:
+                doc = json.loads(path.read_text())
+            except Exception:
+                doc = {}
+
+    scheme = doc.get("scheme")
+    if get(scheme):
+        kps = keypoints(scheme, view)
+        return tuple(k["name"] for k in kps), {k["name"]: k["label"] for k in kps}
+
+    drop = set(doc.get("exclude_keypoints") or [])
+    want = View.LATERAL if view == "lateral" else View.FRONTAL
+    order = [k.name for k in KEYPOINTS if k.view == want and k.name not in drop]
+    labels = {}
+    for k in doc.get("extra_keypoints") or []:
+        if not isinstance(k, dict) or not k.get("name") or k["name"] in drop:
+            continue
+        if (k.get("view") or "lateral") == view:
+            order.append(k["name"])
+            labels[k["name"]] = k.get("label") or k["name"]
+    labels.update(doc.get("labels") or {})
+    return tuple(order), labels
