@@ -97,8 +97,16 @@ def test_the_published_manifest_matches_the_scripts(tmp_path):
     if not manifest.is_file():
         return
     models = json.loads(manifest.read_text())["models"]
+    projects = {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}
+    files = {"fins": "fin_seg_runs/fin_segmenter.pt"}
     for view, m in models.items():
-        assert m["folder"] == {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}[view]
+        # Each entry names one shape or the other, never both: a project folder
+        # to unpack, or a path to drop one file at.
+        assert ("folder" in m) != ("path" in m), view
+        if "folder" in m:
+            assert m["folder"] == projects[view]
+        else:
+            assert m["path"] == files[view]
         assert m["url"].endswith("/" + m["file"]) and len(m["sha256"]) == 64
 
 
@@ -115,3 +123,42 @@ def test_zips_already_on_disk_install_against_the_same_checksums(tmp_path, capsy
     assert F.main(["--manifest", str(manifest), "--root", str(root2), "--from", str(tmp_path),
                    "--no-sam"]) == 1
     assert "REFUSED" in capsys.readouterr().out
+
+
+# --- a model that is one file, not a project ------------------------------
+#
+# The fin outliner is a single .pt with no project directory and no configs
+# naming the machine it trained on. It did not fit the installer at all, which
+# is why it could not be published until this path existed.
+
+def _file_entry(tmp: Path, body: bytes = b"weights") -> dict:
+    src = tmp / "calipr-fins.pt"
+    src.write_bytes(body)
+    return {"file": src.name, "url": str(src), "bytes": len(body),
+            "sha256": hashlib.sha256(body).hexdigest(),
+            "path": "fin_seg_runs/fin_segmenter.pt"}
+
+
+def test_a_single_file_model_lands_where_the_worker_looks(tmp_path):
+    root = tmp_path / "repo"
+    assert F.install("fins", _file_entry(tmp_path), root) is True
+    assert (root / "fin_seg_runs" / "fin_segmenter.pt").read_bytes() == b"weights"
+
+
+def test_a_single_file_model_that_does_not_match_is_not_installed(tmp_path):
+    root = tmp_path / "repo"
+    entry = _file_entry(tmp_path)
+    entry["sha256"] = "0" * 64
+    assert F.install("fins", entry, root) is False
+    assert not (root / "fin_seg_runs" / "fin_segmenter.pt").exists()
+    assert not list((root / "fin_seg_runs").glob("*.part")), "no half-download left behind"
+
+
+def test_a_model_already_there_is_never_replaced(tmp_path):
+    """It may be one trained on this machine, which no download can replace."""
+    root = tmp_path / "repo"
+    dest = root / "fin_seg_runs" / "fin_segmenter.pt"
+    dest.parent.mkdir(parents=True)
+    dest.write_bytes(b"trained here")
+    assert F.install("fins", _file_entry(tmp_path), root) is True
+    assert dest.read_bytes() == b"trained here"
