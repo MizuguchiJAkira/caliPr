@@ -90,7 +90,7 @@
   .spec .st { color:var(--mut); font-size:11px; }
   .spec.done .st { color:var(--good); }
   .pickers { display:flex; gap:8px; margin-bottom:8px; }
-  .pickers label { flex:1; display:flex; flex-direction:column; gap:3px;
+  .pickers label, .pickers .pk { flex:1; display:flex; flex-direction:column; gap:3px;
     font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--mut); }
   .pickers select { background:#0e1218; color:var(--fg); border:1px solid var(--line);
     border-radius:5px; padding:5px 6px; font-size:12px; }
@@ -189,37 +189,51 @@
      uppercases its contents, which would misrepresent them. */
   #dsWrap, #dsWrap * { text-transform:none; letter-spacing:normal; }
   #dsWrap { position:relative; }
+  /* The dataset picker cannot be a <select>: each row carries a photo count and
+     two actions. So it is built to match one instead -- the same metrics as the
+     view picker beside it, and the pop-up menu's own proportions: a checkmark
+     gutter, inset rounded rows, and the accent colour filling the row under the
+     cursor rather than a grey wash. */
   #dsBtn { width:100%; display:flex; align-items:center; justify-content:space-between;
-    gap:6px; background:var(--panel2,#141a22); border:1px solid #2b3644;
-    border-radius:4px; color:inherit; padding:4px 8px; font:inherit; cursor:pointer; }
-  #dsBtn:hover { border-color:var(--accent); }
-  #dsBtn i { font-style:normal; color:var(--mut); font-size:10px; }
+    gap:6px; background:#0e1218; border:1px solid var(--line);
+    border-radius:5px; color:inherit; padding:5px 6px; font:inherit; font-size:12px;
+    cursor:pointer; text-align:left; }
+  #dsBtn:hover, #dsWrap.open #dsBtn { border-color:var(--accent); }
+  #dsBtn #dsLabel { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* The two chevrons of a pop-up button, in its accent-filled well. */
+  #dsBtn i { font-style:normal; flex:none; display:flex; align-items:center;
+    justify-content:center; width:15px; height:17px; border-radius:3px;
+    background:var(--accent); color:#fff; font-size:8px; line-height:1;
+    letter-spacing:-.5px; }
   /* The menu is not bound to the button's width: a row carries a name, a count
      and a hover button, and squeezing those into the picker truncated the name
      to "al…". */
-  #dsMenu { display:none; position:absolute; left:0; min-width:max(100%, 230px);
-    top:calc(100% + 3px);
-    z-index:600; background:var(--panel2,#141a22); border:1px solid #2b3644;
-    border-radius:5px; box-shadow:0 8px 24px #0009; overflow:hidden; }
+  #dsMenu { display:none; position:absolute; left:0; min-width:max(100%, 236px);
+    top:calc(100% + 4px); padding:4px;
+    z-index:600; background:#1d232c; border:1px solid #38414e;
+    border-radius:6px; box-shadow:0 10px 30px #000a, 0 1px 2px #0006; }
   #dsMenu.on { display:block; }
-  .dsrow { display:flex; align-items:center; gap:6px; padding:6px 8px; cursor:pointer;
-    font-size:12px; }
-  .dsrow:hover { background:#1e2732; }
+  .dsrow { display:flex; align-items:center; gap:6px; padding:3px 7px 3px 4px;
+    border-radius:4px; cursor:default; font-size:12px; line-height:18px; }
+  .dsrow:hover { background:var(--accent); color:#fff; }
   .dsrow .nm { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dsrow .ct { color:var(--mut); font-size:11px; }
-  .dsrow .tick { width:12px; color:var(--good); }
+  .dsrow:hover .ct { color:#ffffffc0; }
+  .dsrow .tick { flex:none; width:13px; text-align:center; color:inherit; font-size:11px; }
   /* The per-dataset add button only appears on hover, so the menu stays a list
      of studies at rest rather than a wall of buttons. */
-  .dsrow .add { display:none; border:1px solid #2b3644; border-radius:3px;
-    background:var(--btn,#1b222c); color:inherit; font:inherit; font-size:10px;
-    padding:2px 6px; cursor:pointer; white-space:nowrap; }
+  .dsrow .add { display:none; border:1px solid #ffffff59; border-radius:3px;
+    background:#ffffff1f; color:inherit; font:inherit; font-size:10px;
+    padding:1px 6px; cursor:pointer; white-space:nowrap; }
   .dsrow:hover .add { display:inline-block; }
-  .dsrow .add:hover { border-color:var(--accent); color:var(--accent); }
-  .dsrow .rm:hover { border-color:var(--bad,#ff5d6c); color:var(--bad,#ff5d6c); }
-  #dsMenu .sep { border-top:1px solid #2b3644; }
-  #dsNew { display:flex; align-items:center; gap:6px; padding:7px 8px; cursor:pointer;
-    font-size:12px; color:var(--mut); }
-  #dsNew:hover { background:#1e2732; color:inherit; }
+  .dsrow .add:hover { background:#fff; color:var(--accent); border-color:#fff; }
+  .dsrow .rm:hover { background:#fff; color:var(--bad,#ff5d6c); border-color:#fff; }
+  /* A menu separator is inset from the panel's edge, not drawn across it. */
+  #dsMenu .sep { height:1px; background:#ffffff1f; margin:4px 8px; }
+  #dsNew { display:flex; align-items:center; gap:6px; padding:3px 7px 3px 21px;
+    border-radius:4px; cursor:default; font-size:12px; line-height:18px;
+    color:var(--mut); }
+  #dsNew:hover { background:var(--accent); color:#fff; }
   .filebtn { flex:1; text-align:center; cursor:pointer; background:var(--btn,#1b222c);
     border:1px solid #2b3644; border-radius:4px; padding:5px 6px; font-size:11px; }
   .filebtn:hover { border-color:var(--accent); }
@@ -334,10 +348,13 @@
     <h1>caliPr <small>labeler</small></h1>
     <div class="sec">
       <div class="pickers">
-        <label>dataset<div id="dsWrap">
-          <button id="dsBtn" type="button"><span id="dsLabel"></span><i>▾</i></button>
+        <!-- Not a <label>: a click anywhere inside one is forwarded to the
+             control it labels, so picking a study from the menu re-triggered the
+             button and the menu never closed. -->
+        <div class="pk"><span class="pklab">dataset</span><div id="dsWrap">
+          <button id="dsBtn" type="button"><span id="dsLabel"></span><i>⌃<br>⌄</i></button>
           <div id="dsMenu"></div>
-        </div></label>
+        </div></div>
         <label>view<select id="viewPick">
           <option value="lateral">lateral</option>
           <option value="frontal">frontal</option>
@@ -855,8 +872,11 @@ async function removeStudy(name){
   toast(`Removed “${name}” — it is in ${r.moved_to}`);
 }
 
-function closeDsMenu(){ $('#dsMenu').classList.remove('on'); }
-$('#dsBtn').onclick=e=>{ e.stopPropagation(); $('#dsMenu').classList.toggle('on'); };
+function closeDsMenu(){ $('#dsMenu').classList.remove('on');
+                        $('#dsWrap').classList.remove('open'); }
+$('#dsBtn').onclick=e=>{ e.stopPropagation();
+  const on=$('#dsMenu').classList.toggle('on');
+  $('#dsWrap').classList.toggle('open', on); };
 document.addEventListener('click',()=>closeDsMenu());
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDsMenu(); });
 
