@@ -43,7 +43,8 @@ def srv(tmp_path, monkeypatch):
     (study / "sidecars").mkdir()
     calls = []
 
-    def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None):
+    def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None,
+             fins=None):
         calls.append({"image": Path(image).name, "polygons": polygons, "view": view,
                       "crop": crop})
         kps = ({"mouth_left": [100.0, 120.0], "mouth_right": [180.0, 121.0]} if view == "frontal"

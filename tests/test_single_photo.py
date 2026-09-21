@@ -54,8 +54,10 @@ def srv(tmp_path, monkeypatch):
     (study / "schema.json").write_text(json.dumps({"single_photo": True}))
     calls = []
 
-    def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None):
-        calls.append({"image": Path(image).name, "view": view, "crop": crop})
+    def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None,
+             fins=None):
+        calls.append({"image": Path(image).name, "view": view, "crop": crop,
+                      "fins": fins})
         kps = ({"mouth_left": [100.0, 120.0], "mouth_right": [180.0, 121.0]} if view == "frontal"
                else {"premaxilla_tip": [50.0, 100.0]})
         return {"ok": True, "keypoints": kps, "confidence": {k: 0.9 for k in kps},
@@ -142,7 +144,8 @@ def test_a_study_with_crops_on_disk_is_left_alone(srv, tmp_path, monkeypatch):
     (study / "frontal").mkdir()
     Image.new("RGB", (300, 400), (90, 90, 90)).save(study / "frontal" / f"{FID}_F.JPEG")
     _json(url, f"/api/predict/{FID}?dataset=study&view=frontal")
-    assert calls[-1] == {"image": f"{FID}_F.JPEG", "view": "frontal", "crop": None}
+    assert calls[-1] == {"image": f"{FID}_F.JPEG", "view": "frontal", "crop": None,
+                         "fins": []}
 
 
 def test_an_upload_is_not_split_into_two_images(srv, tmp_path):

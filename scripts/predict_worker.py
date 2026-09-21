@@ -311,6 +311,85 @@ class _Sam:
         return mask_to_polygon(masks[best].numpy(), BODY_VERTICES, scale)
 
 
+#: Which fins the trained outliner is offered for. Five-fold cross-validation on
+#: 116 hand tracings puts the pectoral at 3.2% median area error and the anal at
+#: 4.6%, both inside the spread between two hand tracings of the same fin. The
+#: dorsal (11.0%) and the pelvic (6.9%, worst case +111% on a small folded fin)
+#: are not offered: a predicted outline a labeller accepts becomes what the next
+#: model is trained on, so the bar is not "better than nothing", it is "no worse
+#: than the tracing it would replace".
+OUTLINED_FINS = ("pectoral", "anal")
+
+#: Vertices in a predicted fin outline. The hand-tracing target is 16 and the
+#: median traced fin has 20, so this is a little denser than what it stands in
+#: for -- enough to hold the shape, few enough to drag into place.
+FIN_VERTICES = 24
+
+
+class _Fin:
+    """The fin outliner, loaded on first use.
+
+    Absent on a machine that has not fetched it, which is not an error: the fins
+    are hand-traced everywhere else, and that is what this stands in for.
+    """
+
+    model = _tried = None
+
+    @classmethod
+    def ready(cls, device: str):
+        if cls.model is None and not cls._tried:
+            cls._tried = True
+            import torch
+
+            import train_fin_segmenter as tfs
+            path = _ROOT / "fin_seg_runs" / "fin_segmenter.pt"
+            if not path.is_file():
+                return None
+            blob = torch.load(path, map_location="cpu", weights_only=False)
+            m = tfs.FinSegmenter(pretrained=False)
+            m.load_state_dict(blob["state_dict"])
+            cls.model = m.to(device).eval()
+        return cls.model
+
+    @classmethod
+    def outline(cls, image, kps: dict, fin: str, device: str):
+        """One fin's outline in the photograph's coordinates, or None.
+
+        The crop is framed from the fin's own base and tip and sized from the
+        snout-to-caudal-base distance, which is how the model was trained. A fin
+        whose base or tip is missing -- not found, or dropped as anatomically
+        impossible -- gets no crop and so no outline, rather than one placed
+        around a landmark that is not there.
+        """
+        import math
+
+        import numpy as np
+        import torch
+
+        import build_fin_dataset as bfd
+        import train_fin_segmenter as tfs
+
+        model = cls.ready(device)
+        need = (*bfd.FIN_LANDMARKS[fin], "premaxilla_tip", "caudal_base")
+        if model is None or any(n not in kps for n in need):
+            return None
+        sl = math.dist(kps["premaxilla_tip"], kps["caudal_base"])
+        base, tip = (kps[n] for n in bfd.FIN_LANDMARKS[fin])
+        box = bfd.crop_box(base, tip, sl)
+        crop, sx, sy = bfd.cut(image, box)
+        bt = bfd.to_crop([base, tip], box, sx, sy).astype(np.float32)
+        x = tfs.tensorise(crop[:, :, ::-1], bt)[None].to(device)
+        with torch.no_grad():
+            prob = torch.sigmoid(model(x))[0, 0].cpu().numpy()
+        mask = tfs.largest_component(prob > 0.5)
+        if mask.sum() < 16:
+            return None
+        poly = mask_to_polygon(mask, FIN_VERTICES, 1.0)
+        # crop pixels back to the photograph's own
+        return [[round(px / sx + box[0], 1), round(py / sy + box[1], 1)]
+                for px, py in poly]
+
+
 #: Plausibility bands, keyed by dataset directory and the file's modification
 #: time. The worker is long-lived, so keying on the directory alone kept a study's
 #: first answer for the whole session: copy plausibility.json into a new study
@@ -527,6 +606,22 @@ def main(argv=None) -> int:
             # something the labeller is offered and can save.
             if not req.get("emit_polygons", True):
                 polys = {}
+
+            # Fins last, and only from landmarks that survived the anatomy check:
+            # a fin framed on a base the check just threw out would be an outline
+            # drawn around nothing, and it would look like the others.
+            for fin in req.get("fins") or ():
+                if fin not in OUTLINED_FINS:
+                    continue
+                try:
+                    poly = _Fin.outline(im, kps, fin, args.device)
+                except Exception as exc:
+                    poly = None
+                    print(f"fin outliner failed on {fin}: {exc}", file=sys.stderr)
+                if poly:
+                    # crop coordinates, like everything else here: the offset
+                    # back to the photograph goes on once, below.
+                    polys[fin] = poly
 
             kps = {n: [x + ox, y + oy] for n, (x, y) in kps.items()}
             polys = {n: [[x + ox, y + oy] for x, y in poly] for n, poly in polys.items()}

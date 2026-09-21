@@ -26,7 +26,9 @@ Each example is one fin on one fish:
   the model is told which of the fins in the crop to outline.
 
 Only outlines of at least ``FIN_POLYGON_TARGET_VERTICES`` vertices are used: sparse
-ones miss area by an unknown sign and would teach it that error. Fish whose labels
+ones miss area by an unknown sign and would teach it that error. Outlines the model
+drew and nobody redrew are skipped for the same reason with more force -- they are
+this model's own output, and it would be learning its own mistakes. Fish whose labels
 no longer fit their image are skipped, as for the keypoint model.
 """
 
@@ -107,7 +109,14 @@ def build(dataset: Path, out: Path, framed_by: dict | None = None) -> list[dict]
         fid = doc.get("fish_id", sc.stem)
         lat = doc.get("lateral") or {}
         polys, kps = lat.get("polygons") or {}, lat.get("keypoints") or {}
+        # An outline the model drew and nobody redrew is not evidence about a fin;
+        # it is this model's own output, and training on it would teach the next
+        # one to repeat whatever it already gets wrong. Auto-label offers fin
+        # outlines now, so this is no longer hypothetical.
+        meta = doc.get("metadata") or {}
+        from_model = set(((meta.get("assist") or {}).get("polygons_from_model")) or [])
         wanted = [f for f in FINS if len(polys.get(f) or []) >= FIN_POLYGON_TARGET_VERTICES
+                  and f not in from_model
                   and all(k in kps for k in FIN_LANDMARKS[f])]
         if not wanted or "premaxilla_tip" not in kps or "caudal_base" not in kps:
             continue

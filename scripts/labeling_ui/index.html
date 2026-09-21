@@ -1870,6 +1870,11 @@ cv.addEventListener('mouseleave',()=>{ if(hoverName){hoverName=null;draw();} });
 window.addEventListener('mouseup',e=>{
   if(dragTarget&&dragStarted){
     if(dragTarget.kind==='keypoint') reviewed(dragTarget.name);
+    // Moving a vertex of an outline the model drew means the same as inserting
+    // or removing one: a person has worked on it, so it is no longer the
+    // model's outline, and it stops being excluded from what the next model
+    // trains on. An outline nobody touched stays marked.
+    if(dragTarget.kind==='polyvtx') pred.polys.delete(dragTarget.name);
     persistDraft(); buildTasks(); draw(); toast('Moved '+dragName(dragTarget)); }
   else if(down&&moved<5){ const r=cv.getBoundingClientRect();      // plain click → place
     const [ix,iy]=toImg(e.clientX-r.left,e.clientY-r.top);
