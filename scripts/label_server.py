@@ -1938,6 +1938,22 @@ class Handler(BaseHTTPRequestHandler):
                 images[view] = cur
         if images:
             meta["images"] = images          # what these coordinates were placed on
+
+        # Metadata this labeler does not manage is carried across rather than
+        # dropped. The page builds the outgoing metadata from scratch -- strain,
+        # source, and what it knows about the prediction -- so anything a script
+        # wrote there was erased by the next save of that fish. coordinate_history
+        # is the record of a shift being applied exactly, written by the un-split
+        # migration and by realign_labels; losing it leaves coordinates that moved
+        # with nothing saying they did, or why.
+        if existing.is_file():
+            try:
+                had = (json.loads(existing.read_text()).get("metadata") or {})
+            except Exception:
+                had = {}
+            for key, was in had.items():
+                if key not in meta:
+                    meta[key] = was
         self.out_dir.mkdir(parents=True, exist_ok=True)
         target = self.out_dir / f"{safe}.json"
         target.write_text(json.dumps(data, indent=2))
