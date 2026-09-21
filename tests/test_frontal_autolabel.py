@@ -43,8 +43,9 @@ def srv(tmp_path, monkeypatch):
     (study / "sidecars").mkdir()
     calls = []
 
-    def fake(image, polygons=False, emit_polygons=True, view="lateral"):
-        calls.append({"image": Path(image).name, "polygons": polygons, "view": view})
+    def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None):
+        calls.append({"image": Path(image).name, "polygons": polygons, "view": view,
+                      "crop": crop})
         kps = ({"mouth_left": [100.0, 120.0], "mouth_right": [180.0, 121.0]} if view == "frontal"
                else {"premaxilla_tip": [50.0, 100.0]})
         return {"ok": True, "keypoints": kps, "confidence": {k: 0.9 for k in kps},
@@ -77,7 +78,8 @@ def test_frontal_predicts_the_frontal_crop_with_no_outline(srv):
     url, study, calls = srv
     code, r = _get(url, f"/api/predict/{FID}?dataset=study&view=frontal")
     assert code == 200 and r["ok"] and set(r["keypoints"]) == {"mouth_left", "mouth_right"}
-    assert calls == [{"image": f"{FID}_F.JPEG", "polygons": False, "view": "frontal"}]
+    assert calls == [{"image": f"{FID}_F.JPEG", "polygons": False, "view": "frontal",
+                      "crop": None}]
 
 
 def test_frontal_cache_is_kept_apart_from_the_lateral_one(srv):
