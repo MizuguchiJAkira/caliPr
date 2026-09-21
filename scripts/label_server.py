@@ -1448,7 +1448,15 @@ class Handler(BaseHTTPRequestHandler):
                 # points that were never tested against the animal. Serving it
                 # would quietly reinstate exactly what the check removes, so it
                 # is treated as a miss and predicted again.
-                if meta.get("source") == "predicted" and "implausible" in meta:
+                # An entry made when the fin outliner was not installed holds no
+                # fin outlines, which looks exactly like an entry where it found
+                # none. Recording what was asked for tells the two apart, so
+                # fetching the outliner later is enough to get them -- without
+                # it, the first Auto-label a machine ever ran would decide
+                # forever that this fish has no fins.
+                asked = meta.get("fins_asked")
+                stale = asked is not None and not set(self._wanted_fins(view)) <= set(asked)
+                if meta.get("source") == "predicted" and "implausible" in meta and not stale:
                     res = {
                         "ok": True, "fish_id": fid, "cached": True, "view": view,
                         "model": meta.get("model"),
@@ -1467,6 +1475,21 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(503, res)
 
         return self._send(200, self._excluded(res))
+
+    def _wanted_fins(self, view: str) -> list[str]:
+        """Fins to ask the outliner for: the ones it is offered for, minus any
+        this study does not collect or does not want predicted.
+
+        A fin outline the labeller accepts becomes training data for the next
+        model, so this stays a short list on purpose -- see ``OUTLINED_FINS`` in
+        predict_worker.py for what earned a place on it.
+        """
+        if view != "lateral":
+            return []
+        prof = load_profile(self.images_dir)
+        drop = (set(prof.get("exclude_polygons") or ())
+                | set(prof.get("exclude_predicted_polygons") or ()))
+        return [f for f in OUTLINED_FINS if f not in drop]
 
     def _run_model(self, fid: str, view: str, match: Path, cache: Path,
                    want_cache: bool) -> dict:
@@ -1497,14 +1520,7 @@ class Handler(BaseHTTPRequestHandler):
                                           "this photograph, so the head-on view "
                                           "cannot be framed — place the two mouth "
                                           "corners by hand"}
-        # Fins the outliner is offered for, minus any this study does not collect
-        # or does not want predicted. A fin outline the labeller accepts becomes
-        # training data for the next model, so this stays a short list on purpose
-        # -- see OUTLINED_FINS in predict_worker.py for what earned a place on it.
-        drop_poly = (set(prof0.get("exclude_polygons") or ())
-                     | set(prof0.get("exclude_predicted_polygons") or ()))
-        want_fins = ([f for f in OUTLINED_FINS if f not in drop_poly]
-                     if view == "lateral" else [])
+        want_fins = self._wanted_fins(view)
         res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body,
                                 view=view, crop=crop, fins=want_fins)
         if not res.get("ok"):
@@ -1517,6 +1533,7 @@ class Handler(BaseHTTPRequestHandler):
                     "fish_id": fid,
                     "metadata": {"source": "predicted", "model": res.get("model"),
                                  "image": match.name,
+                                 "fins_asked": self._wanted_fins(view),
                                  "keypoint_confidence": res.get("confidence") or {},
                                  "low_confidence": res.get("low_confidence") or [],
                                  "implausible": res.get("implausible") or {},
