@@ -83,3 +83,6 @@ data/.trash/
 fin_seg/
 fin_seg_runs/
 fin_seg_pred/
+
+# Label backups taken before a bulk operation. Recovery, not history.
+data/.labels-backup-*/

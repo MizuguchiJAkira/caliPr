@@ -1087,6 +1087,19 @@ async function selectSpec(s){
         + `\n\nNothing can be saved for this fish until they are repaired, which moves them exactly:`
         + `\n\n  python scripts/realign_labels.py --fish ${s.id}`);
     }
+    // A fish that is labelled but not finished, with a prediction waiting: put
+    // the model's points in the gaps and leave every one of yours alone. Half a
+    // fish's missing landmarks are ones the model has never heard of, so this
+    // fills what it can and the rest stay for the hand.
+    if(s.predicted && !model._blocked){
+      try{
+        const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq());
+        if(r && r.ok && cur===s){
+          const n=applyPrediction(r,'lateral',true);
+          if(n) toast(`Filled ${n} landmark(s) the model could place — yours are untouched`);
+        }
+      }catch(e){}
+    }
   }catch(e){} }               // else fall back to the committed sidecar
   else if(s.predicted){
     model._base_mtime=0;                                   // nothing on disk yet
@@ -2343,7 +2356,11 @@ async function applyCachedPrediction(v){
 // Auto-label button and by opening a fish a batch already predicted, so both
 // arrive identically -- same colouring, same review tracking, same exclusion from
 // training until a person accepts or moves each point.
-function applyPrediction(r, v='lateral'){
+// ``fill`` places only what is not already there. A landmark a person placed is
+// evidence; a predicted one is a suggestion, and a suggestion must never quietly
+// replace evidence. Nothing here writes to disk either way -- a filled point is a
+// prediction to review, and reaches a sidecar only when Save is pressed.
+function applyPrediction(r, v='lateral', fill=false){
   const p=blankPred();
   Object.assign(p, {conf:r.confidence||{}, model:r.model||null,
         low:new Set(r.low_confidence||[]),
@@ -2363,13 +2380,33 @@ function applyPrediction(r, v='lateral'){
     p.polys.add(nm);
   }
   if(kept.length) toast('Kept your outline of '+kept.join(', '));
+  let filled=0;
   for(const [nm,pt] of Object.entries(r.keypoints||{})){
+    if(fill && model[v].keypoints[nm]!==undefined) continue;   // yours stays
     const q=[Math.round(pt[0]),Math.round(pt[1])];
     model[v].keypoints[nm]=q;
     p.orig[nm]=[q[0],q[1]];           // frozen: the correction is measured from here
+    filled++;
+  }
+  // The record has to cover what was actually placed, or A would walk points the
+  // model never put down and the sidecar would claim them as reviewed.
+  if(fill){
+    const placed=new Set(Object.keys(p.orig));
+    p.conf=Object.fromEntries(Object.entries(p.conf).filter(([n])=>placed.has(n)));
+    p.low=new Set([...p.low].filter(n=>placed.has(n)));
+    // Carry forward what an earlier prediction recorded about the points that
+    // were already there, so reopening a filled fish still shows both.
+    const was=predBy[v];
+    if(was && was.model){
+      p.accepted=new Set(was.accepted); p.corrected={...was.corrected};
+      for(const [n,c] of Object.entries(was.conf)) if(!(n in p.conf)) p.conf[n]=c;
+      for(const [n,o] of Object.entries(was.orig)) if(!(n in p.orig)) p.orig[n]=o;
+      was.polys.forEach(n=>p.polys.add(n));
+    }
   }
   predBy[v]=p;
   if(v===view) pred=p;
+  return fill ? filled : Object.keys(r.keypoints||{}).length;
 }
 $('#autolabel').onclick=async()=>{
   if(!cur){ toast('Pick a specimen first'); return; }
@@ -2378,10 +2415,18 @@ $('#autolabel').onclick=async()=>{
   // The view and fish at the click: the answer is applied to those even if the
   // labeller has moved on by the time it arrives.
   const s=cur, v=view;
+  // With points already placed, filling the gaps is the safe reading of the
+  // button and is what it offers first: a landmark somebody placed is evidence,
+  // and the model's is a suggestion. Overwriting is still available, unticked.
   const placed=Object.keys(model[v].keypoints).length;
-  if(placed && !await ask(
-      `${placed} landmark(s) are already placed on this specimen's ${v} view.\n\n`+
-      `Auto-label will overwrite them with the model's. Continue?`)) return;
+  let fill=false;
+  if(placed){
+    const r=await askCheck(
+      `${placed} landmark(s) are already placed on this specimen's ${v} view.`,
+      'Only fill the ones that are missing — keep every point I placed', true);
+    if(!r) return;
+    fill=r.checked;
+  }
   const btn=$('#autolabel'); const was=btn.textContent;
   btn.disabled=true; btn.textContent='Predicting…';
   $('#autostat').textContent='running the model (first run loads it, ~5s)…';
@@ -2398,11 +2443,14 @@ $('#autolabel').onclick=async()=>{
       await tell(`The labeler server is older than this page and cannot auto-label the `
         + `${v} view. Restart it (Ctrl-C, then run it again) and reload. Nothing was placed.`);
       return; }
-    applyPrediction(r, v);
+    const n=applyPrediction(r, v, fill);
+    if(fill && !n){ renderAutoStat();
+      toast('Nothing to fill — every landmark the model knows is already placed');
+      return; }
     persistDraft();
     // Send the labeller straight to the least trustworthy point rather than
     // making them hunt for it.
-    const first=(r.low_confidence||[])[0];
+    const first=(r.low_confidence||[]).find(n2=>pred.conf[n2]!==undefined);
     if(first && view===v) pickByName('keypoint',first);
     buildTasks(); renderAutoStat(); draw();
     const nlow=(r.low_confidence||[]).length;
