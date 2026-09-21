@@ -105,9 +105,11 @@ Then work down the points with one key:
 - **drag it** to correct it, then press `A` to move on. A faint line stays
   behind showing where the model had it, so you can see the size of the fix.
 
-`A` passes over fin landmarks. Fins are where the model is least reliable, and
-an accepted point is used for training, so they are left for you to click and
-review deliberately.
+`A` walks every predicted point, in the order the list shows them — head,
+pectoral, dorsal, pelvic, anal, then the peduncle and caudal at the back. Fin
+landmarks are included, and the message names the fin when the walk reaches one:
+fins are where the model is least reliable, and an accepted point is used for
+training, so those are the ones worth a second look.
 
 Accepting is a deliberate keypress, never assumed from leaving a point alone.
 Those are different claims and the sidecar records them separately. `Z` undoes
