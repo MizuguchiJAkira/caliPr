@@ -107,7 +107,18 @@ Points arrive coloured by the model's own confidence:
 | **orange, ringed** | not confident — these are the ones to look at |
 
 Whether it also draws the body outline depends on the study; the brook trout
-study traces it by hand. The sidebar lists what still needs review.
+study traces it by hand. The **pectoral and anal fins** come back outlined — those
+are the two the fin outliner matches hand tracings on closely enough to be worth
+starting from (3.2% and 4.6% median area error, inside the spread between two
+tracings of the same fin). The dorsal and pelvic are not offered; trace those
+yourself. The sidebar lists what still needs review.
+
+A predicted outline is drawn differently from one you traced and is **never
+accepted by `A`** — `A` walks landmarks only. Drag its vertices onto the fin, click
+the line to insert one, or press `Z` to take one away. Any of those marks the
+outline as yours: until then it stays recorded as the model's, kept out of what
+the next model trains on, and named in the workbook's QC note beside the fin area
+that came from it.
 
 Some landmarks come back missing, with a note saying where the model tried to put
 one. Those failed an anatomy check — not a confidence threshold, but a fact about
@@ -239,6 +250,9 @@ It is a starting point, not finished work.
   worth more attention than the green ones.
 - The body outline follows the dorsal and anal fins instead of crossing their
   bases. Drag those vertices onto the body wall.
+- **Predicted fin outlines run generous on small fins.** The smallest quarter by
+  area comes back at 7.2% median error against 3.2–4.0% for the largest half, and
+  the worst cases are small folded fins where the outline runs past the rays.
 - On a species the model was not trained on, expect *everything* to come back
   orange. That is the correct answer, not a failure.
 

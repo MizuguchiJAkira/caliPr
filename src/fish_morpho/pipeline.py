@@ -253,6 +253,25 @@ def _sparse_fin_polygons(annotation: Annotation) -> dict[str, int]:
     }
 
 
+def _model_outline_note(spec) -> str:
+    """What to say about outlines the model drew and nobody redrew, if any.
+
+    A fin area computed from one is a different kind of number from an area
+    traced by hand, and the workbook is where that has to be said: once it is in
+    a spreadsheet, nothing else records it. An outline a labeller edited is not
+    named here -- moving, inserting or removing a vertex clears the mark, because
+    at that point a person has worked on it.
+    """
+    meta = spec.sidecar.get("metadata") or {}
+    drawn = (meta.get("assist") or {}).get("polygons_from_model") or []
+    have = (spec.sidecar.get("lateral") or {}).get("polygons") or {}
+    named = sorted(n for n in drawn if n in have)
+    if not named:
+        return ""
+    return (f"outline drawn by the model and not redrawn: {', '.join(named)}"
+            f" — the area follows from it")
+
+
 def _sparse_fin_note(sparse: dict[str, int]) -> str:
     detail = ", ".join(f"{n}={c}" for n, c in sorted(sparse.items()))
     return (
@@ -419,6 +438,10 @@ def process_specimen(spec: SpecimenInput,
         metadata["data_note"] = "; ".join(
             filter(None, [metadata.get("data_note"), _sparse_fin_note(sparse)])
         )
+
+    note = _model_outline_note(spec)
+    if note:
+        metadata["data_note"] = "; ".join(filter(None, [metadata.get("data_note"), note]))
 
     if frontal_uncalibrated:
         note = "frontal landmarks have no frontal ruler calibration — frontal traits left blank"

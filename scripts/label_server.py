@@ -447,6 +447,11 @@ def crop_for(view: str, path: Path) -> list[int] | None:
     return list(box) if box else None
 
 
+#: Which fins Auto-label offers an outline for. Kept in step with
+#: ``predict_worker.OUTLINED_FINS``, which is where the reasoning lives; repeated
+#: here because the server decides what to ask for and must not need torch to do it.
+OUTLINED_FINS = ("pectoral", "anal")
+
 #: Hand labelling works without any of this, so it is installed separately.
 NO_TRAINING_STACK = (
     "Auto-label needs the training stack, which is installed separately from the "
@@ -584,7 +589,8 @@ class Predictor:
     @classmethod
     def predict(cls, image: Path, polygons: bool = False,
                 emit_polygons: bool = True, view: str = "lateral",
-                crop: list[int] | None = None) -> dict:
+                crop: list[int] | None = None,
+                fins: list[str] | None = None) -> dict:
         with cls._lock:                      # one request at a time down one pipe
             if cls._proc is None or cls._proc.poll() is not None:
                 started = cls._start()
@@ -594,7 +600,8 @@ class Predictor:
                 cls._proc.stdin.write(json.dumps({"image": str(image),
                                                   "polygons": polygons,
                                                   "emit_polygons": emit_polygons,
-                                                  "view": view, "crop": crop})
+                                                  "view": view, "crop": crop,
+                                                  "fins": fins or []})
                                       + "\n")
                 cls._proc.stdin.flush()
                 line = cls._proc.stdout.readline()
@@ -1490,8 +1497,16 @@ class Handler(BaseHTTPRequestHandler):
                                           "this photograph, so the head-on view "
                                           "cannot be framed — place the two mouth "
                                           "corners by hand"}
+        # Fins the outliner is offered for, minus any this study does not collect
+        # or does not want predicted. A fin outline the labeller accepts becomes
+        # training data for the next model, so this stays a short list on purpose
+        # -- see OUTLINED_FINS in predict_worker.py for what earned a place on it.
+        drop_poly = (set(prof0.get("exclude_polygons") or ())
+                     | set(prof0.get("exclude_predicted_polygons") or ()))
+        want_fins = ([f for f in OUTLINED_FINS if f not in drop_poly]
+                     if view == "lateral" else [])
         res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body,
-                                view=view, crop=crop)
+                                view=view, crop=crop, fins=want_fins)
         if not res.get("ok"):
             return res
 
