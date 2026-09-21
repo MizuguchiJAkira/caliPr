@@ -3,6 +3,380 @@
   "metadata": {
     "strain": "ASN",
     "source": "hand-labeled",
-    "data_note": "faulty frontal"
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "caudal_base",
+        "dorsal_base_center",
+        "dorsal_tip",
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "pectoral_insertion_upper",
+        "pectoral_ray_tip",
+        "peduncle_narrowest_dorsal",
+        "peduncle_narrowest_ventral",
+        "pelvic_base_center",
+        "pelvic_tip"
+      ],
+      "corrected": {
+        "premaxilla_tip": {
+          "from": [
+            772,
+            1764
+          ],
+          "to": [
+            780,
+            1753
+          ],
+          "px": 13.6,
+          "conf": 0.71
+        },
+        "lower_jaw_tip": {
+          "from": [
+            766,
+            1802
+          ],
+          "to": [
+            770,
+            1780
+          ],
+          "px": 22.4,
+          "conf": 0.608
+        }
+      },
+      "unreviewed": [
+        "anal_base_center"
+      ],
+      "unreviewed_confidence": {
+        "anal_base_center": 0.644
+      },
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-17T15:10:58.258Z"
+    },
+    "unreviewed_predictions": [
+      "anal_base_center"
+    ],
+    "assisted_by": "snapshot-best-170.pt",
+    "data_note": "faulty frontal",
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:11",
+        "view": "lateral",
+        "dx": 979,
+        "points": 71,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ],
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "ce13098f306cc3464b86e1dd2189e30d7a7515358cb7c74396adb57a60707054"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "dorsal": [
+        [
+          2946.0,
+          1668.0
+        ],
+        [
+          2978.0,
+          1647.0
+        ],
+        [
+          3004.0,
+          1631.0
+        ],
+        [
+          3049.0,
+          1629.0
+        ],
+        [
+          3087.0,
+          1635.0
+        ],
+        [
+          3119.0,
+          1649.0
+        ],
+        [
+          3163.0,
+          1683.0
+        ],
+        [
+          3190.0,
+          1704.0
+        ],
+        [
+          3203.0,
+          1713.0
+        ],
+        [
+          3250.0,
+          1718.0
+        ],
+        [
+          3283.0,
+          1729.0
+        ],
+        [
+          3315.0,
+          1751.0
+        ],
+        [
+          3173.0,
+          1730.0
+        ],
+        [
+          3057.0,
+          1709.0
+        ]
+      ],
+      "pelvic": [
+        [
+          3003.0,
+          2285.0
+        ],
+        [
+          2986.0,
+          2266.0
+        ],
+        [
+          3001.0,
+          2246.0
+        ],
+        [
+          3014.0,
+          2229.0
+        ],
+        [
+          3028.0,
+          2222.0
+        ],
+        [
+          3051.0,
+          2221.0
+        ],
+        [
+          3063.0,
+          2221.0
+        ],
+        [
+          3065.0,
+          2226.0
+        ],
+        [
+          3081.0,
+          2228.0
+        ],
+        [
+          3086.0,
+          2220.0
+        ],
+        [
+          3089.0,
+          2225.0
+        ],
+        [
+          3081.0,
+          2234.0
+        ],
+        [
+          3083.0,
+          2247.0
+        ],
+        [
+          3092.0,
+          2255.0
+        ],
+        [
+          3082.0,
+          2267.0
+        ],
+        [
+          3067.0,
+          2277.0
+        ],
+        [
+          3050.0,
+          2287.0
+        ],
+        [
+          3032.0,
+          2291.0
+        ]
+      ],
+      "pectoral": [
+        [
+          2209.0,
+          2031.0
+        ],
+        [
+          2271.0,
+          2043.0
+        ],
+        [
+          2341.0,
+          2055.0
+        ],
+        [
+          2401.0,
+          2078.0
+        ],
+        [
+          2459.0,
+          2101.0
+        ],
+        [
+          2518.0,
+          2139.0
+        ],
+        [
+          2575.0,
+          2187.0
+        ],
+        [
+          2587.0,
+          2199.0
+        ],
+        [
+          2556.0,
+          2204.0
+        ],
+        [
+          2520.0,
+          2204.0
+        ],
+        [
+          2535.0,
+          2218.0
+        ],
+        [
+          2490.0,
+          2217.0
+        ],
+        [
+          2444.0,
+          2219.0
+        ],
+        [
+          2393.0,
+          2202.0
+        ],
+        [
+          2334.0,
+          2161.0
+        ],
+        [
+          2290.0,
+          2130.0
+        ],
+        [
+          2260.0,
+          2100.0
+        ],
+        [
+          2261.0,
+          2071.0
+        ],
+        [
+          2244.0,
+          2052.0
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1856.0,
+        1734.0
+      ],
+      "eye_posterior": [
+        2011.0,
+        1738.0
+      ],
+      "eye_dorsal": [
+        1938.0,
+        1676.0
+      ],
+      "eye_ventral": [
+        1945.0,
+        1801.0
+      ],
+      "premaxilla_tip": [
+        1759.0,
+        1753.0
+      ],
+      "maxilla_mandible_intersection": [
+        1873.0,
+        1878.0
+      ],
+      "lower_jaw_tip": [
+        1749.0,
+        1780.0
+      ],
+      "operculum_posterior": [
+        2277.0,
+        1923.0
+      ],
+      "pectoral_insertion_upper": [
+        2211.0,
+        2029.0
+      ],
+      "pectoral_ray_tip": [
+        2584.0,
+        2196.0
+      ],
+      "peduncle_narrowest_dorsal": [
+        4287.0,
+        1773.0
+      ],
+      "peduncle_narrowest_ventral": [
+        4318.0,
+        1922.0
+      ],
+      "caudal_base": [
+        4329.0,
+        1834.0
+      ],
+      "dorsal_base_center": [
+        3067.0,
+        1710.0
+      ],
+      "dorsal_tip": [
+        3120.0,
+        1649.0
+      ],
+      "pelvic_base_center": [
+        3031.0,
+        2288.0
+      ],
+      "pelvic_tip": [
+        3083.0,
+        2222.0
+      ],
+      "anal_base_center": [
+        3890.0,
+        2081.0
+      ],
+      "dorsal_base_anterior": [
+        2948.0,
+        1667.0
+      ],
+      "dorsal_base_posterior": [
+        3316.0,
+        1754.0
+      ]
+    },
+    "calibration": {
+      "mode": "none",
+      "notes": "no scale reference placed"
+    }
   }
 }

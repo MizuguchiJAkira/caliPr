@@ -1,0 +1,366 @@
+{
+  "fish_id": "Salvelinus_fontinalis_ASN_35",
+  "metadata": {
+    "strain": "ASN",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "caudal_base",
+        "dorsal_base_center",
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "peduncle_narrowest_dorsal",
+        "peduncle_narrowest_ventral",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "lower_jaw_tip": {
+          "from": [
+            1554,
+            1898
+          ],
+          "to": [
+            1554,
+            1874
+          ],
+          "px": 24,
+          "conf": 0.579
+        },
+        "pectoral_insertion_upper": {
+          "from": [
+            2075,
+            1988
+          ],
+          "to": [
+            2098,
+            1991
+          ],
+          "px": 23.2,
+          "conf": 0.803
+        }
+      },
+      "unreviewed": [
+        "anal_base_center",
+        "pectoral_ray_tip",
+        "pelvic_base_center"
+      ],
+      "unreviewed_confidence": {
+        "anal_base_center": 0.981,
+        "pectoral_ray_tip": 0.519,
+        "pelvic_base_center": 0.486
+      },
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-17T15:34:11.836Z"
+    },
+    "unreviewed_predictions": [
+      "anal_base_center",
+      "pectoral_ray_tip",
+      "pelvic_base_center"
+    ],
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "7f02b412a623a72bc7c3f54a1275bd52ff914c2f8378240f2daa4dc4bb3b4ea4"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "7f02b412a623a72bc7c3f54a1275bd52ff914c2f8378240f2daa4dc4bb3b4ea4"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2101,
+          1988
+        ],
+        [
+          2132,
+          1981
+        ],
+        [
+          2167,
+          1974
+        ],
+        [
+          2204,
+          1969
+        ],
+        [
+          2233,
+          1970
+        ],
+        [
+          2272,
+          1976
+        ],
+        [
+          2314,
+          1988
+        ],
+        [
+          2352,
+          2004
+        ],
+        [
+          2387,
+          2023
+        ],
+        [
+          2414,
+          2038
+        ],
+        [
+          2410,
+          2055
+        ],
+        [
+          2406,
+          2075
+        ],
+        [
+          2380,
+          2093
+        ],
+        [
+          2336,
+          2100
+        ],
+        [
+          2287,
+          2091
+        ],
+        [
+          2235,
+          2081
+        ],
+        [
+          2188,
+          2065
+        ],
+        [
+          2159,
+          2051
+        ],
+        [
+          2139,
+          2042
+        ],
+        [
+          2139,
+          2013
+        ],
+        [
+          2128,
+          2003
+        ],
+        [
+          2119,
+          1999
+        ],
+        [
+          2112,
+          1996
+        ]
+      ],
+      "anal": [
+        [
+          3344,
+          1988
+        ],
+        [
+          3378,
+          1991
+        ],
+        [
+          3431,
+          1995
+        ],
+        [
+          3500,
+          1997
+        ],
+        [
+          3521,
+          1993
+        ],
+        [
+          3557,
+          1993
+        ],
+        [
+          3610,
+          1996
+        ],
+        [
+          3678,
+          1988
+        ],
+        [
+          3711,
+          1981
+        ],
+        [
+          3728,
+          1972
+        ],
+        [
+          3728,
+          1959
+        ],
+        [
+          3721,
+          1946
+        ],
+        [
+          3716,
+          1943
+        ],
+        [
+          3695,
+          1944
+        ],
+        [
+          3673,
+          1934
+        ],
+        [
+          3658,
+          1935
+        ],
+        [
+          3618,
+          1933
+        ],
+        [
+          3564,
+          1933
+        ],
+        [
+          3502,
+          1941
+        ],
+        [
+          3414,
+          1965
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1664,
+        1802
+      ],
+      "eye_posterior": [
+        1799,
+        1791
+      ],
+      "eye_dorsal": [
+        1733,
+        1747
+      ],
+      "eye_ventral": [
+        1744,
+        1862
+      ],
+      "premaxilla_tip": [
+        1563,
+        1847
+      ],
+      "maxilla_mandible_intersection": [
+        1660,
+        1929
+      ],
+      "lower_jaw_tip": [
+        1554,
+        1874
+      ],
+      "operculum_posterior": [
+        2125,
+        1888
+      ],
+      "pectoral_insertion_upper": [
+        2098,
+        1991
+      ],
+      "pectoral_ray_tip": [
+        2399,
+        2054
+      ],
+      "peduncle_narrowest_dorsal": [
+        3971,
+        1772
+      ],
+      "peduncle_narrowest_ventral": [
+        3962,
+        1919
+      ],
+      "caudal_base": [
+        3989,
+        1852
+      ],
+      "dorsal_base_center": [
+        2820,
+        1556
+      ],
+      "pelvic_base_center": [
+        2771,
+        2060
+      ],
+      "anal_base_center": [
+        3531,
+        1937
+      ],
+      "anal_tip": [
+        3711,
+        1978
+      ],
+      "anal_base_anterior": [
+        3345,
+        1987
+      ],
+      "anal_base_posterior": [
+        3674,
+        1933
+      ]
+    },
+    "calibration": {
+      "mode": "ticks",
+      "px_per_mm": 20.6690366581611,
+      "notes": "mm-tick autocorrelation: 20.669 px/mm (21 tick peaks, finest supported period)"
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        616,
+        1947
+      ],
+      "mouth_right": [
+        781,
+        1936
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        786,
+        1566
+      ],
+      "point_b": [
+        770,
+        1388
+      ],
+      "known_mm": 10
+    }
+  }
+}
