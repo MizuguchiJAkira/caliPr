@@ -12,7 +12,8 @@ training interpreter and talks to it over pipes.
 
 Protocol — one JSON object per line, in and out::
 
-    {"image": "/abs/path/to/fish.JPEG", "polygons": true, "view": "lateral"}
+    {"image": "/abs/path/to/fish.JPEG", "polygons": true, "view": "lateral",
+     "crop": [x0, y0, x1, y1]}
     {"ok": true, "fish_id": "...", "keypoints": {...}, "confidence": {...},
      "low_confidence": [...], "polygons": {"body_plus_caudal": [[x, y], ...]},
      "implausible": {"pelvic_tip": "why it cannot be there"},
@@ -23,6 +24,13 @@ them, checked against the dataset's own measured bands (see
 :mod:`fish_morpho.plausibility`). Those are absent from ``keypoints`` — a point
 the anatomy rules out is not offered, because a labeller can accept a flagged
 point but cannot un-see a confident one in the wrong place.
+
+``crop`` is optional and names the rectangle of the photograph this view lives in,
+for a study that keeps one photograph per fish rather than two crops on disk. The
+models were trained on crops and are still given one; it is made here, in memory.
+Everything -- the resize, the outline, the plausibility check -- happens inside
+that rectangle, and the offset is added back before emitting, so every coordinate
+that comes out names a pixel of the photograph that was sent.
 
 ``view`` picks the model. The lateral one is loaded at start, as before; the
 frontal one (mouth corners, trained separately in ``dlc_project_frontal``) only
@@ -432,6 +440,18 @@ def main(argv=None) -> int:
             im = cv2.imread(str(src))
             if im is None:
                 raise ValueError(f"unreadable image: {src.name}")
+            # A study that keeps one photograph per fish sends the rectangle this
+            # view lives in. Everything below works in that rectangle; the offset
+            # goes back on at the end, so what comes out names pixels of the frame.
+            box = req.get("crop")
+            ox = oy = 0
+            if box:
+                x0, y0, x1, y1 = (int(v) for v in box)
+                x0, y0 = max(0, x0), max(0, y0)
+                x1, y1 = min(im.shape[1], x1), min(im.shape[0], y1)
+                if x1 - x0 < 10 or y1 - y0 < 10:
+                    raise ValueError(f"crop {box} is not inside the photograph")
+                im, ox, oy = im[y0:y1, x0:x1], x0, y0
             scale = m.scale
             small = cv2.resize(im, None, fx=scale, fy=scale,
                                interpolation=cv2.INTER_AREA)
@@ -455,6 +475,7 @@ def main(argv=None) -> int:
             if view == "frontal":
                 _mouth_corners_in_image_order(kps, confs)
                 low = [n for n, c in confs.items() if c < args.min_confidence]
+                kps = {n: [x + ox, y + oy] for n, (x, y) in kps.items()}
                 _emit({"ok": True, "fish_id": pl.stem_of(src), "image": src.name,
                        "view": view, "keypoints": kps, "confidence": confs,
                        "low_confidence": sorted(low), "polygons": {},
@@ -490,7 +511,8 @@ def main(argv=None) -> int:
             bad = plausibility.check(kps, polys.get(BODY), _bands_for(src))
             # Both are conditions of the whole prediction, not of one landmark:
             # nothing is dropped, the labeller is told why nothing was checked.
-            frame_warning = bad.pop("_frame", None) or bad.pop("_axis", None)
+            frame_warning = (bad.pop("_frame", None) or bad.pop("_axis", None)
+                             or bad.pop("_anchor", None))
             for name in bad:
                 # Keep what the model thought of a point it does not get to
                 # place: "dropped, and it was 0.91 sure" and "dropped, and it
@@ -506,6 +528,8 @@ def main(argv=None) -> int:
             if not req.get("emit_polygons", True):
                 polys = {}
 
+            kps = {n: [x + ox, y + oy] for n, (x, y) in kps.items()}
+            polys = {n: [[x + ox, y + oy] for x, y in poly] for n, poly in polys.items()}
             _emit({"ok": True, "fish_id": pl.stem_of(src), "image": src.name,
                    "keypoints": kps, "confidence": confs,
                    "low_confidence": sorted(low), "polygons": polys,

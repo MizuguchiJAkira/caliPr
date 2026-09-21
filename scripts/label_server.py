@@ -82,12 +82,19 @@ _FP_LOCK = threading.Lock()
 
 
 def view_image(images_dir: Path, fid: str, view: str) -> Path | None:
-    """The file a fish's labels for ``view`` sit on: ``<view>/<fid>_L.*`` or ``_F.*``."""
+    """The file a fish's labels for ``view`` sit on.
+
+    A study that keeps one photograph per fish answers with that photograph for
+    both views: the mirror's head-on view is part of the same frame, so the two
+    share an image and a coordinate system.
+    """
     folder = images_dir / view
     suffix = "_L" if view == "lateral" else "_F"
     for p in list_images(folder).values():
         if p.stem == f"{fid}{suffix}":
             return p
+    if view == "frontal" and load_profile(images_dir).get("single_photo"):
+        return view_image(images_dir, fid, "lateral")
     return None
 
 
@@ -267,6 +274,10 @@ def load_profile(images_dir: Path) -> dict:
         "labels": dict(prof.get("labels") or {}),
         # Which landmark scheme this study collects. caliPr's own unless named.
         "scheme": prof.get("scheme") or schemes.DEFAULT,
+        # One photograph per fish, holding both views: the lateral fish and, in
+        # the rig's mirror, its head. Nothing is cut up, and both sets of
+        # landmarks are placed on the same image in the same coordinates.
+        "single_photo": bool(prof.get("single_photo")),
         "note": prof.get("note", ""),
     }
 
@@ -359,6 +370,9 @@ def build_schema(profile: dict | None = None) -> dict:
 
     return {
         "profile_note": profile.get("note", ""),
+        # One photograph per fish: both views are placed on the same image, and
+        # the labeler zooms to the head-on view rather than opening a crop.
+        "single_photo": bool(profile.get("single_photo")),
         "scheme": scheme,
         "scheme_title": (schemes.get(scheme) or {}).get("title", "caliPr"),
         "schemes": schemes.listing(),
@@ -385,6 +399,52 @@ def build_schema(profile: dict | None = None) -> dict:
             ],
         },
     }
+
+
+#: The framing each view gets when a study keeps one photograph per fish, cached
+#: on the photograph's path and mtime: finding the mirror seam is one Sobel over a
+#: 24-megapixel frame, and the labeler asks for it on every fish it opens.
+_FRAMES: dict[tuple, dict] = {}
+
+
+def view_frames(path: Path) -> dict:
+    """Where each view sits in one photograph -- ``{"seam", "lateral", "frontal"}``.
+
+    The models were trained on crops and are still given one; it is cut here, in
+    memory, rather than kept on disk where it can be cut in the wrong place and
+    strand the labels already placed on it. A fixed fraction of the frame cannot
+    do this job: across the 131 photographs the seam runs from 0 to 0.35 of the
+    width and the leftmost snout sits at 0.197, so every fixed choice either
+    admits the mirrored head or cuts a real one. The seam has to be found.
+    """
+    try:
+        st = path.stat()
+    except OSError:
+        return {"seam": None, "lateral": None, "frontal": None}
+    key = (str(path), st.st_mtime_ns, st.st_size)
+    hit = _FRAMES.get(key)
+    if hit is None:
+        try:
+            import cv2
+            import preprocess_cornell as pc
+            im = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+            hit = pc.view_frames(im) if im is not None else None
+        except Exception:
+            hit = None
+        # Without OpenCV -- the labelling-only install -- nothing is framed and
+        # the models see the whole photograph, which is what they saw before any
+        # of this existed.
+        if hit is None:
+            hit = {"seam": None, "lateral": None, "frontal": None}
+        _FRAMES.clear() if len(_FRAMES) > 64 else None
+        _FRAMES[key] = hit
+    return hit
+
+
+def crop_for(view: str, path: Path) -> list[int] | None:
+    """The rectangle to predict in, for a study that keeps one photograph per fish."""
+    box = view_frames(path).get(view)
+    return list(box) if box else None
 
 
 #: Hand labelling works without any of this, so it is installed separately.
@@ -523,7 +583,8 @@ class Predictor:
 
     @classmethod
     def predict(cls, image: Path, polygons: bool = False,
-                emit_polygons: bool = True, view: str = "lateral") -> dict:
+                emit_polygons: bool = True, view: str = "lateral",
+                crop: list[int] | None = None) -> dict:
         with cls._lock:                      # one request at a time down one pipe
             if cls._proc is None or cls._proc.poll() is not None:
                 started = cls._start()
@@ -533,7 +594,7 @@ class Predictor:
                 cls._proc.stdin.write(json.dumps({"image": str(image),
                                                   "polygons": polygons,
                                                   "emit_polygons": emit_polygons,
-                                                  "view": view})
+                                                  "view": view, "crop": crop})
                                       + "\n")
                 cls._proc.stdin.flush()
                 line = cls._proc.stdout.readline()
@@ -635,7 +696,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _specimens(self):
-        schema = build_schema(load_profile(self.images_dir))
+        profile = load_profile(self.images_dir)
+        single = profile.get("single_photo")
+        schema = build_schema(profile)
         manifest = image_identity.load_manifest(self.images_dir)
         lat = list_images(self.images_dir / "lateral")
         fro = list_images(self.images_dir / "frontal")
@@ -685,7 +748,8 @@ class Handler(BaseHTTPRequestHandler):
             out.append({
                 "id": fid,
                 "lateral": path.name,
-                "frontal": fname if fname in fro else None,
+                # One photograph per fish: the same file carries both views.
+                "frontal": path.name if single else (fname if fname in fro else None),
                 "labeled": sidecar.is_file(),
                 # Epoch seconds of the committed sidecar. The labeler compares
                 # this against its localStorage draft's timestamp: a draft that
@@ -704,7 +768,7 @@ class Handler(BaseHTTPRequestHandler):
                 # the size it was made on; the labeler discards any draft whose
                 # size no longer matches, because its coordinates cannot fit.
                 "sizes": {"lateral": current_size(path),
-                          "frontal": current_size(fro.get(fname))},
+                          "frontal": current_size(path if single else fro.get(fname))},
                 # A prediction is cached for this fish. The labeler applies it on
                 # open, so a batch run actually reaches the fish it predicted.
                 "predicted": (self.images_dir / "sidecars_auto"
@@ -1168,7 +1232,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(415, {"ok": False, "name": name,
                                     "error": "contents are not a JPEG, PNG or TIFF"})
 
-        if (self.headers.get("X-Split") or "").lower() == "mirror":
+        whole = load_profile(self.images_dir).get("single_photo")
+        if (self.headers.get("X-Split") or "").lower() == "mirror" and not whole:
             if view != "lateral":
                 return self._send(400, {"ok": False, "name": name,
                                         "error": "a mirror split applies to lateral photographs"})
@@ -1188,7 +1253,11 @@ class Handler(BaseHTTPRequestHandler):
                                     "error": "a DIFFERENT file of this name is "
                                              "already here; rename before adding"})
         dest.write_bytes(data)
-        return self._send(200, {"ok": True, "name": name, "status": "added",
+        return self._send(200, {"ok": True, "name": name,
+                                # This study keeps one photograph per fish, so a
+                                # mirror split was not made even if asked for: the
+                                # head-on view is the same frame, zoomed.
+                                "status": "added_whole" if whole else "added",
                                 "bytes": len(data)})
 
     _SPLIT_LOCK = threading.Lock()
@@ -1410,8 +1479,19 @@ class Handler(BaseHTTPRequestHandler):
         emit_body = "body_plus_caudal" not in set(
             prof0.get("exclude_predicted_polygons") or ())
 
+        # A whole-frame photograph is cropped for the model in memory: the frame it
+        # was trained on, without a crop on disk that can be cut in the wrong place.
+        single = bool(prof0.get("single_photo"))
+        crop = crop_for(view, match) if single else None
+        if single and view == "frontal" and crop is None:
+            # No seam, no head-on view to predict in. The mouth corners would be
+            # placed somewhere in the fish's flank, confidently. Say so instead.
+            return {"ok": False, "error": "the mirror's edge could not be found in "
+                                          "this photograph, so the head-on view "
+                                          "cannot be framed — place the two mouth "
+                                          "corners by hand"}
         res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body,
-                                view=view)
+                                view=view, crop=crop)
         if not res.get("ok"):
             return res
 
@@ -1513,6 +1593,22 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(
                 200, self._calib_stats(parse_qs(urlparse(self.path).query)
                                        .get("lot", [""])[0]))
+        if route.startswith("/api/frame/"):
+            # Where each view sits in one photograph. The labeler asks so it can
+            # open the head-on view where the model looks for it, rather than at
+            # some fraction of the frame that is right for no fish in particular.
+            fid = unquote(route[len("/api/frame/"):])
+            if "/" in fid or ".." in fid:
+                return self._send(400, {"error": "bad path"})
+            img = view_image(self.images_dir, fid, "lateral")
+            if img is None:
+                return self._send(404, {"error": "not found"})
+            fr = view_frames(img)
+            return self._send(200, {"seam": fr.get("seam"),
+                                    "lateral": fr.get("lateral"),
+                                    "frontal": fr.get("frontal"),
+                                    "size": current_size(img)})
+
         if route.startswith("/api/autocal/"):
             name = unquote(route[len("/api/autocal/"):])
             if "/" in name or ".." in name:
@@ -1564,6 +1660,10 @@ class Handler(BaseHTTPRequestHandler):
             if ".." in sub:
                 return self._send(400, {"error": "bad path"})
             p = self.images_dir / sub
+            if not p.is_file() and sub.startswith("frontal/") and \
+                    load_profile(self.images_dir).get("single_photo"):
+                # one photograph per fish: the frontal view is the same frame
+                p = self.images_dir / "lateral" / sub[len("frontal/"):]
             if not p.is_file():
                 return self._send(404, {"error": "not found"})
             return self._send(200, p.read_bytes(), "image/jpeg")

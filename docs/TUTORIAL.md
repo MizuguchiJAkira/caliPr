@@ -53,6 +53,16 @@ Two boxes to tick on the way in:
   where no mirror edge can be found is added whole and named in a message. Check
   a few on the **frontal** view to see the head was not cut.
 
+  A study can also keep **one photograph per fish** and not be cut up at all
+  (`"single_photo": true` in its `schema.json`). The **frontal** tab then opens
+  the same photograph, zoomed to the mirror, both views' landmarks are placed in
+  the one coordinate system, and Auto-label crops for the model in memory. This
+  is the better arrangement: a crop on disk is cut once, and a boundary found in
+  the wrong place cuts a head off or strands the labels already placed on it.
+  Where the mirror's edge cannot be found at all, the lateral view still runs on
+  the whole frame and the head-on view is left for you to label by hand rather
+  than predicted somewhere in the fish's flank.
+
 You can also drag a folder straight onto the page. Subfolders are walked, and
 their names are kept: `Lake_2026/Site_A/IMG_01.jpg` arrives as
 `Site_A_IMG_01.jpg`, so a folder-per-site survives into the filenames. Anything
@@ -98,6 +108,14 @@ Points arrive coloured by the model's own confidence:
 
 Whether it also draws the body outline depends on the study; the brook trout
 study traces it by hand. The sidebar lists what still needs review.
+
+Some landmarks come back missing, with a note saying where the model tried to put
+one. Those failed an anatomy check — not a confidence threshold, but a fact about
+where the structure can be on a fish: this landmark's place between the eye and
+the caudal base, or two structures coming back in an order that would mean they
+had been swapped. Both are measured from the study's own labels. A point the
+anatomy rules out is not offered at all, because you can put a missing point back
+but you cannot un-see a confident one in the wrong place.
 
 Then work down the points with one key:
 

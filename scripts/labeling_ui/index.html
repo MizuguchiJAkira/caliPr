@@ -1174,7 +1174,8 @@ function loadImage(){
 // per-view default, switching tabs silently inherited the other view's value,
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
-function setView(v){ view=v; $('#viewPick').value=v; blankRetries=0;
+function setView(v){ view=v; $('#viewPick').value=v; blankRetries=0; loadFrames().then(()=>{
+    if(view===v && imgW){ fit(); draw(); } });
   pred=predBy[v]; renderAutoStat(); applyCachedPrediction(v);
   if(!cur){ activeTask=null; buildTasks(); showHint(); draw(); return Promise.resolve(); }
   $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
@@ -1478,10 +1479,34 @@ function showHint(){
 }
 
 // ---- view transform ----
+// Where the open view lives in the photograph. A study that keeps one photograph
+// per fish holds the head-on view in the rig's mirror, down the left of the same
+// frame: opening the frontal tab on the whole frame would show the fish, with the
+// mouth corners a few dozen pixels across in the corner. This is the same
+// fraction the model is given (WHOLE_FRAME_CROPS in label_server.py) -- what it
+// predicts is what you are looking at. Everywhere else it is the whole image, so
+// nothing is hidden and a landmark can still be placed anywhere in the frame.
+let frames=null, framesFor=null;          // {seam, lateral, frontal} for the open fish
+function viewRegion(){
+  if(view==='frontal' && frames && frames.frontal && imgW)
+    return frames.frontal.slice();
+  return [0, 0, imgW, imgH];
+}
+// Asked for once per fish, because finding the seam means a pass over a
+// 24-megapixel frame. A fish whose seam cannot be found has no frontal box, and
+// the view opens on the whole photograph -- which is the honest picture of it.
+async function loadFrames(){
+  if(!cur || !(SCHEMA && SCHEMA.single_photo)){ frames=null; framesFor=null; return; }
+  if(framesFor===cur.id) return;
+  framesFor=cur.id; frames=null;
+  try{ frames=await api('/api/frame/'+encodeURIComponent(cur.id)+dsq()); }
+  catch(e){ frames=null; }
+}
 function fit(){ if(!imgW){return;} const r=cv.getBoundingClientRect();
   if(!r.width||!r.height){ requestAnimationFrame(fit); return; }  // canvas not laid out yet
-  const s=Math.min(r.width/imgW, r.height/imgH)*0.96;
-  vs.scale=s; vs.ox=(r.width-imgW*s)/2; vs.oy=(r.height-imgH*s)/2; }
+  const [rx0,ry0,rx1,ry1]=viewRegion(), rw=rx1-rx0, rh=ry1-ry0;
+  const s=Math.min(r.width/rw, r.height/rh)*0.96;
+  vs.scale=s; vs.ox=(r.width-rw*s)/2-rx0*s; vs.oy=(r.height-rh*s)/2-ry0*s; }
 function toImg(sx,sy){return [(sx-vs.ox)/vs.scale,(sy-vs.oy)/vs.scale];}
 function toScr(ix,iy){return [ix*vs.scale+vs.ox, iy*vs.scale+vs.oy];}
 
@@ -2581,14 +2606,21 @@ async function walkEntry(entry, out, depth=0, parts=[]){
 async function uploadFiles(files){
   files=[...files].filter(f=>IMG_RE.test(f.name));
   if(!files.length){ toast('No images in that selection'); return; }
-  const view=$('#viewPick').value==='frontal'?'frontal':'lateral';
-  const msg0=`Add ${files.length} photograph(s) to “${dataset}” (${view})?\n\n`+
-             `They are copied into the dataset. Nothing is overwritten.`;
+  // A study that keeps one photograph per fish has one place to put a photo:
+  // the frame itself, which is both views. Adding to "frontal" would make a
+  // second image of a fish that is meant to have one.
+  const whole0 = !!(SCHEMA && SCHEMA.single_photo);
+  const view = (!whole0 && $('#viewPick').value==='frontal') ? 'frontal' : 'lateral';
+  const msg0=`Add ${files.length} photograph(s) to “${dataset}”${whole0?'':` (${view})`}?\n\n`+
+             (whole0 ? `One photograph per fish, whole: the head-on view is the mirror in `
+                     + `the same frame, and the frontal tab zooms to it.`
+                     : `They are copied into the dataset. Nothing is overwritten.`);
   // A photograph that holds both views is split on the server. Offered only for
   // lateral uploads, and remembered per study, because it is a property of the
   // rig: either every photo from it has the mirror or none does.
   let split=false;
-  if(view==='lateral'){
+  if(whole0){ if(!await ask(msg0)) return; }
+  else if(view==='lateral'){
     const key='calipr_split_'+dataset;
     let prev=false; try{ prev=localStorage.getItem(key)==='1'; }catch(e){}
     const r=await askCheck(msg0,
