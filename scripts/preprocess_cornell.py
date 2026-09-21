@@ -282,6 +282,57 @@ LATERAL_MARGIN_FRACTION = 450 / 6000
 FRONTAL_MARGIN_FRACTION = 520 / 6000
 
 
+#: Where a mirror seam has ever been found on a good split, as a fraction of the
+#: width: every one of the 112 good splits sits in 0.20-0.35, and the 13 failures
+#: sit at 0.016-0.085 because the ruler's ticks out-shouted the mirror frame.
+#: Searching only this window turns 13 failures into 0 -- and on the 119 frames
+#: with a seam to compare against, it finds the same column, median 0 px away.
+SEAM_WINDOW = (0.15, 0.35)
+
+
+def seam_in_window(gray: np.ndarray, window=SEAM_WINDOW) -> int | None:
+    """The mirror's inner edge, searched only where a mirror has ever been.
+
+    Returns None when the strongest edge lands on the window's own ceiling, which
+    means the mirror frame was not the strongest edge in it -- the detector found
+    the ruler or the fish. Three of the 131 photographs do that, and on two of
+    them the column it settles on is inside the head. Refusing is the difference
+    between framing the fish and cutting its snout off.
+    """
+    h, w = gray.shape[:2]
+    lo, hi = int(w * window[0]), int(w * window[1])
+    sob = np.abs(cv2.Sobel(gray[:, lo:hi], cv2.CV_64F, 1, 0, ksize=3)).sum(axis=0)
+    peak = float(sob.max())
+    if peak <= 0:
+        return None
+    seam = lo + int(np.where(sob >= peak * 0.9)[0][-1]) + 10
+    return None if seam >= hi - int(0.002 * w) else seam
+
+
+def view_frames(image: np.ndarray) -> dict:
+    """Where each view sits in a whole photograph, for cropping in memory.
+
+    The models were trained on crops and still want one; this is how to cut it
+    without cutting the photograph. Same seam and same margins the stored crops
+    used, so the framing a model sees is the framing it learned on.
+
+    Returns ``{"seam", "lateral", "frontal"}`` with each view's box as
+    ``(x0, y0, x1, y1)``, or None for a view that cannot be framed. Where the seam
+    cannot be found, both are None: the lateral model then sees the whole
+    photograph, which is how those frames were stored anyway, and the frontal one
+    is not run at all. A head-on view cannot be framed by guesswork -- predicting
+    one would mean predicting a mouth somewhere in the fish's flank.
+    """
+    h, w = image.shape[:2]
+    gray = image if image.ndim == 2 else cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    seam = seam_in_window(gray)
+    if seam is None:
+        return {"seam": None, "lateral": None, "frontal": None}
+    lat = max(0, seam - int(round(LATERAL_MARGIN_FRACTION * w)))
+    fro = min(w, seam + int(round(FRONTAL_MARGIN_FRACTION * w)))
+    return {"seam": int(seam), "lateral": (lat, 0, w, h), "frontal": (0, 0, fro, h)}
+
+
 def split_composite(image: np.ndarray, boundary: int | None = None) -> dict:
     """Split one canonical-orientation photo into lateral and frontal views.
 
