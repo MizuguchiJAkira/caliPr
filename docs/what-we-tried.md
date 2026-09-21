@@ -627,16 +627,39 @@ framed from the fin's base and tip and sized from standard length, plus a map
 marking that base and tip. ResNet-50 encoder, the one DeepLabCut uses. Measured by
 five-fold cross-validation split by fish, as area error against the hand tracing.
 
-| fin | tracings | median \|error\| | worst |
-|---|---|---|---|
-| pectoral | 24 | 5.7% | 29% |
-| dorsal | 18 | 13.7% | 51% |
-| pelvic | 22 | 10.0% | 78% |
-| anal | 25 | 4.7% | 19% |
+| fin | tracings | median \|error\| | worst | IoU |
+|---|---|---|---|---|
+| pectoral | 24 → **37** | 5.7% → **3.2%** | 29% → 31% | 0.91 |
+| dorsal | 18 → **19** | 13.7% → **11.0%** | 51% → 41% | 0.79 |
+| pelvic | 22 → **27** | 10.0% → **6.9%** | 78% → 111% | 0.84 |
+| anal | 25 → **33** | 4.7% → **4.6%** | 19% → 20% | 0.89 |
 
-An earlier run on 81 of these 89 fins gave 4.3 / 8.3 / 8.8 / 5.2%. With about
-twenty tracings a fin the dorsal's median moved five points between runs, so read
-these as ranges.
+Two runs, 89 fins then 116, as the lab traced more. Every median improved, and the
+amount each improved tracks how many tracings it gained: the pectoral gained 13 and
+halved, the dorsal gained 1 and barely moved. An earlier run on 81 of the first 89
+gave 4.3 / 8.3 / 8.8 / 5.2%, so with about twenty tracings a fin these still move
+several points between runs -- read them as ranges, and read the dorsal's as the
+widest.
+
+**The dorsal is short of tracings, not short of ideas.** It is the only fin where
+tracing density visibly matters: fins traced with fewer than 20 vertices come back
+at 15.6% median against 8.7% for the denser ones (n=8 and 11). Across the other
+three fins density makes no difference at all. 29 traced fins are below the
+16-vertex floor and are not used -- 8 of them dorsal.
+
+**The big misses are two different failures, and only one is the model's.**
+Over-prediction is concentrated on the smallest fins: the bottom quarter by area
+comes back at 7.2% median against 3.2-4.0% for the top half, and the three worst
+(+111%, +80%, +50%, all pelvic) are all small fins where the model outlines a
+longer structure than the tracing does. On TXD_17 that is the tracing -- its pelvic
+tip already sat beyond its own outline, noted here when the crops were first built.
+Under-prediction is the model's: HRN_14's dorsal at -26% is a large fin whose pale
+upper membrane the model does not pick up, and the tracing does.
+
+One fish, ASN_30, over-predicts on all four fins (+31, +40, +80, +8) on tracings of
+38-57 vertices. Excluding it, the median over every remaining fin is 4.8%. A whole
+fish biased one way is a question about that fish's tracings rather than about a
+fin.
 
 **Framing from predicted landmarks costs nothing measurable.** Scored again on the
 26 fish the keypoint model never trained on, with crops framed from its
