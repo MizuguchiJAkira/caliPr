@@ -258,12 +258,6 @@
      than silently clipping a control off the bottom. */
   #side { overflow-y:auto; }
   #rtsec { padding:8px 14px; }
-  #rtstat { margin-top:6px; font-size:11px; color:var(--mut); line-height:1.5; }
-  #rtstat b { color:var(--fg); }
-  #rtstat .fin { display:inline-block; margin-right:8px; }
-  #rtstat .fin.ok { color:var(--good); }
-  #rtstat .fin.thin { color:var(--warn); }
-  body.retrace #rtoggle { background:var(--accent); border-color:var(--accent);
                           color:#04121f; font-weight:600; }
   /* Regions collapse, and a finished one collapses itself. 28 landmarks in one
      flat column is a tall list for a task that advances automatically — you look
@@ -379,8 +373,6 @@
       </details>
     </div>
     <div class="sec" id="rtsec">
-      <button id="rtoggle" style="width:100%">✥ Fin retrace mode</button>
-      <div id="rtstat"></div>
     </div>
     <details id="exportbox"><summary>export <span id="expstate"></span></summary>
       <div class="exprow"><button data-exp="measurements">Measurements (.xlsx)</button>
@@ -420,7 +412,6 @@ instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
     <div class="sec">
       <div class="row" style="margin-bottom:6px">
         <button id="undo" title="Undo the last change — a placed point, a drag, a vertex, a clear (Z or ⌘/Ctrl+Z). Redo: ⇧⌘Z">↶ Undo</button>
-        <button id="finish" title="Close current polygon (Enter)">Finish poly</button>
         <button id="clear" title="Clear the selected landmark or outline (undoable)">Clear pt</button>
         <button id="clearall" title="Clear every point and outline on this view (undoable — Z)">Clear all</button>
       </div>
@@ -428,7 +419,6 @@ instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
         <button id="autolabel" title="Run the trained model on this specimen and
 drop its landmarks in. Points it is unsure about come in orange — those are the
 ones to check.">Auto-label</button>
-        <button id="fit">Fit</button>
       </div>
       <div class="row">
         <button id="save" class="primary">Save sidecar</button>
@@ -494,11 +484,9 @@ function clearPred(v){                // one view, or every view when none is na
 // An unreviewed point saved before its confidence was recorded has none to show.
 const confText=c=> c==null ? '?' : c.toFixed(2);
 function unreviewed(){ return Object.keys(pred.conf).length; }
-let retrace=false;                  // fin-retrace mode: one fin at a time, zoomed
 let DATASETS=[], dataset='';        // which study's photographs are open
 const dsq = () => '?dataset=' + encodeURIComponent(dataset);
 const dsInfo = () => DATASETS.find(d=>d.name===dataset) || {};
-let showAll=false;                  // hold H to reveal the hidden landmarks
 // Above this many image pixels per screen pixel a click cannot be placed
 // carefully. Matches the standalone labeler.
 const COARSE_PX = 3;
@@ -512,7 +500,6 @@ function finState(g){
   const kp=g.keypoints.filter(k=>m.keypoints[k.name]).length;
   return {n, kp, done: n>=g.target && kp===g.keypoints.length};
 }
-const finsLeft = () => finGroups().filter(g=>!finState(g).done);
 let img=new Image(), imgW=0, imgH=0;
 // Switching dataset while a 4000px JPEG is still decoding used to let the old
 // image finish and repaint, and to fire a request the new dataset 404s on.
@@ -887,14 +874,12 @@ async function boot(){
   await refreshDatasets();
   SCHEMA=await api('/api/schema'+dsq());
   renderSchemePicker();
-  restoreRetrace();
   await loadSpecs();
   loadRef(); loadCalStats(); refreshAuth();
   resize();
   const last=localStorage.getItem('calipr_last');   // re-open where you left off
   if(last){ const s=SPECS.find(x=>x.id===last); if(s){ await selectSpec(s);
     if(loadDraft(last)) toast('Restored unsaved draft'); } }
-  if(retrace && model) nextFin();
   requestAnimationFrame(draw);
 }
 let specQuery='';
@@ -960,19 +945,10 @@ async function loadSpecs(){
 // redraws the list without re-fetching 131 specimens on every keystroke.
 function renderSpecList(){
   const w=$('#specWrap'); w.innerHTML='';
-  // In retrace mode the list IS the worklist: only fish that are landmarked but
-  // whose fins are not yet re-done. The one in hand stays visible so it does not
-  // vanish from under the cursor the moment its last fin hits target.
-  let shown = retrace
-    ? SPECS.filter(s=>(s.lateral_done&&!s.fins_done)||(cur&&s.id===cur.id))
-    : SPECS;
-  // Held-out fish first: they are stratified across strains and they are what
-  // measures model accuracy, so re-tracing them pays twice.
-  if(retrace) shown = [...shown].sort((a,b)=>(b.heldout?1:0)-(a.heldout?1:0));
   // Unlabelled specimens from the stratified subset float to the top: labelling
   // the first n filenames concentrates the sample in a few collection lots, and
   // lot is confounded with locality and date.
-  else shown = [...shown].sort((a,b)=>
+  let shown = [...SPECS].sort((a,b)=>
     ((b.suggested&&!b.lateral_done)?1:0) - ((a.suggested&&!a.lateral_done)?1:0));
   // Free-text filter. Matching is on the short id as well as the full one, so
   // "TXD_4" finds Salvelinus_fontinalis_TXD_4 — nobody types the genus. Spaces
@@ -1127,11 +1103,6 @@ async function selectSpec(s){
     if(first){ pickByName('keypoint', first); draw(); }
   }
 }
-function restoreRetrace(){
-  if(localStorage.getItem('calipr_retrace')){
-    retrace=true; document.body.classList.add('retrace');
-  }
-}
 function ingest(sc){
   for(const v of ['lateral','frontal']){
     const b=sc[v]; if(!b) continue;
@@ -1226,28 +1197,10 @@ function buildTasks(){
     if(rn) rn.onclick=ev=>{ ev.stopPropagation(); renameLandmark(it); };
     el.onclick=()=>{activeTask={kind,name:it.name,hint:it.hint,desc:it.description,
                                target:it.target||0};
-      if(retrace) zoomToFin(finOf(it.name));
       showHint(); buildTasks();};
     box.appendChild(el);
   };
 
-  // Retrace mode: walk fin by fin — base, tip, then the outline. Keeps the three
-  // annotations that describe one structure next to each other.
-  if(retrace && view==='lateral'){
-    const polyByName={}; (sc.polygons||[]).forEach(p=>polyByName[p.name]=p);
-    finGroups().forEach(g=>{
-      const st=finState(g);
-      const h=document.createElement('div');
-      h.className='grouphdr';
-      h.innerHTML=`${g.fin} <span style="color:${st.done?'var(--good)':'var(--warn)'}">`+
-                  `${st.done?'done':st.n+'/'+g.target+' pts, '+st.kp+'/2 kp'}</span>`;
-      box.appendChild(h);
-      g.keypoints.forEach(k=>mkTask('keypoint',k,`${k.name} (${k.role})`));
-      if(polyByName[g.polygon]) mkTask('polygon',polyByName[g.polygon],`${g.fin} outline`);
-    });
-    renderRetraceStatus();
-    return;
-  }
 
   // Region grouping, always expanded. Headers are separators for scanning, not
   // controls: landmarking is a click-through task and the flow auto-advances, so
@@ -1279,7 +1232,6 @@ function buildTasks(){
   const tc=$('#taskcount');
   if(tc){ const all=[...box.querySelectorAll('.task')];
     tc.textContent = all.length ? `${all.filter(e=>e.classList.contains('set')).length}/${all.length}` : ''; }
-  renderRetraceStatus();
 }
 // Which fin a task belongs to (null if it is not a fin annotation).
 function finOf(name){
@@ -1288,38 +1240,6 @@ function finOf(name){
 }
 // Frame the fin being worked on: zoom to its outline, or to its base/tip pair if
 // no outline exists yet. Dense clicking is impossible at whole-fish zoom.
-function zoomToFin(g){
-  if(!g||!imgW) return;
-  // Same guard as fit(): a hidden or not-yet-laid-out canvas measures 0x0, and
-  // dividing by that clamps the scale to the floor and wrecks the framing.
-  const rc=cv.getBoundingClientRect();
-  if(!rc.width||!rc.height){ requestAnimationFrame(()=>zoomToFin(g)); return; }
-  const m=model.lateral;
-  let pts=(m.polygons[g.polygon]||[]).slice();
-  g.keypoints.forEach(k=>{ if(m.keypoints[k.name]) pts.push(m.keypoints[k.name]); });
-  // A fin whose outline AND tip were both wiped leaves only the base point, and
-  // one point has no extent to frame. Rather than give up — which drops the user
-  // at whole-fish zoom on precisely the fins that need dense clicking — put a box
-  // around what is left, sized from the fish itself so it scales with the photo.
-  if(pts.length===1){
-    const a=m.keypoints['premaxilla_tip'], b=m.keypoints['caudal_base'];
-    const sl=(a&&b)?Math.hypot(b[0]-a[0],b[1]-a[1]):Math.max(imgW,imgH)*0.35;
-    // a brook trout fin runs ~0.10-0.15 SL, so 0.09 SL either side frames it
-    // at roughly 1.5x its own size — comparable to what an intact outline gives
-    const r=0.09*sl, [x,y]=pts[0];
-    pts=[[x-r,y-r],[x+r,y+r]];
-  }
-  if(pts.length<2) return;                       // nothing placed at all
-  const xs=pts.map(p=>p[0]), ys=pts.map(p=>p[1]);
-  const w=Math.max(...xs)-Math.min(...xs), h=Math.max(...ys)-Math.min(...ys);
-  const pad=Math.max(0.35*Math.max(w,h), 60);
-  const r=cv.getBoundingClientRect();
-  const s=Math.min(r.width/(w+2*pad), r.height/(h+2*pad));
-  vs.scale=Math.max(0.02,Math.min(30,s));
-  vs.ox=r.width/2-((Math.min(...xs)+Math.max(...xs))/2)*vs.scale;
-  vs.oy=r.height/2-((Math.min(...ys)+Math.max(...ys))/2)*vs.scale;
-  draw();
-}
 function renderLegend(){
   const n=SPECS.length;
   const dl=SPECS.filter(s=>s.lateral_done).length;
@@ -1341,17 +1261,6 @@ function renderLegend(){
     `<div class="lr"><span class="${c}">${l}</span><span>${t}</span>`+
     `<span class="n">${a}/${b}</span></div>`).join('');
 }
-function renderRetraceStatus(){
-  const el=$('#rtstat'); if(!el) return;
-  if(!retrace){ el.innerHTML=''; return; }
-  const wl=SPECS.filter(s=>s.lateral_done&&!s.fins_done).length;
-  if(!model){ el.innerHTML=`<b>${wl}</b> specimens need fin work.`; return; }
-  const bits=finGroups().map(g=>{const st=finState(g);
-    return `<span class="fin ${st.done?'ok':'thin'}">${g.fin} ${st.n}/${g.target}`+
-           `${st.kp<g.keypoints.length?' ·kp':''}</span>`;}).join('');
-  el.innerHTML=`${bits}<br><b>${wl}</b> specimens left · <kbd>F</kbd> next fin `+
-               `· <kbd>N</kbd> next specimen · hold <kbd>H</kbd> to show all`;
-}
 // Excluding a landmark is a study-level decision, so it is written to the
 // dataset's schema and reaches the measurement engine — a trait that needed it
 // gets no Excel column at all, rather than a column of blanks that reads as
@@ -1361,9 +1270,6 @@ function renderRetraceStatus(){
 // trait is defined against. Switching asks for different points on every fish in
 // the study, and leaves anything already labelled untouched on disk.
 function renderSchemePicker(){
-  // Fin retrace walks fin outlines; a scheme that traces none has nothing to walk.
-  const rt=$('#rtoggle');
-  if(rt) rt.style.display = (SCHEMA && (SCHEMA.fin_groups||[]).length) ? '' : 'none';
   const sel=$('#schemepick'), note=$('#schemenote');
   if(!sel||!SCHEMA) return;
   const list=SCHEMA.schemes||[];
@@ -1576,18 +1482,10 @@ function draw(){
     }
   }
   const m=model?model[view]:null; if(m){
-    // In retrace mode only the fin being worked on is drawn. body_plus_caudal is
-    // 52-86 vertices running the length of the fish and it buries the specimen;
-    // the other fins and the ruler are just as unhelpful when the view is zoomed
-    // into one fin. Hold H to bring everything back when context is wanted.
-    const only = (retrace && view==='lateral' && !showAll && activeTask)
-      ? finOf(activeTask.name) : null;
-    const visiblePoly = nm => !only || nm===only.polygon;
-    const visibleKp   = nm => !only || only.keypoints.some(k=>k.name===nm);
 
     // polygons
     for(const [nm,verts] of Object.entries(m.polygons)){
-      if(!verts||!verts.length||!visiblePoly(nm)) continue;
+      if(!verts||!verts.length) continue;
       ctx.beginPath();
       verts.forEach((p,i)=>{const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
       const active=activeTask&&activeTask.kind==='polygon'&&activeTask.name===nm;
@@ -1607,7 +1505,6 @@ function draw(){
     // so placed labels don't pile up and obscure the fish.
     const kpc=getComputedStyle(document.documentElement).getPropertyValue('--kp');
     for(const [nm,p] of Object.entries(m.keypoints)){
-      if(!visibleKp(nm)) continue;
       // An unreviewed prediction is drawn by the model's own confidence: green
       // where it is sure, orange where it is not. Touching the point returns it
       // to the normal colour, so what stays coloured is what still needs a look.
@@ -1631,12 +1528,12 @@ function draw(){
       if(nm===(activeTask&&activeTask.name) || nm===hoverName)
         label(p, c===undefined ? labelOf(nm) : `${labelOf(nm)} ${confText(c)}`); }
     // ruler
-    if(!only && m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
+    if(m.ruler.a&&m.ruler.b){ const a=toScr(...m.ruler.a),b=toScr(...m.ruler.b);
       ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);
       ctx.strokeStyle='#c07bff';ctx.lineWidth=1.5;ctx.stroke(); }
-    if(!only && m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
-    if(!only && m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
-    if(!only) drawTicks();
+    if(m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
+    if(m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
+    drawTicks();
   }
   // One screen pixel covers 1/scale image pixels, and that is the floor on
   // placement precision however steady the hand. Fitted to a 4400px crop it is
@@ -1745,7 +1642,6 @@ function taskOrder(){
 // often skipped deliberately (obscured, damaged, not applicable), and jumping
 // back to them would fight the labeler instead of following the list.
 function advance(){
-  if(retrace && view==='lateral'){ advanceFin(); return; }
   const order=taskOrder();
   const i=order.findIndex(([kind,it]) =>
       activeTask && kind===activeTask.kind && it.name===activeTask.name);
@@ -1756,75 +1652,21 @@ function advance(){
   showHint();
 }
 
-// Retrace order: base -> tip -> outline, then on to the next unfinished fin.
-// Stops rather than wrapping, so finishing the last fin is an explicit signal.
-function advanceFin(){
-  const seq=[];
-  finGroups().forEach(g=>{
-    g.keypoints.forEach(k=>seq.push({kind:'keypoint',name:k.name,hint:k.hint,
-                                     desc:k.description,target:0,g}));
-    const po=(SCHEMA.lateral.polygons||[]).find(p=>p.name===g.polygon);
-    if(po) seq.push({kind:'polygon',name:po.name,hint:po.hint,desc:po.description,
-                     target:po.target||0,g});
-  });
-  const i=seq.findIndex(t=>activeTask&&t.kind===activeTask.kind&&t.name===activeTask.name);
-  const next=seq.slice(i+1).find(t=>{
-    const st=finState(t.g);
-    if(t.kind==='keypoint') return !model.lateral.keypoints[t.name];
-    return st.n < t.target;
-  });
-  if(!next){
-    const left=finsLeft();
-    if(!left.length){ activeTask=null; showHint();
-      toast('All four fins re-done — save, then N for the next specimen'); return; }
-    // nothing unfinished after here, but earlier fins remain — jump back to one
-    const g=left[0];
-    const miss=g.keypoints.find(k=>!model.lateral.keypoints[k.name]);
-    const po=(SCHEMA.lateral.polygons||[]).find(p=>p.name===g.polygon);
-    activeTask=miss?{kind:'keypoint',name:miss.name,hint:miss.hint,desc:miss.description,target:0}
-                   :{kind:'polygon',name:po.name,hint:po.hint,desc:po.description,target:po.target||0};
-    zoomToFin(g); showHint(); return;
-  }
-  activeTask={kind:next.kind,name:next.name,hint:next.hint,desc:next.desc,target:next.target};
-  zoomToFin(next.g); showHint();
-}
-function nextFin(){
-  const curG=activeTask?finOf(activeTask.name):null;
-  const gs=finGroups();
-  const start=curG?gs.indexOf(curG)+1:0;
-  const order=[...gs.slice(start),...gs.slice(0,start)];
-  const g=order.find(g=>!finState(g).done)||order[0];
-  if(!g) return;
-  const miss=g.keypoints.find(k=>!model.lateral.keypoints[k.name]);
-  const po=(SCHEMA.lateral.polygons||[]).find(p=>p.name===g.polygon);
-  activeTask=miss?{kind:'keypoint',name:miss.name,hint:miss.hint,desc:miss.description,target:0}
-                 :{kind:'polygon',name:po.name,hint:po.hint,desc:po.description,target:po.target||0};
-  zoomToFin(g); showHint(); buildTasks();
-}
-function nextSpecimen(){
-  const wl=SPECS.filter(s=>s.lateral_done&&!s.fins_done&&(!cur||s.id!==cur.id));
-  if(!wl.length){ toast('No specimens left needing fin work'); return; }
-  selectSpec(wl[0]).then(()=>{ if(retrace) nextFin(); });
-}
 
 // ---- mouse / keyboard ----
 // Find an existing point near screen (mx,my). Keypoints/ruler take priority
 // over polygon vertices so you can grab a landmark that sits on the outline.
 function findPointAt(mx,my,thresh=12){
   const m=model?model[view]:null; if(!m) return null;
-  const only=(retrace && view==='lateral' && !showAll && activeTask)?finOf(activeTask.name):null;
-  const hidden=nm=>only && nm!==only.polygon && !only.keypoints.some(k=>k.name===nm);
   let best=null, bd=thresh;
   for(const [nm,p] of Object.entries(m.keypoints)){
-    if(hidden(nm)) continue;
     const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'keypoint',name:nm};} }
-  for(const k of ['a','b']){ const p=m.ruler[k]; if(!p||only)continue; const [sx,sy]=toScr(p[0],p[1]);
+  for(const k of ['a','b']){ const p=m.ruler[k]; if(!p)continue; const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'ruler',key:k};} }
   if(best) return best;
   bd=thresh;
   for(const [nm,verts] of Object.entries(m.polygons)){
-    if(hidden(nm)) continue;                       // never grab an invisible vertex
     verts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'polyvtx',name:nm,index:i};} }); }
   return best;
@@ -1897,10 +1739,7 @@ window.addEventListener('keydown',e=>{
   else if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undoAction(); }
   if((e.key==='y'||e.key==='Y') && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
   if((e.key==='a'||e.key==='A') && !(e.metaKey||e.ctrlKey)){
-    if(retrace && activeTask && activeTask.kind==='keypoint'){   // fin review keeps its own walk
-      e.preventDefault();
-      if(acceptPoint(activeTask.name)){ toast('Accepted '+activeTask.name); advance(); }
-    } else if(pred.model){
+    if(pred.model){
       // Accept the point in hand, then go straight to the next one waiting. On a
       // point you just dragged, A only moves on: the drag already recorded it as
       // corrected, which is stronger evidence than accepting.
@@ -1918,16 +1757,9 @@ window.addEventListener('keydown',e=>{
              toast((took?`Accepted ${here} · `:'') + 'all points reviewed'); }
     }
   }
-  if(retrace && (e.key==='f'||e.key==='F')){ e.preventDefault(); nextFin(); }
-  if(retrace && (e.key==='h'||e.key==='H') && !showAll){ showAll=true; draw(); }
-  if(retrace && (e.key==='n'||e.key==='N')){ e.preventDefault(); nextSpecimen(); }
-});
-window.addEventListener('keyup',e=>{
-  if(showAll && (e.key==='h'||e.key==='H')){ showAll=false; draw(); }
 });
 $('#undo').onclick=undoAction;
 $('#clearall').onclick=clearAll;
-$('#finish').onclick=()=>{advance();buildTasks();draw();};
 $('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
   if(activeTask.kind==='keypoint'){ delete m.keypoints[activeTask.name];
     forgetPrediction(activeTask.name); }
@@ -1935,17 +1767,6 @@ $('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
     forgetPrediction(activeTask.name); }
   else m.ruler[activeTask.name==='ruler_point_a'?'a':'b']=undefined;
   persistDraft();buildTasks();renderAutoStat();draw();};
-$('#fit').onclick=()=>{fit();draw();};
-$('#rtoggle').onclick=async()=>{
-  retrace=!retrace;
-  document.body.classList.toggle('retrace',retrace);
-  localStorage.setItem('calipr_retrace',retrace?'1':'');
-  if(retrace){
-    await setView('lateral');
-    if(model) nextFin(); else toast('Pick a specimen from the worklist');
-  } else { activeTask=null; showHint(); fit(); draw(); }
-  loadSpecs(); buildTasks();
-};
 $('#useauto').onclick=applyAutoCal;
 // Ruler auto-scale: measures px/mm from the ruler's mm ticks, so calibration
 // needs no clicked points and no typed span.
