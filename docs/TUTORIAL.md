@@ -206,19 +206,20 @@ rest shown in Finder.
 
 | | |
 |---|---|
-| **Measurements (.xlsx)** | one row per specimen, 33 traits, plus About / Ratios / Shape / **Landmarks** / QC / Validation sheets |
-| **Landmarks for R (.tps)** | geomorph-ready, with landmark names and a loader snippet |
+| **Measurements (.xlsx)** | one row per specimen, 33 traits, plus About / Ratios / Shape / QC / Validation sheets |
+| **Annotations for R (.zip)** | the coordinates — `.tps` for geomorph, `landmarks_imagej.csv` in the shape ImageJ writes, landmark names, and a loader snippet |
 | **Annotations (.zip)** | the labels themselves, to send back for training |
 | **Labelled images (.zip)** | each photograph with its annotation drawn on |
 
 Read the **Validation** sheet before analysing. It lists the checks that failed,
 most severe first.
 
-The **Landmarks** sheet is the coordinates in the shape ImageJ's Multi-Measure
-writes — one row per landmark per specimen, the landmark named, the photograph
-repeated in `Label` — so a series digitised here can be pooled with one digitised
-in ImageJ. The TPS export writes the same table as `landmarks_imagej.csv`, with
-an R snippet for reading it into geomorph.
+The coordinates are not in the workbook. They are an input to geomorph rather
+than something to read in a spreadsheet, so they go out with the rest of the R
+material: `landmarks_imagej.csv` is one row per landmark per specimen, the
+landmark named and the photograph repeated in `Label`, exactly as ImageJ's
+Multi-Measure writes it, so a series digitised here can be pooled with one
+digitised in ImageJ. `load_landmarks.R` reads it into geomorph.
 
 Mind the y axis. Both files use **image coordinates, y downward**, as ImageJ
 does; the `.tps` file uses Cartesian y, because that is what `readland.tps`

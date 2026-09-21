@@ -606,12 +606,14 @@ def run(
         log.warning("%d validation warning(s) — see the Validation sheet",
                     counts["warning"])
 
-    # The study's own landmark order and names, so the Landmarks sheet reads the
-    # same as the TPS export and the labeler.
-    lm_order, lm_labels = schemes.study_landmarks(images_dir.parent)
+    # The study's own landmark names, so the QC sheet calls a landmark what the
+    # labeler does. The coordinates themselves are not in this workbook: they are
+    # an input to geomorph, not something to read in a spreadsheet, and they go
+    # out with the rest of the R material.
+    _, lm_labels = schemes.study_landmarks(images_dir.parent)
     return export_to_xlsx(
         records, output_path, drop_traits=drop_traits, issues=issues,
-        landmarks=lm_order, landmark_labels=lm_labels,
+        landmark_labels=lm_labels,
         provenance={
             "dataset": images_dir.parent.name,
             "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"),
