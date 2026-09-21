@@ -1,0 +1,389 @@
+{
+  "fish_id": "Salvelinus_fontinalis_ASN_39",
+  "metadata": {
+    "strain": "ASN",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "anal_base_center",
+        "anal_tip",
+        "caudal_base",
+        "dorsal_base_center",
+        "dorsal_tip",
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "pectoral_insertion_upper",
+        "pectoral_ray_tip",
+        "peduncle_narrowest_dorsal",
+        "peduncle_narrowest_ventral",
+        "pelvic_base_center",
+        "pelvic_tip",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "lower_jaw_tip": {
+          "from": [
+            1531,
+            1837
+          ],
+          "to": [
+            1541,
+            1843
+          ],
+          "px": 11.7,
+          "conf": 0.615
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-17T16:09:46.688Z"
+    },
+    "unreviewed_predictions": [],
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "0d5284651b3dfb05e4f52bf6fa124ac6d500e50901c76dd071dc3ce9c1c6d76e"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2179,
+          1997
+        ],
+        [
+          2237,
+          1985
+        ],
+        [
+          2296,
+          1984
+        ],
+        [
+          2362,
+          1991
+        ],
+        [
+          2427,
+          2006
+        ],
+        [
+          2490,
+          2026
+        ],
+        [
+          2557,
+          2058
+        ],
+        [
+          2595,
+          2085
+        ],
+        [
+          2638,
+          2118
+        ],
+        [
+          2643,
+          2141
+        ],
+        [
+          2605,
+          2161
+        ],
+        [
+          2574,
+          2179
+        ],
+        [
+          2540,
+          2205
+        ],
+        [
+          2511,
+          2234
+        ],
+        [
+          2464,
+          2227
+        ],
+        [
+          2374,
+          2178
+        ],
+        [
+          2303,
+          2144
+        ],
+        [
+          2260,
+          2106
+        ],
+        [
+          2234,
+          2079
+        ],
+        [
+          2226,
+          2039
+        ],
+        [
+          2208,
+          2014
+        ]
+      ],
+      "dorsal": [
+        [
+          2990,
+          1616
+        ],
+        [
+          3034,
+          1604
+        ],
+        [
+          3072,
+          1594
+        ],
+        [
+          3108,
+          1590
+        ],
+        [
+          3134,
+          1594
+        ],
+        [
+          3167,
+          1604
+        ],
+        [
+          3188,
+          1611
+        ],
+        [
+          3193,
+          1614
+        ],
+        [
+          3213,
+          1617
+        ],
+        [
+          3219,
+          1621
+        ],
+        [
+          3228,
+          1634
+        ],
+        [
+          3249,
+          1646
+        ],
+        [
+          3273,
+          1654
+        ],
+        [
+          3295,
+          1655
+        ],
+        [
+          3309,
+          1667
+        ],
+        [
+          3332,
+          1676
+        ],
+        [
+          3226,
+          1663
+        ],
+        [
+          3112,
+          1645
+        ],
+        [
+          3046,
+          1632
+        ]
+      ],
+      "anal": [
+        [
+          3749,
+          2223
+        ],
+        [
+          3808,
+          2229
+        ],
+        [
+          3883,
+          2235
+        ],
+        [
+          3966,
+          2228
+        ],
+        [
+          4037,
+          2221
+        ],
+        [
+          4119,
+          2199
+        ],
+        [
+          4174,
+          2190
+        ],
+        [
+          4208,
+          2176
+        ],
+        [
+          4216,
+          2166
+        ],
+        [
+          4249,
+          2152
+        ],
+        [
+          4244,
+          2135
+        ],
+        [
+          4230,
+          2121
+        ],
+        [
+          4205,
+          2112
+        ],
+        [
+          4157,
+          2116
+        ],
+        [
+          4058,
+          2133
+        ],
+        [
+          3964,
+          2153
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1704,
+        1727
+      ],
+      "eye_posterior": [
+        1861,
+        1723
+      ],
+      "eye_dorsal": [
+        1785,
+        1662
+      ],
+      "eye_ventral": [
+        1790,
+        1783
+      ],
+      "premaxilla_tip": [
+        1568,
+        1763
+      ],
+      "maxilla_mandible_intersection": [
+        1683,
+        1863
+      ],
+      "lower_jaw_tip": [
+        1541,
+        1843
+      ],
+      "operculum_posterior": [
+        2240,
+        1881
+      ],
+      "pectoral_insertion_upper": [
+        2181,
+        2002
+      ],
+      "pectoral_ray_tip": [
+        2637,
+        2114
+      ],
+      "peduncle_narrowest_dorsal": [
+        4576,
+        1872
+      ],
+      "peduncle_narrowest_ventral": [
+        4584,
+        2035
+      ],
+      "caudal_base": [
+        4613,
+        1958
+      ],
+      "dorsal_base_center": [
+        3098,
+        1642
+      ],
+      "dorsal_tip": [
+        3154,
+        1593
+      ],
+      "pelvic_base_center": [
+        3103,
+        2264
+      ],
+      "pelvic_tip": [
+        3372,
+        2222
+      ],
+      "anal_base_center": [
+        3967,
+        2137
+      ],
+      "anal_tip": [
+        4245,
+        2144
+      ],
+      "dorsal_base_anterior": [
+        2989,
+        1618
+      ],
+      "dorsal_base_posterior": [
+        3319,
+        1676
+      ],
+      "anal_base_anterior": [
+        3750,
+        2217
+      ],
+      "anal_base_posterior": [
+        4197,
+        2113
+      ]
+    },
+    "calibration": {
+      "mode": "none",
+      "notes": "no scale reference placed"
+    }
+  }
+}
