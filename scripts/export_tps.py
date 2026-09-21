@@ -70,59 +70,20 @@ def scheme_of(profile_dir: Path | None) -> str | None:
     return name if schemes.get(name) else None
 
 
-def landmark_labels(profile_dir: Path | None) -> dict[str, str]:
-    """What this study calls each landmark: its own additions, and any it renamed."""
-    if profile_dir is None:
-        return {}
-    prof = profile_dir / "schema.json"
-    if not prof.is_file():
-        return {}
-    try:
-        doc = json.loads(prof.read_text())
-    except Exception:
-        return {}
-    scheme = schemes.get(doc.get("scheme"))
-    if scheme:
-        return {k["name"]: k["description"]
-                for k in schemes.keypoints(doc["scheme"], "lateral")}
-    out = {k["name"]: k.get("label") or k["name"]
-           for k in (doc.get("extra_keypoints") or []) if isinstance(k, dict) and k.get("name")}
-    out.update(doc.get("labels") or {})
-    return out
-
-
 def landmark_order(profile_dir: Path | None) -> tuple[str, ...]:
-    """Landmark order for this dataset: the schema, minus anything it excludes.
+    """Landmark order for this dataset: what the study collects, in export order.
 
     Row N must mean the same thing in every specimen, so the order comes from the
-    schema rather than from whatever a given sidecar happens to contain. But a
-    dataset that never collects a landmark must not export a column for it: it
-    would be NA in every specimen, and ``estimate.missing`` cannot infer a
-    landmark it has never seen — gpagen would simply fail.
+    study's schema rather than from whatever a given sidecar happens to contain.
+    One source for every export -- see ``schemes.study_landmarks``.
     """
-    drop: set[str] = set()
-    extra: list[str] = []
-    if profile_dir is not None:
-        prof = profile_dir / "schema.json"
-        if prof.is_file():
-            try:
-                doc = json.loads(prof.read_text())
-                # A study on another protocol's scheme exports that scheme, in its
-                # own numbering: TPS identifies a landmark by its row.
-                scheme = schemes.get(doc.get("scheme"))
-                if scheme:
-                    return schemes.order(doc["scheme"], "lateral")
-                drop = set(doc.get("exclude_keypoints") or [])
-                # Landmarks this study added. No trait uses them, but they are
-                # coordinates on every specimen, which is exactly what TPS carries.
-                extra = [k["name"] for k in (doc.get("extra_keypoints") or [])
-                         if isinstance(k, dict) and k.get("name")
-                         and (k.get("view") or "lateral") == "lateral"
-                         and k["name"] not in drop]
-            except Exception:
-                drop, extra = set(), []
-    return tuple([k.name for k in KEYPOINTS
-                  if k.view == View.LATERAL and k.name not in drop] + extra)
+    return schemes.study_landmarks(profile_dir)[0]
+
+
+def landmark_labels(profile_dir: Path | None) -> dict[str, str]:
+    """What this study calls each landmark, where that differs from its name."""
+    return schemes.study_landmarks(profile_dir)[1]
+
 
 #: Coordinate written for a landmark the annotator did not place. Negative by
 #: convention so ``readland.tps(negNA = TRUE)`` turns it into NA.
@@ -130,10 +91,23 @@ MISSING = -1.0
 
 
 def find_image(images: Path, fish_id: str) -> Path | None:
+    """The photograph, under the name it actually has on disk.
+
+    Matched without regard to case, because the suffix a series uses varies, but
+    returned as the directory spells it: ``Label`` in the exported table is how a
+    row is joined to anything else, and on a case-insensitive filesystem testing
+    ``images / f"{fish_id}_L.jpeg"`` happily opens ``..._L.JPEG`` and then reports
+    the name that was asked for rather than the one that exists.
+    """
+    try:
+        lookup = {p.name.lower(): p for p in images.iterdir() if p.is_file()}
+    except OSError:
+        return None
     for suf in IMAGE_SUFFIXES:
-        for cand in (images / f"{fish_id}{suf}", images / f"{fish_id}_L{suf}"):
-            if cand.is_file():
-                return cand
+        for stem in (fish_id, f"{fish_id}_L"):
+            hit = lookup.get(f"{stem}{suf}".lower())
+            if hit is not None:
+                return hit
     return None
 
 
@@ -183,9 +157,9 @@ def main(argv=None) -> int:
 
     # the profile lives beside the image folder, e.g. data/alewife/schema.json
     profile_dir = args.schema_dir or args.images.parent
-    order = landmark_order(profile_dir)
+    order, labels = schemes.study_landmarks(profile_dir)
     globals()["LANDMARK_ORDER"] = order
-    globals()["LANDMARK_LABELS"] = landmark_labels(profile_dir)
+    globals()["LANDMARK_LABELS"] = labels
 
     args.out.mkdir(parents=True, exist_ok=True)
     tps_path = args.out / f"{args.name}.tps"
@@ -259,6 +233,27 @@ def main(argv=None) -> int:
 
     tps_path.write_text("\n".join(rows))
 
+    # The same coordinates in the shape ImageJ's Multi-Measure writes: one row per
+    # landmark per specimen, the landmark named, the photograph repeated. Image
+    # coordinates -- y DOWNWARD, as ImageJ gives them, not the Cartesian y of the
+    # .tps beside it -- so a series digitised in ImageJ and one digitised here can
+    # be pooled. Millimetres where the specimen has a scale, pixels where it does
+    # not, stated per row.
+    imagej_path = args.out / "landmarks_imagej.csv"
+    with imagej_path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["landmark", "Label", "X", "Y", "units"])
+        for fid, kps, img, h, ppm in specimens:
+            for name in order:
+                pt = kps.get(name)
+                label = LANDMARK_LABELS.get(name, name)
+                if pt is None:
+                    w.writerow([label, img.name, "", "", "mm" if ppm else "px"])
+                    continue
+                x, y = (pt[0] / ppm, pt[1] / ppm) if ppm else (pt[0], pt[1])
+                w.writerow([label, img.name, f"{float(x):.3f}", f"{float(y):.3f}",
+                            "mm" if ppm else "px"])
+
     names_path = args.out / "landmark_names.csv"
     with names_path.open("w", newline="") as f:
         w = csv.writer(f)
@@ -298,6 +293,18 @@ plot(gpa)
 
 # Shape space. Group by population once you have that mapping.
 pca <- gm.prcomp(gpa$coords)
+
+# ---------------------------------------------------------------------------
+# landmarks_imagej.csv holds the same points in the shape ImageJ's Multi-Measure
+# writes, for pooling with series digitised there. Note the y axis: this file
+# uses image coordinates (y downward), the .tps above uses Cartesian y, so the
+# two are mirror images -- pick one and stay with it.
+#
+# lm <- read.csv("landmarks_imagej.csv", stringsAsFactors = FALSE)
+# k  <- length(unique(lm$landmark))
+# B  <- arrayspecs(as.matrix(lm[, c("X", "Y")]), p = k, k = 2)
+# dimnames(B)[[1]] <- unique(lm$landmark)
+# dimnames(B)[[3]] <- unique(lm$Label)
 plot(pca, main = "Alewife shape space")
 
 # Example test, once `pop` is a factor of landlocked / migratory per specimen:
