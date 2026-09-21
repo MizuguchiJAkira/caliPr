@@ -709,6 +709,10 @@ class Handler(BaseHTTPRequestHandler):
                 # open, so a batch run actually reaches the fish it predicted.
                 "predicted": (self.images_dir / "sidecars_auto"
                               / f"{fid}.json").is_file(),
+                # The frontal model's cache is kept apart, so the labeler can
+                # apply it when that view is opened.
+                "predicted_frontal": (self.images_dir / "sidecars_auto" / "frontal"
+                                      / f"{fid}.json").is_file(),
             })
         return out
 
