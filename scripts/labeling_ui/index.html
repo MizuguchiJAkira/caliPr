@@ -363,7 +363,7 @@
         <span>mm</span>
       </div>
       <div id="calread">—</div>
-      <div id="autocal"><button id="useauto">use ruler auto-scale</button><span id="autotxt"></span></div>
+      <div id="autocal"><button id="useauto" title="Find the ruler and put point a and point b on it, the way Auto-label places a landmark">place the ruler points</button><span id="autotxt"></span></div>
       <div id="ticktxt"></div>
       <details id="imgpanel">
         <summary>image adjustments <span id="imgstate"></span></summary>
@@ -1140,7 +1140,10 @@ function ingest(sc){
       if(b.calibration.mode==='ticks'){ model[v].auto_ppm=b.calibration.px_per_mm;
         model[v].auto_notes=b.calibration.notes; }
       else { model[v].ruler={a:b.calibration.point_a,b:b.calibration.point_b};
-        model[v].known_mm=b.calibration.known_mm; } }
+        model[v].known_mm=b.calibration.known_mm;
+        // Reopening keeps the record of who placed them, so it is not quietly
+        // upgraded to "hand-placed" by a save that changed something else.
+        model[v].ruler_from_ticks = b.calibration.placed_by==='ruler-ticks'; } }
   }
   // Restore the data-compromise record, else re-opening a saved specimen and
   // saving again would silently drop its note and trait exclusions.
@@ -1815,6 +1818,9 @@ window.addEventListener('mouseup',e=>{
     // model's outline, and it stops being excluded from what the next model
     // trains on. An outline nobody touched stays marked.
     if(dragTarget.kind==='polyvtx') pred.polys.delete(dragTarget.name);
+    // Same for a ruler point the detector placed: once it is moved it is yours,
+    // and the sidecar should stop saying the detector put it there.
+    if(dragTarget.kind==='ruler') model[view].ruler_from_ticks=false;
     persistDraft(); buildTasks(); draw(); toast('Moved '+dragName(dragTarget)); }
   else if(down&&moved<5){ const r=cv.getBoundingClientRect();      // plain click → place
     const [ix,iy]=toImg(e.clientX-r.left,e.clientY-r.top);
@@ -1928,12 +1934,42 @@ function renderTickSummary(){
       : '';
   reserve(el);
 }
-function applyAutoCal(){
+// Put the two ruler points down, the way Auto-label puts a landmark down.
+//
+// The detector already locates every millimetre tick on the ruler, so the two
+// points do not have to be inferred from a spacing -- they are two ticks it
+// found, and the span between them is an exact whole number of millimetres.
+// That is better than the number it used to write straight into the
+// calibration: the scale is now two points that can be seen, checked and
+// dragged, and it is derived the same way a hand calibration is.
+//
+// The ends of the ruler are used rather than a short span near the fish,
+// because this rig's millimetres are a median 5% wider at one end than the
+// other -- averaging over the whole ruler is the best single number available.
+async function applyAutoCal(){
   if(!autoCal){ toast('No auto-scale for this image'); return; }
-  model[view].auto_ppm=autoCal.px_per_mm;
-  model[view].auto_notes=autoCal.notes;
+  const T=autoCal.ticks, tk=(T && T.ticks) || [];
+  if(tk.length<2 || !T.span_mm){
+    toast('The ruler was found but its ticks were not, so there are no two points to place');
+    return; }
+  // Two points somebody clicked are not replaced without asking, the same as
+  // landmarks. Its own earlier pair it may replace freely.
+  const m0=model[view];
+  if(m0.ruler.a && m0.ruler.b && !m0.ruler_from_ticks
+     && !await ask(`Both ruler points are already placed on this fish.\n\n`
+                   + `Replace them with the two the detector found, `
+                   + `${T.span_mm} mm apart?`, {ok:'Replace'})) return;
+  // x + off is where the real tick is; x alone is where this scale predicted it.
+  const at=i=>[Math.round(tk[i][0]+tk[i][2]), Math.round(tk[i][1])];
+  const m=model[view];
+  m.ruler.a=at(0); m.ruler.b=at(tk.length-1);
+  m.known_mm=T.span_mm;
+  m.ruler_from_ticks=true;          // provenance: nobody clicked these two
+  m.auto_ppm=null; m.auto_notes='';
+  $('#knownmm').value=T.span_mm;
   persistDraft(); updateCalRead(); buildTasks(); draw();
-  toast(`Using ${autoCal.px_per_mm.toFixed(2)} px/mm from ruler ticks`);
+  const px=Math.hypot(m.ruler.b[0]-m.ruler.a[0], m.ruler.b[1]-m.ruler.a[1]);
+  toast(`Placed both ruler points ${T.span_mm} mm apart — ${(px/T.span_mm).toFixed(2)} px/mm`);
 }
 
 // Live px/mm readout — catches a mistyped known_mm (the one calibration error
@@ -2874,7 +2910,10 @@ $('#save').onclick=async()=>{
     if(m.auto_ppm)
       blk.calibration={mode:'ticks',px_per_mm:m.auto_ppm,notes:m.auto_notes||'ruler mm-tick autocalibration'};
     else if(m.ruler.a&&m.ruler.b&&m.known_mm)
-      blk.calibration={mode:'manual',point_a:m.ruler.a,point_b:m.ruler.b,known_mm:m.known_mm};
+      blk.calibration={mode:'manual',point_a:m.ruler.a,point_b:m.ruler.b,known_mm:m.known_mm,
+        // Two points the ruler detector placed are not two points a person
+        // clicked, and the file should not read as though they were.
+        ...(m.ruler_from_ticks?{placed_by:'ruler-ticks'}:{})};
     else if(v==='lateral')
       // No ruler placed. Record that as an explicit scale-free calibration rather
       // than omitting the block: a missing calibration is rejected downstream, so
