@@ -40,11 +40,32 @@ def find_image(images: Path, fish_id: str) -> Path | None:
     return None
 
 
+def excluded(study: Path | None) -> set[str]:
+    """Landmarks and outlines this study has stopped collecting.
+
+    They stay in the sidecar -- they were somebody's work and the study may want
+    them back -- but an overlay is a picture of what the study collects, and
+    drawing a point the labeler no longer shows makes the render disagree with
+    the screen it is meant to be checked against.
+    """
+    if study is None:
+        return set()
+    path = study / "schema.json"
+    if not path.is_file():
+        return set()
+    try:
+        doc = json.loads(path.read_text())
+    except Exception:
+        return set()
+    return set(doc.get("exclude_keypoints") or []) | set(doc.get("exclude_polygons") or [])
+
+
 def render(sidecar: dict, image: Path, width: int = 1400,
-           label: bool = True) -> np.ndarray | None:
+           label: bool = True, skip: set[str] | None = None) -> np.ndarray | None:
+    skip = skip or set()
     lat = sidecar.get("lateral") or {}
-    polys = lat.get("polygons") or {}
-    kps = lat.get("keypoints") or {}
+    polys = {k: v for k, v in (lat.get("polygons") or {}).items() if k not in skip}
+    kps = {k: v for k, v in (lat.get("keypoints") or {}).items() if k not in skip}
     if not polys and not kps:
         return None
     im = cv2.imread(str(image))
@@ -107,6 +128,9 @@ def main(argv=None) -> int:
 
     out = args.out or (_ROOT / "results" / name / "overlays")
     out.mkdir(parents=True, exist_ok=True)
+    skip = excluded(sidecars.parent)
+    if skip:
+        print(f"not drawing what this study no longer collects: {', '.join(sorted(skip))}")
 
     made = skipped = 0
     for path in sorted(sidecars.glob("*.json")):
@@ -115,7 +139,7 @@ def main(argv=None) -> int:
         if img is None:
             skipped += 1
             continue
-        canvas = render(sc, img, width=args.width)
+        canvas = render(sc, img, width=args.width, skip=skip)
         if canvas is None:
             skipped += 1
             continue
