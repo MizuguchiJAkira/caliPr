@@ -1860,8 +1860,10 @@ $('#useauto').onclick=applyAutoCal;
 // needs no clicked points and no typed span.
 let autoCal=null;
 async function loadAutoCal(){
-  autoCal=null; $('#autotxt').textContent='detecting…'; renderTickSummary();
-  if(!cur||!cur.lateral){ $('#autotxt').textContent=''; return; }
+  autoCal=null; $('#autotxt').textContent='detecting…';
+  holdHeight($('#ticktxt')); renderTickSummary();
+  if(!cur||!cur.lateral){ $('#autotxt').textContent='';
+    releaseHeight($('#ticktxt')); renderTickSummary(); return; }
   const s=cur;
   try{
     const r=await api('/api/autocal/'+encodeURIComponent(cur.lateral)+dsq());
@@ -1870,7 +1872,7 @@ async function loadAutoCal(){
       $('#autotxt').textContent=`${r.px_per_mm.toFixed(2)} px/mm detected`; }
     else { $('#autotxt').textContent='auto-scale unavailable'; }
   }catch(e){ $('#autotxt').textContent='auto-scale unavailable'; }
-  renderTickSummary(); draw();
+  releaseHeight($('#ticktxt')); renderTickSummary(); draw();
 }
 // ---- millimetre dots on the ruler ------------------------------------------
 // The auto-scale is one number, measured from how regularly the ticks repeat.
@@ -1890,7 +1892,11 @@ function tickColour(off, ppm){
 }
 function renderTickSummary(){
   const el=$('#ticktxt'), T=autoCal && autoCal.ticks;
-  $('#tickrow').style.display = T ? '' : 'none';
+  // Kept in the flow whether or not there are ticks. Taking it out is another
+  // 19 px the list moves by, and measured over seven fish that cost two moves
+  // per click where holding it cost one. The price is an invisible row on a
+  // study with no ruler at all; the list standing still is worth more.
+  $('#tickrow').style.visibility = T ? '' : 'hidden';
   if(!T){
     // No ticks at the detected spacing: the auto-scale itself is most likely wrong.
     el.innerHTML = (autoCal && autoCal.ticks_error)
@@ -2289,8 +2295,24 @@ function acceptPoint(name){       // the human LOOKED and agrees
   renderAutoStat(); buildTasks(); draw();
   return true;
 }
+// Opening a fish empties these blocks and refills them as each answer arrives:
+// the ruler summary when the scale comes back, the review tally when the cached
+// prediction does. They sit above the specimen list, which is flex:1 and so
+// absorbs every step -- four reflows per click, and the rows slide out from
+// under the cursor mid-click. Holding the height a block already had keeps the
+// list still while it reloads, and lets go the moment real content lands, so no
+// fish is ever shown another fish's numbers and no space is reserved for good.
+function holdHeight(el){
+  if(!el) return;
+  const h = el.getBoundingClientRect().height;
+  if(h > 0) el.style.minHeight = h + 'px';
+}
+function releaseHeight(el){ if(el) el.style.minHeight=''; }
+
 function renderAutoStat(){
   const el=$('#autostat'); if(!el) return;
+  // Emptying it is a reload, not an answer: keep the space until one arrives.
+  if(!pred.model) holdHeight(el); else releaseHeight(el);
   if(!pred.model){ el.textContent=''; return; }
   const n=unreviewed(), nc=Object.keys(pred.corrected).length, na=pred.accepted.size;
   const tally=`<span style="color:var(--good)">${na} accepted</span> · `
