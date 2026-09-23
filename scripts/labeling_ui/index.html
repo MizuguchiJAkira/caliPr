@@ -169,9 +169,6 @@
   #autocal { display:flex; align-items:center; gap:7px; margin-top:6px; }
   #autocal button { padding:3px 8px; font-size:11px; }
   #autotxt { font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
-  #tickrow { display:flex; align-items:center; gap:7px; margin-top:4px; font-size:11px; color:var(--mut); }
-  #tickrow label { display:flex; align-items:center; gap:5px; cursor:pointer; }
-  #tickrow button { padding:2px 7px; font-size:11px; }
   #ticktxt { font-size:11px; color:var(--mut); line-height:1.4; margin-top:3px; }
   #ticktxt b { color:var(--fg); font-weight:600; }
   #calread { margin-top:6px; font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
@@ -367,8 +364,6 @@
       </div>
       <div id="calread">—</div>
       <div id="autocal"><button id="useauto">use ruler auto-scale</button><span id="autotxt"></span></div>
-      <div id="tickrow"><label title="A dot for every millimetre at the detected scale. Green: within ¼ mm of its tick. Amber: within ½ mm. Red: further — the scale does not hold there."><input type="checkbox" id="showticks"> show mm dots on the ruler</label>
-        <button id="tickzoom" title="Zoom to the ruler to check the dots against the ticks">check</button></div>
       <div id="ticktxt"></div>
       <details id="imgpanel">
         <summary>image adjustments <span id="imgstate"></span></summary>
@@ -1600,7 +1595,15 @@ function draw(){
     // keypoints — only label the ACTIVE landmark or the one under the cursor,
     // so placed labels don't pile up and obscure the fish.
     const kpc=getComputedStyle(document.documentElement).getPropertyValue('--kp');
+    // A landmark the study has stopped collecting is not drawn, for the same
+    // reason an excluded outline is not: it is not being worked on and it sits
+    // on top of the ones that are. The coordinate stays in the sidecar, the
+    // entry stays in the list struck through, and selecting it draws it again.
+    const excludedKp=new Set(((SCHEMA&&SCHEMA[view]&&SCHEMA[view].keypoints)||[])
+                             .filter(k=>k.excluded).map(k=>k.name));
     for(const [nm,p] of Object.entries(m.keypoints)){
+      if(excludedKp.has(nm) && !(activeTask&&activeTask.kind==='keypoint'
+                                 &&activeTask.name===nm) && nm!==hoverName) continue;
       // An unreviewed prediction is drawn by the model's own confidence: green
       // where it is sure, orange where it is not. Touching the point returns it
       // to the normal colour, so what stays coloured is what still needs a look.
@@ -1629,7 +1632,6 @@ function draw(){
       ctx.strokeStyle='#c07bff';ctx.lineWidth=1.5;ctx.stroke(); }
     if(m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
     if(m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
-    drawTicks();
   }
   // One screen pixel covers 1/scale image pixels, and that is the floor on
   // placement precision however steady the hand. Fitted to a 4400px crop it is
@@ -1891,73 +1893,41 @@ async function loadAutoCal(){
 // green within a quarter millimetre of its own tick, amber within a half, red
 // beyond. On this rig the ruler is often nearer the camera at one end and the
 // millimetres widen along it, so the dots go amber and red toward the ends.
-let showTicks = localStorage.getItem('calipr_show_ticks')!=='0';
-$('#showticks').checked = showTicks;
-$('#showticks').onchange=e=>{ showTicks=e.target.checked;
-  localStorage.setItem('calipr_show_ticks', showTicks?'1':'0'); draw(); };
 function tickColour(off, ppm){
   const a=Math.abs(off)/ppm;
   return a<=0.25 ? '#37c871' : a<=0.5 ? '#ffb454' : '#ff5d6c';
 }
+// The auto-scale is measured from how regularly the ruler's ticks repeat, and
+// the labeler used to draw a dot per millimetre so that fit could be seen. The
+// ruler is two clicked points as far as anyone using it is concerned, so the
+// dots are gone -- but the fit is still measured, and this says so on the one
+// occasion it matters: when the scale does not hold and the two points should
+// be placed by hand instead. Routine statistics about a scale that is working
+// are not worth the room.
 function renderTickSummary(){
-  const el=$('#ticktxt'), T=autoCal && autoCal.ticks;
-  // Kept in the flow whether or not there are ticks. Taking it out is another
-  // 19 px the list moves by, and measured over seven fish that cost two moves
-  // per click where holding it cost one. The price is an invisible row on a
-  // study with no ruler at all; the list standing still is worth more.
-  $('#tickrow').style.visibility = T ? '' : 'hidden';
+  const el=$('#ticktxt'); if(!el) return;
+  const T=autoCal && autoCal.ticks;
+  const warn = t => `<b style="color:var(--kp)">${t}</b>`;
   if(!T){
-    // No ticks at the detected spacing: the auto-scale itself is most likely wrong.
     el.innerHTML = (autoCal && autoCal.ticks_error)
-      ? `<b style="color:var(--kp)">No ruler ticks at ${autoCal.px_per_mm.toFixed(2)} px/mm</b> — this auto-scale is probably wrong; place the two ruler points instead`
+      ? warn(`No ruler ticks at ${autoCal.px_per_mm.toFixed(2)} px/mm`)
+        + ' — this auto-scale is probably wrong; place the two ruler points instead'
       : '';
     reserve(el);
     return;
   }
+  // Only the failure. How much the millimetres widen along the ruler is a
+  // property of the rig rather than of a fish -- sampled over 18 of these, the
+  // median is 5.2% and 13 exceed 3% -- so warning per fish would fire on most
+  // of them and say nothing about the one in hand. That belongs with the
+  // measurements, not over the labeller's shoulder.
   const n=T.ticks.length, on=T.within_quarter_mm;
-  const a=T.px_per_mm_first_end, b=T.px_per_mm_last_end, spread=Math.abs(b-a)/T.px_per_mm*100;
-  const wrong = on < 0.3*n;
-  el.innerHTML = (wrong ? `<b style="color:var(--kp)">The dots do not follow the ticks — this auto-scale is probably wrong; place the two ruler points instead.</b><br>` : '')
-    + `<b>${on}</b> of ${n} dots within ¼ mm of their tick · worst `
-    + `<b>${T.max_offset_mm.toFixed(1)} mm</b> off`
-    + (spread>=1 ? `<br>millimetres ${spread.toFixed(0)}% wider at one end of the ruler `
-                 + `(${Math.min(a,b).toFixed(1)}–${Math.max(a,b).toFixed(1)} px/mm)` : '');
+  el.innerHTML = on < 0.3*n
+      ? warn('The auto-scale does not follow this ruler')
+        + ` — only ${on} of ${n} millimetres land on a tick. Place the two ruler points instead.`
+      : '';
   reserve(el);
 }
-function drawTicks(){
-  if(!showTicks || view!=='lateral' || !autoCal || !autoCal.ticks || imgView!=='lateral') return;
-  const T=autoCal.ticks, ppm=T.px_per_mm, gap=ppm*vs.scale;          // screen px between dots
-  const r=Math.max(1.2, Math.min(4, gap*0.28));
-  for(const [x,y,off] of T.ticks){
-    const [sx,sy]=toScr(x,y);
-    if(sx<-5||sy<-5||sx>cv.width+5||sy>cv.height+5) continue;
-    ctx.beginPath(); ctx.arc(sx,sy,r,0,7); ctx.fillStyle=tickColour(off,ppm); ctx.fill();
-    // Close enough to see individual ticks: mark where the real one is, so the
-    // gap between dot and tick is visible, not just coloured.
-    if(gap>=14 && Math.abs(off)>=1){
-      const [tx]=toScr(x+off,y);
-      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(tx,sy);
-      ctx.strokeStyle='#ffffffaa'; ctx.lineWidth=1; ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(tx,sy-r-2); ctx.lineTo(tx,sy+r+2); ctx.stroke();
-    }
-  }
-}
-$('#tickzoom').onclick=()=>{
-  const T=autoCal && autoCal.ticks; if(!T || !imgW) return;
-  if(view!=='lateral'){ toast('The ruler dots are on the lateral view'); return; }
-  if(!showTicks){ showTicks=true; $('#showticks').checked=true; localStorage.setItem('calipr_show_ticks','1'); }
-  const xs=T.ticks.map(t=>t[0]), ys=T.ticks.map(t=>t[1]);
-  const x0=Math.min(...xs), x1=Math.max(...xs), yc=(Math.min(...ys)+Math.max(...ys))/2;
-  const rr=cv.getBoundingClientRect();
-  // Framed on the first ten centimetres from the end that drifts most, where a
-  // misfit shows first; wheel out to see the whole ruler.
-  const worstLeft = Math.abs(T.ticks[0][2]) >= Math.abs(T.ticks[T.ticks.length-1][2]);
-  const span=Math.min(x1-x0, 40*T.px_per_mm);
-  vs.scale = rr.width/(span*1.1);
-  const cx = worstLeft ? x0+span/2 : x1-span/2;
-  vs.ox = rr.width/2 - cx*vs.scale; vs.oy = rr.height/2 - yc*vs.scale;
-  draw();
-};
 function applyAutoCal(){
   if(!autoCal){ toast('No auto-scale for this image'); return; }
   model[view].auto_ppm=autoCal.px_per_mm;
