@@ -67,6 +67,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_23": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "8c52eb07d2ac3c8b26d8a11d310bf17edba85e7a5d67a7dd56c363e52a7f8453",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "8c52eb07d2ac3c8b26d8a11d310bf17edba85e7a5d67a7dd56c363e52a7f8453",
@@ -146,6 +151,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_3": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "16807fc6ceadf4b96a02a36e29095997503f44922c628f122ead39bce1791281",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "16807fc6ceadf4b96a02a36e29095997503f44922c628f122ead39bce1791281",
@@ -165,6 +175,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_31": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "ce13098f306cc3464b86e1dd2189e30d7a7515358cb7c74396adb57a60707054",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "ce13098f306cc3464b86e1dd2189e30d7a7515358cb7c74396adb57a60707054",
@@ -220,6 +235,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_36": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "7216b4e29fc66c9790ebdb3f4dfa43d31f40cc12e2e666dbc0bb64f86a5ae0c9",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "7216b4e29fc66c9790ebdb3f4dfa43d31f40cc12e2e666dbc0bb64f86a5ae0c9",
@@ -227,6 +247,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_37": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "01a60cd925cc9044ed9c948c0a7a4ec8ca005a48bd7f05087b6b77082b5579c4",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "01a60cd925cc9044ed9c948c0a7a4ec8ca005a48bd7f05087b6b77082b5579c4",
@@ -234,6 +259,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_38": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "29e73ed89c0dd6fa99324c9eeb38552a22a7606dbcbed2b5c657e036b5ab1fc4",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "29e73ed89c0dd6fa99324c9eeb38552a22a7606dbcbed2b5c657e036b5ab1fc4",
@@ -241,6 +271,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_39": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "0d5284651b3dfb05e4f52bf6fa124ac6d500e50901c76dd071dc3ce9c1c6d76e",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "0d5284651b3dfb05e4f52bf6fa124ac6d500e50901c76dd071dc3ce9c1c6d76e",
@@ -248,6 +283,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_4": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "b8da25525220576ea4ba01afdd460ec4b487d9bdc95496d683af5f917137a3d6",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "b8da25525220576ea4ba01afdd460ec4b487d9bdc95496d683af5f917137a3d6",
@@ -255,6 +295,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_40": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "2714deccc0fd38df0c756baa0ebff0d287759ff875cd4948f736d755cfccd3ad",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "2714deccc0fd38df0c756baa0ebff0d287759ff875cd4948f736d755cfccd3ad",
@@ -262,6 +307,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_41": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "0e1e0eb572b735ada582300532e484dddd093ce887962644a059f1e0fdc80e9a",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "0e1e0eb572b735ada582300532e484dddd093ce887962644a059f1e0fdc80e9a",
@@ -269,6 +319,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_42": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "2fcc95fe0e65ffe5e8006c4094424e8d2269cd13425c192a7605bd5a5243e27e",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "2fcc95fe0e65ffe5e8006c4094424e8d2269cd13425c192a7605bd5a5243e27e",
@@ -276,6 +331,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_43": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "e94da23d2401154af920dfd71f2381e6d67537c7ebd88739f62adefdc58fb034",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "e94da23d2401154af920dfd71f2381e6d67537c7ebd88739f62adefdc58fb034",
@@ -283,6 +343,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_44": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "7a925b3ed380fabd300558f281287c233ad5c429e166d7fd615ea85c524e872a",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "7a925b3ed380fabd300558f281287c233ad5c429e166d7fd615ea85c524e872a",
@@ -290,6 +355,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_45": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "54e34867e2884ee5c220a5a36c7299ce9cffd981136b6de545f879dfad120168",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "54e34867e2884ee5c220a5a36c7299ce9cffd981136b6de545f879dfad120168",
@@ -297,6 +367,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_46": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "fcd2bdc674a0a4b0ad6bbf583f613e31882b178fc7170a20d6b1f54e05ed7a67",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "fcd2bdc674a0a4b0ad6bbf583f613e31882b178fc7170a20d6b1f54e05ed7a67",
@@ -304,6 +379,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_47": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "34de8f3b97170eb62d752c13944165239d732da4568a962ac280b240d64d41bd",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "34de8f3b97170eb62d752c13944165239d732da4568a962ac280b240d64d41bd",
@@ -311,6 +391,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_48": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "075b11072dc231a4914a52adb7978a4e6aa5cebbb5a456f97fd3b9436c4728cc",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "075b11072dc231a4914a52adb7978a4e6aa5cebbb5a456f97fd3b9436c4728cc",
@@ -318,6 +403,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_49": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "e53801799d903ef384e8003c7e5ceda4e41de688eb4e7c90e632021f3dfbd79c",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "e53801799d903ef384e8003c7e5ceda4e41de688eb4e7c90e632021f3dfbd79c",
@@ -325,6 +415,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_5": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "dc0aeac1a7c4fe18871ae626e78bce29685c822d110523a903d29e7de3adcd83",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "dc0aeac1a7c4fe18871ae626e78bce29685c822d110523a903d29e7de3adcd83",
@@ -332,6 +427,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_50": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "255a5954d37218a37fb57c2f88a1e16f486bd14f3139ccf86681f7fe96186e21",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "255a5954d37218a37fb57c2f88a1e16f486bd14f3139ccf86681f7fe96186e21",
@@ -339,6 +439,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_51": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "9525f4214d51b883853a28ad8bcf233ed8b95665463fae819e8293511380ae96",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "9525f4214d51b883853a28ad8bcf233ed8b95665463fae819e8293511380ae96",
@@ -346,6 +451,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_6": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "54d6050ead96ea792e61eb1869fac7dc3dc1354256484c59ff2ebf197581ac17",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "54d6050ead96ea792e61eb1869fac7dc3dc1354256484c59ff2ebf197581ac17",
@@ -353,6 +463,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_7": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "d7591033318f92247507b15f40a1b3bc2056168c2dd7c7500600db3276e30fad",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "d7591033318f92247507b15f40a1b3bc2056168c2dd7c7500600db3276e30fad",
@@ -360,6 +475,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_8": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "033aac2c8eef6a95ea093657141e2a2739fe62c51dd5c00f63bf964e5c1365fe",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "033aac2c8eef6a95ea093657141e2a2739fe62c51dd5c00f63bf964e5c1365fe",
@@ -367,6 +487,11 @@
     }
   },
   "Salvelinus_fontinalis_ASN_9": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "2a3a4f230234e4836f9b67b0534826fe0f775bc58b5da5afa894666f6f7b07cf",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "2a3a4f230234e4836f9b67b0534826fe0f775bc58b5da5afa894666f6f7b07cf",
@@ -374,6 +499,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_1": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "95e3e278363686aec210a7d0a10e5b5b1d57e4fabe9a1fe59d5b20070c69f06e",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "95e3e278363686aec210a7d0a10e5b5b1d57e4fabe9a1fe59d5b20070c69f06e",
@@ -381,6 +511,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_10": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "9d9fbd3627847a3f6e7965808f800c588071163f30c520885d0fe49cb32397be",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "9d9fbd3627847a3f6e7965808f800c588071163f30c520885d0fe49cb32397be",
@@ -388,6 +523,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_11": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "a9afb848226a41e867f91580355d4c0a6d8db929533fe2a6e441900e4d64659c",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "a9afb848226a41e867f91580355d4c0a6d8db929533fe2a6e441900e4d64659c",
@@ -395,6 +535,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_12": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "761bfc05d2ce2ba2fad1974c74ca983ead1e7edc3e8e2c61653a1da459b9fb24",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "761bfc05d2ce2ba2fad1974c74ca983ead1e7edc3e8e2c61653a1da459b9fb24",
@@ -402,6 +547,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_13": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "2e5540a4cc75bbcb7c1433e316f933f20cb144c892f820faac4ca9aae345f452",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "2e5540a4cc75bbcb7c1433e316f933f20cb144c892f820faac4ca9aae345f452",
@@ -409,6 +559,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_14": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "4465e347e6f88395f418421ca64f0c3770208e25e6fff6925a9f7fc7eec1cd00",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "4465e347e6f88395f418421ca64f0c3770208e25e6fff6925a9f7fc7eec1cd00",
@@ -416,6 +571,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_15": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "4701d3807c5c903192af185140992daee923a60b9831bb207b1bbb7d88a03a0a",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "4701d3807c5c903192af185140992daee923a60b9831bb207b1bbb7d88a03a0a",
@@ -435,6 +595,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_2": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "cf0a44b310fdef481ff19ea7da6c5be6bc4515c60447a77e88744a6031010c8b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "cf0a44b310fdef481ff19ea7da6c5be6bc4515c60447a77e88744a6031010c8b",
@@ -454,6 +619,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_29": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "03301d43a4cacbb262f252e6f7ec72dc30ec0e73cab1526532d391211bb320ec",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "03301d43a4cacbb262f252e6f7ec72dc30ec0e73cab1526532d391211bb320ec",
@@ -461,6 +631,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_3": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "1682097f178c83cc0e378b531a94c03078e88c8dfc6f22a6abe2eeeb0a7506bc",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "1682097f178c83cc0e378b531a94c03078e88c8dfc6f22a6abe2eeeb0a7506bc",
@@ -480,6 +655,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_31": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "415240cbb34c1144b9f07a24545c4bcbd659638f7445c27e5ea03bb1a3838cda",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "415240cbb34c1144b9f07a24545c4bcbd659638f7445c27e5ea03bb1a3838cda",
@@ -487,6 +667,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_32": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "5bc8a6a7e1ac4e1ecf7a12b7fe08ff472b170b6ba9abe1998d948d3259500c91",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "5bc8a6a7e1ac4e1ecf7a12b7fe08ff472b170b6ba9abe1998d948d3259500c91",
@@ -494,6 +679,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_33": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "11a953c7a389f5731cafbe9a951cbe3f4b8b35faa190e4e152fc45722afc57ab",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "11a953c7a389f5731cafbe9a951cbe3f4b8b35faa190e4e152fc45722afc57ab",
@@ -501,6 +691,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_34": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "b50dcab9e6a405c8b67e5a64fcf3c1192fdcd7d340ebcb6dfb02378062dde060",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "b50dcab9e6a405c8b67e5a64fcf3c1192fdcd7d340ebcb6dfb02378062dde060",
@@ -508,6 +703,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_35": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "f6d58ed1334a7454eb19e8a3398d9841008938fc3e08a8f0e4e8e97cd8dc866d",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "f6d58ed1334a7454eb19e8a3398d9841008938fc3e08a8f0e4e8e97cd8dc866d",
@@ -515,6 +715,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_36": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "86d4f458b590d3370cb3dc75e4853d717c195862dac439d4a5adf073fad2172b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "86d4f458b590d3370cb3dc75e4853d717c195862dac439d4a5adf073fad2172b",
@@ -522,6 +727,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_37": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "46002871787d9e32b2ff35d925197147f1b3217829b8cd0b0b9c50049a060026",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "46002871787d9e32b2ff35d925197147f1b3217829b8cd0b0b9c50049a060026",
@@ -529,6 +739,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_38": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "65ceb4d64c9831ec04270bb84327416b9f50b91928708fca0ac02b7a19b17ec1",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "65ceb4d64c9831ec04270bb84327416b9f50b91928708fca0ac02b7a19b17ec1",
@@ -536,6 +751,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_39": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "80e76d8b692144d25bb5a3952757b4516411f6a4e9b2b553b06533ccc038f861",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "80e76d8b692144d25bb5a3952757b4516411f6a4e9b2b553b06533ccc038f861",
@@ -543,6 +763,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_4": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "926e207ae0538297e171ffbf8564c6c04115fe53a215b81187a43db328e140b8",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "926e207ae0538297e171ffbf8564c6c04115fe53a215b81187a43db328e140b8",
@@ -550,6 +775,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_40": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "da78e5ae7d8a2e4b3688839b9740d2f08ce4a022701e9656ea14f86742c85773",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "da78e5ae7d8a2e4b3688839b9740d2f08ce4a022701e9656ea14f86742c85773",
@@ -557,6 +787,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_41": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "e3886751689a225fb97522452c002133875db560f1b075eed0da69863cb7540d",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "e3886751689a225fb97522452c002133875db560f1b075eed0da69863cb7540d",
@@ -564,6 +799,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_42": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "de703ff83d3a40f24c82dd43c0c1db9f94dffb4ef571b5a78eefac9de948f767",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "de703ff83d3a40f24c82dd43c0c1db9f94dffb4ef571b5a78eefac9de948f767",
@@ -571,6 +811,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_43": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "094f2f154f0a9b52455be58a8ac7c6b2262bb067b5f6af84bfb0e6f31879afb1",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "094f2f154f0a9b52455be58a8ac7c6b2262bb067b5f6af84bfb0e6f31879afb1",
@@ -578,6 +823,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_44": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "e9f0860c498168217f157e305cef955ba09adf4e472b951e05d2dc7ab2ef33ac",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "e9f0860c498168217f157e305cef955ba09adf4e472b951e05d2dc7ab2ef33ac",
@@ -609,6 +859,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_47": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "fa4e15de30120d060fecbbe6ef376154f8afb13d13e319071a2fc4cde85b2e93",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "fa4e15de30120d060fecbbe6ef376154f8afb13d13e319071a2fc4cde85b2e93",
@@ -616,6 +871,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_48": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "6311ab19eacfa413f5619774ef0f4223d498050775e07e787ade98322cd92d5b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "6311ab19eacfa413f5619774ef0f4223d498050775e07e787ade98322cd92d5b",
@@ -623,6 +883,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_49": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "31baf48b7bae5aea3b81078153df788d6f26eac418852dc1ae94d204fdd4b03b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "31baf48b7bae5aea3b81078153df788d6f26eac418852dc1ae94d204fdd4b03b",
@@ -630,6 +895,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_5": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "df1fdd04def2a0e80911c31d8eff1b274cb31a1c4ef1119d365e89760f81f8aa",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "df1fdd04def2a0e80911c31d8eff1b274cb31a1c4ef1119d365e89760f81f8aa",
@@ -637,6 +907,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_50": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "10e657e78050c0bcec99b3e931caff6e9e0d673056d5b7dcec9b377a7c1c013b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "10e657e78050c0bcec99b3e931caff6e9e0d673056d5b7dcec9b377a7c1c013b",
@@ -644,6 +919,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_6": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "c28c720480fd51c8cc79b1a2a1aeef4f8fa6b16eea9d686827cc80d2bc70a983",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "c28c720480fd51c8cc79b1a2a1aeef4f8fa6b16eea9d686827cc80d2bc70a983",
@@ -651,6 +931,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_7": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "17ce714429125c69fdbfbe184992a94697626bb1091af12834b9979f008c5692",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "17ce714429125c69fdbfbe184992a94697626bb1091af12834b9979f008c5692",
@@ -658,6 +943,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_8": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "91dca801bf2f160f19a70d5076005cf6432b95483f7c63caa684bacc8475e5b9",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "91dca801bf2f160f19a70d5076005cf6432b95483f7c63caa684bacc8475e5b9",
@@ -665,6 +955,11 @@
     }
   },
   "Salvelinus_fontinalis_HRN_9": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "7494ec64a1f0d50e56494b68f12062796a49fd39b187ae80d0da0be64b5b2de3",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "7494ec64a1f0d50e56494b68f12062796a49fd39b187ae80d0da0be64b5b2de3",
@@ -672,6 +967,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_1": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "038d02479c0625b3ac067ae293e2b9161edc33efb4b7ba2be95796fdc2b942ec",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "038d02479c0625b3ac067ae293e2b9161edc33efb4b7ba2be95796fdc2b942ec",
@@ -679,6 +979,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_10": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "88dbe7d757c9cc0fffb704abc71b1bbeeb0ca1dd415b851ad21d438c6ee733df",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "88dbe7d757c9cc0fffb704abc71b1bbeeb0ca1dd415b851ad21d438c6ee733df",
@@ -686,6 +991,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_11": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "1c8cb528231c36554ab9ecdf2b14bf3091f85116151524228c3db85a9480867d",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "1c8cb528231c36554ab9ecdf2b14bf3091f85116151524228c3db85a9480867d",
@@ -693,6 +1003,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_12": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "4f356d309409e142e881ab94b69084da08d4af787e633aff0258a364b209316d",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "4f356d309409e142e881ab94b69084da08d4af787e633aff0258a364b209316d",
@@ -700,6 +1015,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_13": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "e0d13cc86ea13a840b9366356e741bd4cf72a99cf50578ea1177e4b0d382268e",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "e0d13cc86ea13a840b9366356e741bd4cf72a99cf50578ea1177e4b0d382268e",
@@ -707,6 +1027,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_14": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "fcee83407fb0199e2549a7b2417cc54a19f5d68b9423712b93d7644b50f55c11",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "fcee83407fb0199e2549a7b2417cc54a19f5d68b9423712b93d7644b50f55c11",
@@ -714,6 +1039,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_15": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "c8608c5144eb84a8e024c45bb3c7e2ba5886c25687d30dd67f9b71370338e1af",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "c8608c5144eb84a8e024c45bb3c7e2ba5886c25687d30dd67f9b71370338e1af",
@@ -721,6 +1051,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_16": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "4113944c75be5b297ea8911e1f19b4f68d6c79ee1f61febc00209f428728c34f",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "4113944c75be5b297ea8911e1f19b4f68d6c79ee1f61febc00209f428728c34f",
@@ -728,6 +1063,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_17": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "a894104ea5c0fdb08d32b8c873ccd429e945bb6a89ca917aa2ccc1e0c83bbacf",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "a894104ea5c0fdb08d32b8c873ccd429e945bb6a89ca917aa2ccc1e0c83bbacf",
@@ -742,6 +1082,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_19": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "2a65e1ee7d76a66c4a573d7011e4f653fee1394aab93d0ad0509703ac0d94e52",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "2a65e1ee7d76a66c4a573d7011e4f653fee1394aab93d0ad0509703ac0d94e52",
@@ -749,6 +1094,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_2": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "0dbad929caed6be43ada79a9644a52bc557d2b10b3af67db5a47ff900bdf2c40",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "0dbad929caed6be43ada79a9644a52bc557d2b10b3af67db5a47ff900bdf2c40",
@@ -756,6 +1106,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_20": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "451919eb5f99c961b19677e738844a3bb1c4c8518fa847b3d5c3b40f54ab452b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "451919eb5f99c961b19677e738844a3bb1c4c8518fa847b3d5c3b40f54ab452b",
@@ -763,6 +1118,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_21": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "8aa271f5555950e05d9174bceb3146c204d266135e10ef01610d8640097f4504",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "8aa271f5555950e05d9174bceb3146c204d266135e10ef01610d8640097f4504",
@@ -770,6 +1130,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_22": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "9131bb391774a0bb3ac1a135bd6cf6ee898cb3cd7c3994f76c2675b77412aa7d",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "9131bb391774a0bb3ac1a135bd6cf6ee898cb3cd7c3994f76c2675b77412aa7d",
@@ -777,6 +1142,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_23": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "2ec4d6f5806f2ebb9e1df0e09a8ddae8a844e07ed919d1a1d21cfc8761079199",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "2ec4d6f5806f2ebb9e1df0e09a8ddae8a844e07ed919d1a1d21cfc8761079199",
@@ -784,6 +1154,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_24": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "00085476a31478ef4e7cfaad8b7f96cf5c5966c69757a38ce36cddb1bd2d1e6d",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "00085476a31478ef4e7cfaad8b7f96cf5c5966c69757a38ce36cddb1bd2d1e6d",
@@ -791,6 +1166,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_25": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "0964cc11692a9c6cb177caa56a91f96b2eb30c1f46a4664dd37385fa1ca564ce",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "0964cc11692a9c6cb177caa56a91f96b2eb30c1f46a4664dd37385fa1ca564ce",
@@ -798,6 +1178,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_26": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "a733e9a87b615644e956aa959370030ad89bee92306d1cfd32b27ddc24df69a2",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "a733e9a87b615644e956aa959370030ad89bee92306d1cfd32b27ddc24df69a2",
@@ -817,6 +1202,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_28": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "7e53af785806cab8d999cb754f7bd7698b152c1dd7a10e900bfd1afad0e95af5",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "7e53af785806cab8d999cb754f7bd7698b152c1dd7a10e900bfd1afad0e95af5",
@@ -824,6 +1214,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_29": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "b5c45512ee2ca8376acaf9f2d103bb35d8966ef9d07f9c01ce7049858ccda09b",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "b5c45512ee2ca8376acaf9f2d103bb35d8966ef9d07f9c01ce7049858ccda09b",
@@ -843,6 +1238,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_30": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "bff546f2e65743eb8f9ba4c5424424dd3eb3e3e2d50541d25e3a46579f89f010",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "bff546f2e65743eb8f9ba4c5424424dd3eb3e3e2d50541d25e3a46579f89f010",
@@ -850,6 +1250,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_31": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "9aa854256c74add47b94291eae063b5321fc899a6cebe857be12370a5bb4aa74",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "9aa854256c74add47b94291eae063b5321fc899a6cebe857be12370a5bb4aa74",
@@ -857,6 +1262,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_32": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "34080e09c16e9b667959ba8f2d0d51810627af6431258982547fb3300bfd214a",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "34080e09c16e9b667959ba8f2d0d51810627af6431258982547fb3300bfd214a",
@@ -864,6 +1274,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_33": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "1e2ac2f89fda33b13d9dcb557c2770c53aa1ed8ecaebf3504e5fe9c4b7c17a24",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "1e2ac2f89fda33b13d9dcb557c2770c53aa1ed8ecaebf3504e5fe9c4b7c17a24",
@@ -871,6 +1286,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_34": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "0e5d070ed864f37ef5040e18a59d2fcf1f1e71a5410d6fd5abfdd0f5eac96f6c",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "0e5d070ed864f37ef5040e18a59d2fcf1f1e71a5410d6fd5abfdd0f5eac96f6c",
@@ -1034,6 +1454,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_47": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "5697e3788dfba1e42b6626d9ab60ca0abda2309a37f4bebcb476f1bbc32babb7",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "5697e3788dfba1e42b6626d9ab60ca0abda2309a37f4bebcb476f1bbc32babb7",
@@ -1125,6 +1550,11 @@
     }
   },
   "Salvelinus_fontinalis_TXD_9": {
+    "frontal": {
+      "height": 4000,
+      "sha256": "c28cc3063d865c11f2c9b9017b3e7e4a8e2d49711a93316f5f3a203be66a7c69",
+      "width": 6000
+    },
     "lateral": {
       "height": 4000,
       "sha256": "c28cc3063d865c11f2c9b9017b3e7e4a8e2d49711a93316f5f3a203be66a7c69",

@@ -48,6 +48,28 @@
         "width": 6000,
         "height": 4000,
         "sha256": "0e5d070ed864f37ef5040e18a59d2fcf1f1e71a5410d6fd5abfdd0f5eac96f6c"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "0e5d070ed864f37ef5040e18a59d2fcf1f1e71a5410d6fd5abfdd0f5eac96f6c"
+      }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.908,
+        "mouth_right": 0.866
       }
     }
   },
@@ -131,8 +153,29 @@
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1402,
+        917
+      ],
+      "point_b": [
+        5176,
+        835
+      ],
+      "known_mm": 150,
+      "placed_by": "ruler-ticks"
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        342,
+        1870
+      ],
+      "mouth_right": [
+        536,
+        1872
+      ]
     }
   }
 }

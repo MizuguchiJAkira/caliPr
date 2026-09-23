@@ -45,8 +45,34 @@
         "width": 6000,
         "height": 4000,
         "sha256": "7a925b3ed380fabd300558f281287c233ad5c429e166d7fd615ea85c524e872a"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "7a925b3ed380fabd300558f281287c233ad5c429e166d7fd615ea85c524e872a"
       }
-    }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 1.0,
+        "mouth_right": 0.895
+      }
+    },
+    "exclude_traits": [
+      "PlFl"
+    ],
+    "data_note": "outlier, excluded: PlFl (3.01x of its strain's typical, size-corrected)"
   },
   "lateral": {
     "polygons": {
@@ -222,6 +248,18 @@
         964
       ],
       "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        601,
+        1957
+      ],
+      "mouth_right": [
+        806,
+        1950
+      ]
     }
   }
 }

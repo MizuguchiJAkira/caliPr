@@ -46,15 +46,6 @@
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
-    "coordinate_history": [
-      {
-        "at": "2026-09-21T15:18:12",
-        "view": "lateral",
-        "dx": 965,
-        "points": 37,
-        "reason": "one photograph per fish: the lateral crop's start column"
-      }
-    ],
     "images": {
       "lateral": {
         "width": 6000,
@@ -66,166 +57,222 @@
         "height": 4000,
         "sha256": "c7408492781174f3d627631a5546de86884dd3bb1e665c26e6eac1d7122ef93d"
       }
-    }
+    },
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:12",
+        "view": "lateral",
+        "dx": 965,
+        "points": 37,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ]
   },
   "lateral": {
     "polygons": {
       "anal": [
         [
-          3655.0,
-          2087.0
+          3655,
+          2087
         ],
         [
-          3743.0,
-          2101.0
+          3743,
+          2101
         ],
         [
-          3817.0,
-          2105.0
+          3817,
+          2105
         ],
         [
-          3908.0,
-          2111.0
+          3908,
+          2111
         ],
         [
-          4005.0,
-          2105.0
+          4005,
+          2105
         ],
         [
-          4078.0,
-          2098.0
+          4078,
+          2098
         ],
         [
-          4131.0,
-          2083.0
+          4131,
+          2083
         ],
         [
-          4127.0,
-          2093.0
+          4127,
+          2093
         ],
         [
-          4113.0,
-          2052.0
+          4113,
+          2052
         ],
         [
-          4087.0,
-          2026.0
+          4087,
+          2026
         ],
         [
-          4066.0,
-          1995.0
+          4066,
+          1995
         ],
         [
-          3971.0,
-          2007.0
+          3971,
+          2007
         ],
         [
-          3860.0,
-          2021.0
+          3860,
+          2021
         ],
         [
-          3770.0,
-          2043.0
+          3770,
+          2043
+        ]
+      ],
+      "dorsal": [
+        [
+          2895,
+          1432
+        ],
+        [
+          3021,
+          1410
+        ],
+        [
+          3107,
+          1420
+        ],
+        [
+          3170,
+          1430
+        ],
+        [
+          3206,
+          1447
+        ],
+        [
+          3248,
+          1457
+        ],
+        [
+          3303,
+          1481
+        ],
+        [
+          3303,
+          1510
+        ],
+        [
+          3160,
+          1503
         ]
       ]
     },
     "keypoints": {
       "eye_anterior": [
-        1710.0,
-        1806.0
+        1710,
+        1806
       ],
       "eye_posterior": [
-        1859.0,
-        1769.0
+        1859,
+        1769
       ],
       "eye_dorsal": [
-        1764.0,
-        1737.0
+        1764,
+        1737
       ],
       "eye_ventral": [
-        1812.0,
-        1859.0
+        1812,
+        1859
       ],
       "premaxilla_tip": [
-        1612.0,
-        1865.0
+        1612,
+        1865
       ],
       "maxilla_mandible_intersection": [
-        1735.0,
-        1930.0
+        1735,
+        1930
       ],
       "lower_jaw_tip": [
-        1615.0,
-        1910.0
+        1615,
+        1910
       ],
       "operculum_posterior": [
-        2241.0,
-        1813.0
+        2241,
+        1813
       ],
       "pectoral_insertion_upper": [
-        2198.0,
-        1947.0
+        2198,
+        1947
       ],
       "pectoral_ray_tip": [
-        2598.0,
-        1960.0
+        2598,
+        1960
       ],
       "peduncle_narrowest_dorsal": [
-        4416.0,
-        1739.0
+        4416,
+        1739
       ],
       "peduncle_narrowest_ventral": [
-        4395.0,
-        1925.0
+        4395,
+        1925
       ],
       "caudal_base": [
-        4450.0,
-        1822.0
+        4450,
+        1822
       ],
       "dorsal_base_center": [
-        3059.0,
-        1455.0
+        3059,
+        1455
       ],
       "dorsal_tip": [
-        3146.0,
-        1422.0
+        3146,
+        1422
       ],
       "pelvic_base_center": [
-        3041.0,
-        2099.0
+        3041,
+        2099
       ],
       "pelvic_tip": [
-        3101.0,
-        2023.0
+        3101,
+        2023
       ],
       "anal_base_center": [
-        3784.0,
-        2019.0
+        3784,
+        2019
       ],
       "anal_tip": [
-        4129.0,
-        2086.0
+        4129,
+        2086
       ],
       "dorsal_base_anterior": [
-        2903.0,
-        1420.0
+        2903,
+        1420
       ],
       "dorsal_base_posterior": [
-        3297.0,
-        1498.0
+        3297,
+        1498
       ],
       "anal_base_anterior": [
-        3658.0,
-        2086.0
+        3658,
+        2086
       ],
       "anal_base_posterior": [
-        4069.0,
-        1995.0
+        4069,
+        1995
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1838,
+        1027
+      ],
+      "point_b": [
+        4985,
+        981
+      ],
+      "known_mm": 152,
+      "placed_by": "ruler-ticks"
     }
   },
   "frontal": {

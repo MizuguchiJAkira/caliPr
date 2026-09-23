@@ -47,12 +47,26 @@
           ],
           "px": 35,
           "conf": 0.886
+        },
+        "dorsal_tip": {
+          "from": [
+            3084,
+            1541
+          ],
+          "to": [
+            2967,
+            1573
+          ],
+          "px": 121.3,
+          "conf": 0.354
         }
       },
       "unreviewed": [],
       "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-17T15:56:01.508Z"
+      "polygons_from_model": [
+        "pectoral"
+      ],
+      "predicted_at": "2026-09-23T01:48:16.508Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
@@ -61,6 +75,28 @@
         "width": 6000,
         "height": 4000,
         "sha256": "7216b4e29fc66c9790ebdb3f4dfa43d31f40cc12e2e666dbc0bb64f86a5ae0c9"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "7216b4e29fc66c9790ebdb3f4dfa43d31f40cc12e2e666dbc0bb64f86a5ae0c9"
+      }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.981,
+        "mouth_right": 0.938
       }
     }
   },
@@ -126,6 +162,104 @@
         [
           3596,
           1990
+        ]
+      ],
+      "pectoral": [
+        [
+          2217,
+          2007
+        ],
+        [
+          2185,
+          2011
+        ],
+        [
+          2157,
+          2022
+        ],
+        [
+          2156,
+          2045
+        ],
+        [
+          2175,
+          2069
+        ],
+        [
+          2189,
+          2096
+        ],
+        [
+          2211,
+          2118
+        ],
+        [
+          2239,
+          2132
+        ],
+        [
+          2266,
+          2144
+        ],
+        [
+          2294,
+          2157
+        ],
+        [
+          2323,
+          2165
+        ],
+        [
+          2353,
+          2173
+        ],
+        [
+          2382,
+          2163
+        ],
+        [
+          2408,
+          2148
+        ],
+        [
+          2426,
+          2126
+        ],
+        [
+          2440,
+          2102
+        ],
+        [
+          2450,
+          2074
+        ],
+        [
+          2427,
+          2054
+        ],
+        [
+          2402,
+          2037
+        ],
+        [
+          2373,
+          2027
+        ],
+        [
+          2342,
+          2023
+        ],
+        [
+          2312,
+          2015
+        ],
+        [
+          2281,
+          2011
+        ],
+        [
+          2248,
+          2011
         ]
       ]
     },
@@ -209,11 +343,35 @@
       "anal_base_posterior": [
         3842,
         1944
+      ],
+      "dorsal_tip": [
+        2967,
+        1573
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1849,
+        967
+      ],
+      "point_b": [
+        2874,
+        962
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        613,
+        1931
+      ],
+      "mouth_right": [
+        800,
+        1958
+      ]
     }
   }
 }

@@ -40,7 +40,7 @@
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-17T15:30:19.148Z"
+      "predicted_at": "2026-09-23T01:49:34.120Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
@@ -49,6 +49,28 @@
         "width": 6000,
         "height": 4000,
         "sha256": "e94da23d2401154af920dfd71f2381e6d67537c7ebd88739f62adefdc58fb034"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "e94da23d2401154af920dfd71f2381e6d67537c7ebd88739f62adefdc58fb034"
+      }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 1.0,
+        "mouth_right": 1.0
       }
     }
   },
@@ -247,6 +269,56 @@
           3559,
           1977
         ]
+      ],
+      "dorsal": [
+        [
+          2818,
+          1511
+        ],
+        [
+          2909,
+          1491
+        ],
+        [
+          2978,
+          1488
+        ],
+        [
+          3024,
+          1492
+        ],
+        [
+          3058,
+          1501
+        ],
+        [
+          3079,
+          1500
+        ],
+        [
+          3120,
+          1520
+        ],
+        [
+          3169,
+          1528
+        ],
+        [
+          3199,
+          1539
+        ],
+        [
+          3194,
+          1545
+        ],
+        [
+          3086,
+          1553
+        ],
+        [
+          2963,
+          1545
+        ]
       ]
     },
     "keypoints": {
@@ -328,8 +400,28 @@
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1802,
+        947
+      ],
+      "point_b": [
+        2826,
+        969
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        576,
+        1888
+      ],
+      "mouth_right": [
+        754,
+        1902
+      ]
     }
   }
 }

@@ -57,12 +57,36 @@
           ],
           "px": 42.1,
           "conf": 0.851
+        },
+        "dorsal_base_center": {
+          "from": [
+            2952,
+            1418
+          ],
+          "to": [
+            3089,
+            1416
+          ],
+          "px": 137,
+          "conf": 0.89
+        },
+        "dorsal_tip": {
+          "from": [
+            3086,
+            1357
+          ],
+          "to": [
+            3110,
+            1392
+          ],
+          "px": 42.4,
+          "conf": 0.416
         }
       },
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-17T15:27:58.759Z"
+      "predicted_at": "2026-09-23T01:49:22.707Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
@@ -71,6 +95,28 @@
         "width": 6000,
         "height": 4000,
         "sha256": "2fcc95fe0e65ffe5e8006c4094424e8d2269cd13425c192a7605bd5a5243e27e"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "2fcc95fe0e65ffe5e8006c4094424e8d2269cd13425c192a7605bd5a5243e27e"
+      }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.8,
+        "mouth_right": 0.764
       }
     }
   },
@@ -407,11 +453,39 @@
       "anal_base_posterior": [
         4142,
         1948
+      ],
+      "dorsal_base_center": [
+        3089,
+        1416
+      ],
+      "dorsal_tip": [
+        3110,
+        1392
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1799,
+        948
+      ],
+      "point_b": [
+        2824,
+        966
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        502,
+        2018
+      ],
+      "mouth_right": [
+        701,
+        1999
+      ]
     }
   }
 }

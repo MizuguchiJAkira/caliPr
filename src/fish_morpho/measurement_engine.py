@@ -406,8 +406,16 @@ def _compute_TL(ann: Annotation, cache: _RefCache) -> float:
 
 
 def _compute_SL(ann: Annotation, cache: _RefCache) -> float:
-    # Standard length: horizontal from D to H (vertical through caudal_base).
-    return ann.keypoints["caudal_base"][0] - _body_tip_x(ann)
+    # Standard length: horizontal from the tip of the upper jaw to the caudal
+    # base -- the textbook definition, and deliberately not the lower jaw, whose
+    # position depends on how far the mouth gapes.
+    #
+    # It used to run from the anterior end of the body OUTLINE. That is the same
+    # point to a median 0.35% over the 59 brook trout that carry both, but it tied
+    # the most basic trait there is to a polygon many studies do not trace: the
+    # brook trout set stopped, SL went out of scope with it, and every ratio --
+    # all of which divide by SL -- went blank on the 74 fish with no outline.
+    return ann.keypoints["caudal_base"][0] - ann.keypoints["premaxilla_tip"][0]
 
 
 def _compute_MBd(ann: Annotation, cache: _RefCache) -> float:

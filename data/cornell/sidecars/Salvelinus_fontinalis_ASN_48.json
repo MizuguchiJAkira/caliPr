@@ -139,6 +139,28 @@
         "width": 6000,
         "height": 4000,
         "sha256": "075b11072dc231a4914a52adb7978a4e6aa5cebbb5a456f97fd3b9436c4728cc"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "075b11072dc231a4914a52adb7978a4e6aa5cebbb5a456f97fd3b9436c4728cc"
+      }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.759,
+        "mouth_right": 0.473
       }
     }
   },
@@ -292,6 +314,18 @@
     "calibration": {
       "mode": "none",
       "notes": "no scale reference placed"
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        700,
+        1824
+      ],
+      "mouth_right": [
+        812,
+        1858
+      ]
     }
   }
 }

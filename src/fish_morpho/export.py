@@ -79,8 +79,9 @@ def export_to_xlsx(
       different sizes. The only sheet where a scale-free specimen and a
       calibrated one can honestly share a column.
     * ``Shape`` — Mosimann log-shape variables, each length divided by the
-      geometric mean of all lengths and logged. The size correction to use when
-      comparing groups that may differ in size; see ``_write_shape_sheet``.
+      geometric mean of one fixed set of body and head lengths and logged. The
+      size correction to use when comparing groups that may differ in size; see
+      ``_write_shape_sheet``.
     * ``QC`` — calibration method / confidence / notes per view, plus a
       ``missing_landmarks`` column summarizing any gaps.
     * ``Validation`` — the checks from :mod:`fish_morpho.validation`, most
@@ -229,7 +230,21 @@ def _write_ratios_sheet(
     keys = [k for k in measurement_column_order() if k not in drop_traits]
     labels = measurement_labels()
 
-    header = [*metadata_columns, *(f"{labels[k]} /SL" for k in keys)]
+    # Say what each column was actually divided by. The header used to read
+    # "/SL" on every column, including the angles (which are not divided) and
+    # the areas (which are divided by SL squared).
+    from .landmark_config import TRAITS as _T
+    unit_of = {t.code: t.unit for t in _T}
+
+    def head(k):
+        u = unit_of.get(k)
+        if u == Unit.DEG:
+            return f"{labels[k]}"
+        if u == Unit.MM2:
+            return f"{labels[k]} /SL²"
+        return f"{labels[k]} /SL"
+
+    header = [*metadata_columns, *(head(k) for k in keys)]
     sheet.append(header)
     header_font = Font(bold=True)
     header_fill = PatternFill("solid", fgColor="E6E6E6")
@@ -252,7 +267,7 @@ def _write_ratios_sheet(
                 row.append(rec.measurements.metadata.get(col, ""))
         for key in keys:
             v = rec.measurements.values.get(key)
-            if v is None or math.isnan(v.value):
+            if v is None or math.isnan(v.value) or not _cross_view_ok(rec, key):
                 row.append("")
             elif v.unit == Unit.DEG:            # an angle is already scale-free
                 row.append(round(v.value, 3))
@@ -370,20 +385,31 @@ def _write_shape_sheet(
     dividing by SL leaves size sitting inside the "shape" numbers and a population
     difference can be read where only a size difference exists.
 
-    Dividing instead by the GEOMETRIC MEAN of all the length traits gives the
-    standard isometric size correction. The variables are dimensionless, so a
-    scale-free specimen and a calibrated one are directly comparable, and their
-    log scale is what the usual multivariate tools (PCA, MANOVA) assume.
+    Dividing instead by the GEOMETRIC MEAN of length traits gives the standard
+    isometric size correction. The variables are dimensionless, so a scale-free
+    specimen and a calibrated one are directly comparable, and their log scale is
+    what the usual multivariate tools (PCA, MANOVA) assume.
 
-    Lengths only. An area does not share units with a length, and an angle is
-    already scale-free, so folding either into the geometric mean would be
-    meaningless.
+    **The size is taken over one fixed set of traits, the same for every fish.**
+    It used to be taken over whichever traits each fish happened to have, which
+    on the brook trout set meant 13 different sets: the 43 fish with a mouth width
+    had it folded into their size and the other 88 did not, shifting every column
+    between the two groups by a constant a PCA would read as shape. The set is the
+    lateral lengths of body and head -- not fins, whose extent depends on how they
+    dried, and not the frontal view, which has its own scale. A fish missing one
+    of those gets no size and a blank row, rather than a size nobody else has.
+
+    Every length is still reported against that size, fins and mouth width
+    included. Lengths only: an area does not share units with a length, and an
+    angle is already scale-free.
     """
     keys = [k for k in measurement_column_order()
             if k not in drop_traits and _trait_unit(k) == Unit.MM]
+    size_keys = [k for k in keys if _is_size_trait(k)]
     labels = measurement_labels()
 
-    header = [*metadata_columns, "size (geom. mean)",
+    header = [*metadata_columns,
+              f"size (geom. mean of {', '.join(size_keys)})",
               *(f"log {labels[k].split(' — ')[0]}" for k in keys)]
     sheet.append(header)
     header_font = Font(bold=True)
@@ -398,7 +424,8 @@ def _write_shape_sheet(
         vals = {}
         for k in keys:
             mv = rec.measurements.values.get(k)
-            if mv is not None and not math.isnan(mv.value) and mv.value > 0:
+            if (mv is not None and not math.isnan(mv.value) and mv.value > 0
+                    and _cross_view_ok(rec, k)):
                 vals[k] = mv.value
         row: list[float | str] = []
         for col in metadata_columns:
@@ -408,12 +435,12 @@ def _write_shape_sheet(
                 row.append(rec.measurements.fish_id)
             else:
                 row.append(rec.measurements.metadata.get(col, ""))
-        if len(vals) < 3:
-            # too few traits to define a size; a two-trait geometric mean is just
-            # the pair, and the "shape" would be an artefact of which two survived
+        if len(size_keys) < 3 or any(k not in vals for k in size_keys):
+            # Missing part of the size set: no size, rather than a size computed
+            # over different traits from every other fish.
             sheet.append([*row, "", *([""] * len(keys))])
             continue
-        gm = math.exp(sum(math.log(v) for v in vals.values()) / len(vals))
+        gm = math.exp(sum(math.log(vals[k]) for k in size_keys) / len(size_keys))
         row.append(round(gm, 4))
         for k in keys:
             row.append(round(math.log(vals[k] / gm), 6) if k in vals else "")
@@ -431,6 +458,46 @@ def _trait_unit(code: str):
         if t.code == code:
             return t.unit
     return None
+
+
+#: Landmarks whose position depends on how a fin was held when it dried.
+_FIN_LANDMARKS = frozenset({
+    "pectoral_insertion_upper", "pectoral_ray_tip", "dorsal_base_center",
+    "dorsal_tip", "pelvic_base_center", "pelvic_tip", "anal_base_center",
+    "anal_tip", "dorsal_base_anterior", "dorsal_base_posterior",
+    "anal_base_anterior", "anal_base_posterior"})
+
+
+def _trait_view(code: str):
+    from .landmark_config import TRAITS
+    for t in TRAITS:
+        if t.code == code:
+            return t.view
+    return None
+
+
+def _cross_view_ok(rec, code: str) -> bool:
+    """Whether a trait from another view can be set against this fish's lateral
+    size. Only if both are in millimetres: a fish with no lateral scale measures
+    its lengths in pixels while its mouth width is in millimetres, and TXD_35's
+    mouth width came out at 5% of typical from dividing one by the other."""
+    from .landmark_config import View
+    if _trait_view(code) != View.FRONTAL:
+        return True
+    return _unit_of(rec) == "mm"
+
+
+def _is_size_trait(code: str) -> bool:
+    """Whether a trait belongs in the size estimate: a lateral length of the
+    body or head, and not of a fin. A fin's extent depends on the posture it
+    dried in, which is exactly the variation a size estimate must not carry."""
+    from .landmark_config import FIN_POLYGONS, TRAITS, View
+    for t in TRAITS:
+        if t.code == code:
+            return (t.unit == Unit.MM and t.view == View.LATERAL
+                    and not set(t.required_keypoints) & _FIN_LANDMARKS
+                    and not set(t.required_polygons) & set(FIN_POLYGONS))
+    return False
 
 
 def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:

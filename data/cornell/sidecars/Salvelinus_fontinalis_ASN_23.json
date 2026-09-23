@@ -3,9 +3,28 @@
   "metadata": {
     "strain": "ASN",
     "source": "hand-labeled",
-    "data_note": "photo poorly clipped for frontal",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "pelvic_base_center",
+        "pelvic_tip"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T00:41:28.804Z"
+    },
+    "unreviewed_predictions": [],
+    "assisted_by": "snapshot-best-170.pt",
+    "data_note": "photo poorly clipped for frontal; outlier, excluded: AFh (0.33x of its strain's typical, size-corrected)",
     "images": {
       "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "8c52eb07d2ac3c8b26d8a11d310bf17edba85e7a5d67a7dd56c363e52a7f8453"
+      },
+      "frontal": {
         "width": 6000,
         "height": 4000,
         "sha256": "8c52eb07d2ac3c8b26d8a11d310bf17edba85e7a5d67a7dd56c363e52a7f8453"
@@ -20,6 +39,26 @@
         "reason": "one photograph per fish: the lateral crop's start column",
         "note": "restored: the entry was dropped when this fish was re-saved, and the shift re-derived from the crops kept at .crops-before-20260921T152239"
       }
+    ],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 1.0,
+        "mouth_right": 0.737
+      }
+    },
+    "exclude_traits": [
+      "AFh"
     ]
   },
   "lateral": {
@@ -485,6 +524,14 @@
       "anal_tip": [
         4098,
         2149
+      ],
+      "pelvic_base_center": [
+        3107,
+        2161
+      ],
+      "pelvic_tip": [
+        3332,
+        2153
       ]
     },
     "calibration": {
@@ -498,6 +545,18 @@
         1044
       ],
       "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        547,
+        1928
+      ],
+      "mouth_right": [
+        760,
+        1968
+      ]
     }
   }
 }
