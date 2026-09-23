@@ -1571,9 +1571,17 @@ function draw(){
   }
   const m=model?model[view]:null; if(m){
 
-    // polygons
+    // A polygon the study has stopped collecting is not drawn over the fish.
+    // Only the drawing stops: it stays in the sidecar exactly as traced, it is
+    // still listed (struck through, unless "hide excluded" is on), and clicking
+    // it there shows it again. 59 of these fish carry a body outline somebody
+    // traced by hand, and none of that is thrown away by hiding it.
+    const excludedPoly=new Set(((SCHEMA&&SCHEMA[view]&&SCHEMA[view].polygons)||[])
+                               .filter(p=>p.excluded).map(p=>p.name));
     for(const [nm,verts] of Object.entries(m.polygons)){
       if(!verts||!verts.length) continue;
+      if(excludedPoly.has(nm) && !(activeTask&&activeTask.kind==='polygon'
+                                   &&activeTask.name===nm)) continue;
       ctx.beginPath();
       verts.forEach((p,i)=>{const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
       const active=activeTask&&activeTask.kind==='polygon'&&activeTask.name===nm;
