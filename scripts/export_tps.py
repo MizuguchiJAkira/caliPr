@@ -261,6 +261,10 @@ def main(argv=None) -> int:
         for i, n in enumerate(LANDMARK_ORDER, start=1):
             w.writerow([i, n, LANDMARK_LABELS.get(n, n)])
 
+    # The study this came from, so the snippet does not title a brook trout
+    # plot "Alewife" -- which it did, in live code sitting under a block of
+    # commented-out lines where it read as commentary.
+    study = (args.schema_dir or args.sidecars.parent).name
     r_path = args.out / "load_landmarks.R"
     r_path.write_text(f'''# Load the landmarks exported from caliPr.
 # No digitize2d needed -- the clicking already happened in the labeler.
@@ -293,6 +297,8 @@ plot(gpa)
 
 # Shape space. Group by population once you have that mapping.
 pca <- gm.prcomp(gpa$coords)
+plot(pca, main = "{study} shape space")
+summary(pca)                   # variance explained, per component
 
 # ---------------------------------------------------------------------------
 # landmarks_imagej.csv holds the same points in the shape ImageJ's Multi-Measure
@@ -305,8 +311,6 @@ pca <- gm.prcomp(gpa$coords)
 # B  <- arrayspecs(as.matrix(lm[, c("X", "Y")]), p = k, k = 2)
 # dimnames(B)[[1]] <- unique(lm$landmark)
 # dimnames(B)[[3]] <- unique(lm$Label)
-plot(pca, main = "Alewife shape space")
-
 # Example test, once `pop` is a factor of landlocked / migratory per specimen:
 # gdf <- geomorph.data.frame(coords = gpa$coords, pop = pop, size = gpa$Csize)
 # procD.lm(coords ~ pop, data = gdf, iter = 999)
