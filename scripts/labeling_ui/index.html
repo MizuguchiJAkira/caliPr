@@ -1861,9 +1861,9 @@ $('#useauto').onclick=applyAutoCal;
 let autoCal=null;
 async function loadAutoCal(){
   autoCal=null; $('#autotxt').textContent='detecting…';
-  holdHeight($('#ticktxt')); renderTickSummary();
+  renderTickSummary();
   if(!cur||!cur.lateral){ $('#autotxt').textContent='';
-    releaseHeight($('#ticktxt')); renderTickSummary(); return; }
+    renderTickSummary(); return; }
   const s=cur;
   try{
     const r=await api('/api/autocal/'+encodeURIComponent(cur.lateral)+dsq());
@@ -1872,7 +1872,8 @@ async function loadAutoCal(){
       $('#autotxt').textContent=`${r.px_per_mm.toFixed(2)} px/mm detected`; }
     else { $('#autotxt').textContent='auto-scale unavailable'; }
   }catch(e){ $('#autotxt').textContent='auto-scale unavailable'; }
-  releaseHeight($('#ticktxt')); renderTickSummary(); draw();
+  reserve($('#autocal'));
+  renderTickSummary(); draw();
 }
 // ---- millimetre dots on the ruler ------------------------------------------
 // The auto-scale is one number, measured from how regularly the ticks repeat.
@@ -1902,6 +1903,7 @@ function renderTickSummary(){
     el.innerHTML = (autoCal && autoCal.ticks_error)
       ? `<b style="color:var(--kp)">No ruler ticks at ${autoCal.px_per_mm.toFixed(2)} px/mm</b> — this auto-scale is probably wrong; place the two ruler points instead`
       : '';
+    reserve(el);
     return;
   }
   const n=T.ticks.length, on=T.within_quarter_mm;
@@ -1912,6 +1914,7 @@ function renderTickSummary(){
     + `<b>${T.max_offset_mm.toFixed(1)} mm</b> off`
     + (spread>=1 ? `<br>millimetres ${spread.toFixed(0)}% wider at one end of the ruler `
                  + `(${Math.min(a,b).toFixed(1)}–${Math.max(a,b).toFixed(1)} px/mm)` : '');
+  reserve(el);
 }
 function drawTicks(){
   if(!showTicks || view!=='lateral' || !autoCal || !autoCal.ticks || imgView!=='lateral') return;
@@ -1977,15 +1980,19 @@ function warnIfNoScale(){
 }
 function updateCalRead(){
   const el=$('#calread'); if(!el||!model) return;
+  // Every path out of here ends in reserve(): the no-scale banner wraps to two
+  // lines where a clean readout is one, and that difference used to move the
+  // specimen list on every click between such fish.
+  const done=()=>reserve(el);
   const m=model[view], km=parseFloat($('#knownmm').value);
   if(m.auto_ppm){ el.className='';
-    el.textContent=`✓ auto-scale ${m.auto_ppm.toFixed(2)} px/mm (ruler ticks)`; return; }
+    el.textContent=`✓ auto-scale ${m.auto_ppm.toFixed(2)} px/mm (ruler ticks)`; return done(); }
   if(!(m.ruler.a&&m.ruler.b)||!(km>0)){
     // Unmistakable, because a specimen saved without a scale exports in PIXELS
     // and that is not visible from the numbers afterwards.
     el.className='warn';
     el.textContent='NO SCALE — measurements will be in pixels, not mm';
-    return; }
+    return done(); }
   const px=Math.hypot(m.ruler.b[0]-m.ruler.a[0], m.ruler.b[1]-m.ruler.a[1]);
   const ppm=px/km;
   let msg=`${px.toFixed(0)} px ÷ ${km} mm = ${ppm.toFixed(2)} px/mm`;
@@ -1993,6 +2000,7 @@ function updateCalRead(){
   if(off){ el.className='warn';
     el.textContent=`⚠ ${ppm.toFixed(1)} px/mm — others ≈ ${calMedian.toFixed(1)}. Check "known span".`; }
   else { el.className=''; el.textContent=msg + (calMedian?`  (batch ≈ ${calMedian.toFixed(1)})`:''); }
+  done();
 }
 // Display only. None of this touches a stored coordinate — it changes what the
 // canvas paints, never what a click records.
@@ -2295,24 +2303,36 @@ function acceptPoint(name){       // the human LOOKED and agrees
   renderAutoStat(); buildTasks(); draw();
   return true;
 }
-// Opening a fish empties these blocks and refills them as each answer arrives:
-// the ruler summary when the scale comes back, the review tally when the cached
-// prediction does. They sit above the specimen list, which is flex:1 and so
-// absorbs every step -- four reflows per click, and the rows slide out from
-// under the cursor mid-click. Holding the height a block already had keeps the
-// list still while it reloads, and lets go the moment real content lands, so no
-// fish is ever shown another fish's numbers and no space is reserved for good.
-function holdHeight(el){
+// The blocks above the specimen list change height per fish -- the no-scale
+// banner is a line taller than a scale readout, a ruler whose ticks disagree has
+// a warning to print, and all of them empty while the next fish loads. #specWrap
+// is flex:1 with its bottom pinned, so each change moves its top and the rows
+// slide out from under the cursor.
+//
+// Each of those blocks keeps the tallest height it has needed so far. It is a
+// high-water mark rather than a fixed reservation because the tallest case is a
+// property of the study, not something to hard-code: a set whose rulers all
+// read cleanly never pays for the warning, and one where they do not settles
+// after the first few fish and then holds still. It only ever grows, so a block
+// emptying while the next fish loads no longer collapses at all.
+const _floor = new WeakMap(), _shown = new WeakMap();
+function reserve(el){
   if(!el) return;
-  const h = el.getBoundingClientRect().height;
+  // Clearing the floor to measure forces a synchronous layout, and this runs
+  // from updateCalRead, which runs on every point placed. Identical content
+  // cannot have a different height, so the common case does no work at all.
+  const now = el.innerHTML;
+  if(_shown.get(el) === now) return;
+  _shown.set(el, now);
+  el.style.minHeight = '';                       // measure the content, not the floor
+  const natural = el.getBoundingClientRect().height;
+  const h = Math.max(natural, _floor.get(el) || 0);
+  _floor.set(el, h);
   if(h > 0) el.style.minHeight = h + 'px';
 }
-function releaseHeight(el){ if(el) el.style.minHeight=''; }
 
 function renderAutoStat(){
   const el=$('#autostat'); if(!el) return;
-  // Emptying it is a reload, not an answer: keep the space until one arrives.
-  if(!pred.model) holdHeight(el); else releaseHeight(el);
   if(!pred.model){ el.textContent=''; return; }
   const n=unreviewed(), nc=Object.keys(pred.corrected).length, na=pred.accepted.size;
   const tally=`<span style="color:var(--good)">${na} accepted</span> · `
