@@ -41,6 +41,10 @@ import pandas as pd
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 
+sys.path.insert(0, str(_ROOT / "scripts"))
+
+import preprocess_cornell as pc  # noqa: E402
+
 from fish_morpho.landmark_config import KEYPOINTS, View  # noqa: E402
 
 LATERAL_KP = [k.name for k in KEYPOINTS if k.view == View.LATERAL]
@@ -132,6 +136,15 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
     dropped_total = 0
     from fish_morpho import image_identity
     manifest = image_identity.load_manifest(sidecars.parent)
+    # Whether this study keeps one photograph per fish, and so must be cropped
+    # here the way the labeler crops it to predict.
+    schema = sidecars.parent / "schema.json"
+    single = False
+    if schema.is_file():
+        try:
+            single = bool(json.loads(schema.read_text()).get("single_photo"))
+        except Exception:
+            single = False
     for path in sorted(sidecars.glob("*.json")):
         data = json.loads(path.read_text())
         fid = data["fish_id"]
@@ -186,6 +199,7 @@ def load_specimens(sidecars: Path, images: Path, group: str = ""):
             # can put every alewife in test and report a trout model's error.
             "strain": f"{group}:{strain}" if group else strain,
             "compromised": bool((data.get("metadata") or {}).get("exclude_traits")),
+            "single_photo": single,
         })
     if dropped_total:
         print(f"  {dropped_total} unreviewed auto-labelled landmark(s) excluded from "
@@ -262,6 +276,31 @@ def build(out_dir: Path, sources, scale: float,
             specs.append(spec)
     if not specs:
         raise SystemExit("No labeled specimens found.")
+
+    # Resolve each frame's crop before the split, not while writing. A fish whose
+    # seam cannot be found gets no frame, and a fish in the split with no frame is
+    # an annotated row create_training_dataset cannot place -- it then refuses to
+    # register the shuffle at all rather than saying which row it meant.
+    usable = []
+    for spec in specs:
+        if not spec.get("single_photo"):
+            spec["crop"] = None
+            usable.append(spec)
+            continue
+        im = cv2.imread(str(spec["image"]))
+        if im is None:
+            print(f"  SKIP {spec['fish_id']}: unreadable image")
+            continue
+        box = pc.view_frames(im)[_VIEW]
+        if box is None:
+            print(f"  SKIP {spec['fish_id']}: no mirror seam, cannot frame it "
+                  f"the way prediction will")
+            continue
+        spec["crop"] = tuple(box)
+        usable.append(spec)
+    specs = usable
+    if not specs:
+        raise SystemExit("No specimen could be framed.")
     train, test = stratified_split(specs, test_frac, seed)
     if train_limit:
         before = len(train)
@@ -284,6 +323,15 @@ def build(out_dir: Path, sources, scale: float,
         if im is None:
             print(f"  SKIP {spec['fish_id']}: unreadable image")
             continue
+        # Cropped exactly as the labeler crops it to predict -- same seam, same
+        # margins, resolved above. Train on the whole frame instead and the model
+        # learns a framing it is never given, with the mirror's head in shot as a
+        # second fish.
+        ox = oy = 0
+        if spec.get("crop"):
+            x0, y0, x1, y1 = spec["crop"]
+            ox, oy = x0, y0
+            im = im[y0:y1, x0:x1]
         small = cv2.resize(im, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
         name = f"{spec['fish_id']}.png"
         cv2.imwrite(str(labeled / name), small)
@@ -292,7 +340,8 @@ def build(out_dir: Path, sources, scale: float,
         for kp in LATERAL_KP:
             p = spec["keypoints"].get(kp)
             # absent landmark -> NaN, never a placeholder (see module docstring)
-            row += [np.nan, np.nan] if p is None else [p[0] * scale, p[1] * scale]
+            row += ([np.nan, np.nan] if p is None
+                    else [(p[0] - ox) * scale, (p[1] - oy) * scale])
         rows.append(row)
         index.append(("labeled-data", VIDEO, name))
 
