@@ -250,3 +250,69 @@ def test_saving_keeps_metadata_the_labeler_does_not_manage(tmp_path, monkeypatch
     assert saved["metadata"]["collector"] == "someone"
     assert saved["metadata"]["source"] == "hand-labeled"     # the save still wins
     assert saved["lateral"]["keypoints"]["premaxilla_tip"] == [12, 12]
+
+
+def test_saving_keeps_landmarks_the_study_no_longer_collects(tmp_path, monkeypatch):
+    """Excluding a landmark hides it. It must never delete one.
+
+    57 fish here carry one of the four fin-base endpoints that were excluded
+    after they were labelled, and 59 carry a body outline that was. Those
+    coordinates are hours of work and the study may want them back.
+    """
+    import importlib.util
+    import json
+    import sys
+    import threading
+    import urllib.request
+    from pathlib import Path
+
+    import pytest
+    Image = pytest.importorskip("PIL.Image")
+    scripts = Path(__file__).resolve().parent.parent / "scripts"
+    spec = importlib.util.spec_from_file_location("label_server", scripts / "label_server.py")
+    ls = importlib.util.module_from_spec(spec)
+    sys.modules["label_server"] = ls
+    spec.loader.exec_module(ls)
+
+    study = tmp_path / "study"
+    (study / "lateral").mkdir(parents=True)
+    (study / "sidecars").mkdir()
+    fid = "fish_1"
+    Image.new("RGB", (400, 200), (90, 90, 90)).save(study / "lateral" / f"{fid}.JPEG")
+    (study / "schema.json").write_text(json.dumps({
+        "exclude_keypoints": ["dorsal_base_anterior", "anal_base_posterior"],
+        "exclude_polygons": ["body_plus_caudal"]}))
+    kept = {"premaxilla_tip": [10, 10], "dorsal_base_anterior": [40, 20],
+            "anal_base_posterior": [70, 30]}
+    ring = [[100 + i, 50 + (i % 3)] for i in range(20)]
+    (study / "sidecars" / f"{fid}.json").write_text(json.dumps({
+        "fish_id": fid, "metadata": {"strain": "ASN"},
+        "lateral": {"keypoints": kept, "polygons": {"body_plus_caudal": ring}}}))
+
+    ls.Handler.datasets = {"study": study}
+    ls.Handler.default_dataset = "study"
+    ls.Handler.images_dir = study
+    ls.Handler.out_dir = study / "sidecars"
+    ls.Handler.out_override = None
+    ls.Handler.demo_mode = False
+    monkeypatch.setattr(ls.Handler, "_locked", lambda self: False)
+    server = ls.ThreadingHTTPServer(("127.0.0.1", 0), ls.Handler)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{server.server_address[1]}"
+    try:
+        # what the page holds after opening it, saved back unchanged
+        body = json.dumps({"fish_id": fid,
+                           "metadata": {"strain": "ASN", "source": "hand-labeled"},
+                           "lateral": {"keypoints": kept,
+                                       "polygons": {"body_plus_caudal": ring}}})
+        req = urllib.request.Request(url + "/api/save?dataset=study",
+                                     data=body.encode(), method="POST",
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req) as r:
+            assert json.loads(r.read())["ok"]
+    finally:
+        server.shutdown()
+
+    saved = json.loads((study / "sidecars" / f"{fid}.json").read_text())
+    assert saved["lateral"]["keypoints"] == kept        # all three, excluded included
+    assert saved["lateral"]["polygons"]["body_plus_caudal"] == ring
