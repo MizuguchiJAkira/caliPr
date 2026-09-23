@@ -486,6 +486,12 @@
         701,
         1999
       ]
+    },
+    "calibration": {
+      "mode": "ticks",
+      "px_per_mm": 19.4754,
+      "placed_by": "ruler-ticks",
+      "notes": "mirror ruler detected on the head-on view turned a quarter turn (18.97 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
     }
   }
 }
