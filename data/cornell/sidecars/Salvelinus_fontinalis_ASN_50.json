@@ -6,11 +6,16 @@
     "assist": {
       "model": "snapshot-best-170.pt",
       "accepted": [
+        "anal_base_center",
+        "anal_tip",
+        "caudal_base",
+        "dorsal_base_center",
         "eye_dorsal",
         "eye_posterior",
         "eye_ventral",
         "lower_jaw_tip",
-        "maxilla_mandible_intersection"
+        "maxilla_mandible_intersection",
+        "peduncle_narrowest_dorsal"
       ],
       "corrected": {
         "eye_anterior": {
@@ -98,31 +103,28 @@
           "conf": 0.301
         }
       },
-      "unreviewed": [
-        "anal_base_center",
-        "anal_tip",
-        "caudal_base",
-        "dorsal_base_center",
-        "peduncle_narrowest_dorsal"
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [
+        "anal",
+        "pectoral"
       ],
-      "unreviewed_confidence": {
-        "anal_base_center": 0.689,
-        "anal_tip": 0.574,
-        "caudal_base": 0.264,
-        "dorsal_base_center": 0.212,
-        "peduncle_narrowest_dorsal": 0.324
-      },
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-21T14:55:12.538Z"
+      "predicted_at": "2026-09-23T01:49:51.370Z"
     },
-    "unreviewed_predictions": [
-      "anal_base_center",
-      "anal_tip",
-      "caudal_base",
-      "dorsal_base_center",
-      "peduncle_narrowest_dorsal"
-    ],
+    "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "255a5954d37218a37fb57c2f88a1e16f486bd14f3139ccf86681f7fe96186e21"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "255a5954d37218a37fb57c2f88a1e16f486bd14f3139ccf86681f7fe96186e21"
+      }
+    },
     "coordinate_history": [
       {
         "at": "2026-09-21T15:18:21",
@@ -132,88 +134,316 @@
         "reason": "one photograph per fish: the lateral crop's start column"
       }
     ],
-    "images": {
-      "lateral": {
-        "width": 6000,
-        "height": 4000,
-        "sha256": "255a5954d37218a37fb57c2f88a1e16f486bd14f3139ccf86681f7fe96186e21"
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.749,
+        "mouth_right": 0.582
       }
     }
   },
   "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2266,
+          1824
+        ],
+        [
+          2263,
+          1836
+        ],
+        [
+          2276,
+          1849
+        ],
+        [
+          2293,
+          1860
+        ],
+        [
+          2290,
+          1880
+        ],
+        [
+          2290,
+          1900
+        ],
+        [
+          2302,
+          1915
+        ],
+        [
+          2318,
+          1925
+        ],
+        [
+          2334,
+          1937
+        ],
+        [
+          2352,
+          1942
+        ],
+        [
+          2373,
+          1939
+        ],
+        [
+          2385,
+          1925
+        ],
+        [
+          2403,
+          1918
+        ],
+        [
+          2410,
+          1901
+        ],
+        [
+          2416,
+          1882
+        ],
+        [
+          2413,
+          1862
+        ],
+        [
+          2395,
+          1856
+        ],
+        [
+          2375,
+          1853
+        ],
+        [
+          2355,
+          1852
+        ],
+        [
+          2334,
+          1852
+        ],
+        [
+          2316,
+          1860
+        ],
+        [
+          2296,
+          1861
+        ],
+        [
+          2290,
+          1847
+        ],
+        [
+          2278,
+          1837
+        ]
+      ],
+      "anal": [
+        [
+          3305,
+          1780
+        ],
+        [
+          3281,
+          1787
+        ],
+        [
+          3256,
+          1792
+        ],
+        [
+          3233,
+          1802
+        ],
+        [
+          3208,
+          1809
+        ],
+        [
+          3183,
+          1815
+        ],
+        [
+          3161,
+          1827
+        ],
+        [
+          3139,
+          1839
+        ],
+        [
+          3117,
+          1851
+        ],
+        [
+          3094,
+          1862
+        ],
+        [
+          3072,
+          1875
+        ],
+        [
+          3097,
+          1875
+        ],
+        [
+          3122,
+          1870
+        ],
+        [
+          3148,
+          1868
+        ],
+        [
+          3173,
+          1862
+        ],
+        [
+          3198,
+          1856
+        ],
+        [
+          3224,
+          1853
+        ],
+        [
+          3249,
+          1847
+        ],
+        [
+          3275,
+          1844
+        ],
+        [
+          3300,
+          1838
+        ],
+        [
+          3323,
+          1830
+        ],
+        [
+          3346,
+          1818
+        ],
+        [
+          3350,
+          1800
+        ],
+        [
+          3327,
+          1790
+        ]
+      ]
+    },
     "keypoints": {
       "eye_anterior": [
-        1905.0,
-        1647.0
+        1905,
+        1647
       ],
       "eye_posterior": [
-        2015.0,
-        1655.0
+        2015,
+        1655
       ],
       "eye_dorsal": [
-        1957.0,
-        1603.0
+        1957,
+        1603
       ],
       "eye_ventral": [
-        1960.0,
-        1693.0
+        1960,
+        1693
       ],
       "premaxilla_tip": [
-        1833.0,
-        1672.0
+        1833,
+        1672
       ],
       "maxilla_mandible_intersection": [
-        1895.0,
-        1750.0
+        1895,
+        1750
       ],
       "lower_jaw_tip": [
-        1820.0,
-        1710.0
+        1820,
+        1710
       ],
       "operculum_posterior": [
-        2220.0,
-        1772.0
+        2220,
+        1772
       ],
       "pectoral_insertion_upper": [
-        2180.0,
-        1849.0
+        2180,
+        1849
       ],
       "pectoral_ray_tip": [
-        2414.0,
-        1893.0
+        2414,
+        1893
       ],
       "peduncle_narrowest_dorsal": [
-        3454.0,
-        1612.0
+        3454,
+        1612
       ],
       "peduncle_narrowest_ventral": [
-        3492.0,
-        1718.0
+        3492,
+        1718
       ],
       "caudal_base": [
-        3496.0,
-        1646.0
+        3496,
+        1646
       ],
       "dorsal_base_center": [
-        1079.0,
-        97.0
+        1079,
+        97
       ],
       "pelvic_base_center": [
-        2691.0,
-        1938.0
+        2691,
+        1938
       ],
       "anal_base_center": [
-        3188.0,
-        1815.0
+        3188,
+        1815
       ],
       "anal_tip": [
-        3347.0,
-        1811.0
+        3347,
+        1811
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1855,
+        901
+      ],
+      "point_b": [
+        2881,
+        884
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        748,
+        1832
+      ],
+      "mouth_right": [
+        857,
+        1837
+      ]
     }
   }
 }

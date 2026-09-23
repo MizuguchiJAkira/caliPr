@@ -344,18 +344,52 @@ def _calibration_from_block(
     raise ValueError(f"Unknown calibration mode {mode!r} in sidecar")
 
 
+def _excluded_structures(dataset_dir: Path) -> tuple[set[str], set[str]]:
+    """Landmarks and outlines this study has stopped collecting."""
+    f = Path(dataset_dir) / "schema.json"
+    if not f.is_file():
+        return set(), set()
+    try:
+        prof = json.loads(f.read_text())
+    except Exception:
+        return set(), set()
+    return (set(prof.get("exclude_keypoints") or []),
+            set(prof.get("exclude_polygons") or []))
+
+
+def _without(block: dict | None, kps: set[str], polys: set[str]) -> dict | None:
+    """A view block with the excluded structures taken out -- a copy; the sidecar
+    itself keeps them."""
+    if not block or not (kps or polys):
+        return block
+    out = dict(block)
+    out["keypoints"] = {k: v for k, v in (block.get("keypoints") or {}).items()
+                        if k not in kps}
+    out["polygons"] = {k: v for k, v in (block.get("polygons") or {}).items()
+                       if k not in polys}
+    return out
+
+
 def process_specimen(spec: SpecimenInput,
                      group_table: dict[str, str] | None = None,
-                     group_pattern: str | None = None) -> ExportRecord:
+                     group_pattern: str | None = None,
+                     excluded: tuple[set[str], set[str]] = (set(), set())) -> ExportRecord:
     """Turn one SpecimenInput into a fully computed ExportRecord.
 
     ``group_table`` and ``group_pattern`` come from the dataset and are read once
     per run by :func:`run`; passing them per specimen keeps this function pure.
+
+    ``excluded`` is what the study has stopped collecting. It is taken out before
+    anything is measured, so a structure hidden in the labeler cannot reach a
+    number in any export -- which it did: standard length was computed from the
+    excluded body outline and divided into every ratio, while SL itself was
+    reported out of scope.
     """
     annotation = Annotation()
 
-    lateral_block = spec.sidecar.get("lateral")
-    frontal_block = spec.sidecar.get("frontal")
+    ex_kp, ex_poly = excluded
+    lateral_block = _without(spec.sidecar.get("lateral"), ex_kp, ex_poly)
+    frontal_block = _without(spec.sidecar.get("frontal"), ex_kp, ex_poly)
     if not lateral_block and not frontal_block:
         raise ValueError(
             f"{spec.sidecar_path}: sidecar has neither a 'lateral' nor a "
@@ -537,12 +571,14 @@ def run(
         dataset_dir = images_dir.parent
         group_table = grouping.load_group_table(dataset_dir)
         group_pattern = grouping.filename_pattern(dataset_dir)
+        excluded = _excluded_structures(dataset_dir)
 
         records = []
         failed: list[tuple[str, str]] = []
         for spec in specimens:
             try:
-                records.append(process_specimen(spec, group_table, group_pattern))
+                records.append(process_specimen(spec, group_table, group_pattern,
+                                                excluded))
             except Exception as exc:
                 failed.append((spec.fish_id, str(exc)))
                 log.warning("skipped %s: %s", spec.fish_id, exc)

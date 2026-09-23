@@ -82,7 +82,11 @@
         "height": 4000,
         "sha256": "405fa71799bda658a854ad41dfd59746bd437d21cf2eae5bf8668b8e3296a1cc"
       }
-    }
+    },
+    "exclude_traits": [
+      "PFl"
+    ],
+    "data_note": "outlier, excluded: PFl (0.41x of its strain's typical, size-corrected)"
   },
   "lateral": {
     "keypoints": {
@@ -164,8 +168,17 @@
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1760,
+        1013
+      ],
+      "point_b": [
+        4175,
+        929
+      ],
+      "known_mm": 96,
+      "placed_by": "ruler-ticks"
     }
   },
   "frontal": {

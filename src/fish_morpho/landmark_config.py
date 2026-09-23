@@ -643,13 +643,12 @@ TRAITS: tuple[Trait, ...] = (
     Trait(
         code="SL",
         label="Standard Length",
-        description="Distance from anterior body tip (D) to caudal fin "
-        "base (H), along the horizontal.",
+        description="Distance from the tip of the upper jaw (premaxilla) to the "
+        "caudal fin base (H), along the horizontal.",
         unit=Unit.MM,
         view=View.LATERAL,
         source=TraitSource.MORFISHJ,
-        required_polygons=("body_plus_caudal",),
-        required_keypoints=("caudal_base",),
+        required_keypoints=("premaxilla_tip", "caudal_base"),
     ),
     Trait(
         code="MBd",

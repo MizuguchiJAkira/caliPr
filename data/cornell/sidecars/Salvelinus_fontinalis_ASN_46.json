@@ -20,6 +20,8 @@
         "pectoral_ray_tip",
         "peduncle_narrowest_dorsal",
         "peduncle_narrowest_ventral",
+        "pelvic_base_center",
+        "pelvic_tip",
         "premaxilla_tip"
       ],
       "corrected": {
@@ -48,27 +50,40 @@
           "conf": 0.653
         }
       },
-      "unreviewed": [
-        "pelvic_base_center",
-        "pelvic_tip"
-      ],
-      "unreviewed_confidence": {
-        "pelvic_base_center": 0.768,
-        "pelvic_tip": 0.701
-      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
       "polygons_from_model": [],
       "predicted_at": "2026-09-17T16:17:21.151Z"
     },
-    "unreviewed_predictions": [
-      "pelvic_base_center",
-      "pelvic_tip"
-    ],
+    "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
     "images": {
       "lateral": {
         "width": 6000,
         "height": 4000,
         "sha256": "fcd2bdc674a0a4b0ad6bbf583f613e31882b178fc7170a20d6b1f54e05ed7a67"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "fcd2bdc674a0a4b0ad6bbf583f613e31882b178fc7170a20d6b1f54e05ed7a67"
+      }
+    },
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.972,
+        "mouth_right": 0.938
       }
     }
   },
@@ -296,6 +311,18 @@
         920
       ],
       "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        619,
+        1890
+      ],
+      "mouth_right": [
+        806,
+        1914
+      ]
     }
   }
 }
