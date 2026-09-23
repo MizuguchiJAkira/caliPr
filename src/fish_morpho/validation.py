@@ -35,9 +35,6 @@ The checks, and what each one is protecting against:
     misplaced landmark rather than an unusual fish, and far cheaper to catch here
     than in a scatter plot at the end.
 
-``sparse_outline``
-    A fin outline too coarse for its area to be trusted.
-
 ``incomplete``
     Landmarks never placed. Not an error — labelling in progress looks exactly
     like this — but the count belongs in front of whoever reads the sheet.
@@ -51,7 +48,6 @@ from dataclasses import dataclass
 from typing import Iterable, Sequence
 
 from .landmark_config import (
-    FIN_POLYGON_TARGET_VERTICES,
     FIN_POLYGONS,
     Unit,
 )
@@ -190,21 +186,6 @@ def check_shape_outliers(records) -> list[Issue]:
             for fid, cs in sorted(hits.items())]
 
 
-def check_outlines(records) -> list[Issue]:
-    out = []
-    for rec in records:
-        polys = getattr(rec, "polygons", None) or {}
-        sparse = {n: len(polys[n]) for n in FIN_POLYGONS
-                  if n in polys and len(polys[n]) < FIN_POLYGON_TARGET_VERTICES}
-        if sparse:
-            out.append(Issue(
-                "warning", "sparse_outline", rec.measurements.fish_id,
-                "fin area unreliable: "
-                + ", ".join(f"{n}={c}" for n, c in sorted(sparse.items()))
-                + f" vertices, under {FIN_POLYGON_TARGET_VERTICES}"))
-    return out
-
-
 def check_completeness(records) -> list[Issue]:
     out = []
     for rec in records:
@@ -224,7 +205,7 @@ def validate(records, lot_of=lambda fid: "") -> list[Issue]:
     """Every check, most severe first."""
     issues: list[Issue] = []
     for fn in (check_duplicate_ids, check_orientation, check_landmarks_in_frame,
-               check_units, check_shape_outliers, check_outlines,
+               check_units, check_shape_outliers,
                check_completeness):
         issues.extend(fn(records))
     issues.extend(check_calibration(records, lot_of))

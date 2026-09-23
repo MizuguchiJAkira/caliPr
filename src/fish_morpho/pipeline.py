@@ -91,7 +91,6 @@ from . import grouping, schemes
 from .export import ExportRecord, export_to_xlsx
 from .validation import summarise, validate
 from .landmark_config import (
-    FIN_POLYGON_TARGET_VERTICES,
     FIN_POLYGONS,
     View,
 )
@@ -243,16 +242,6 @@ def _load_view_annotation(
     )
 
 
-def _sparse_fin_polygons(annotation: Annotation) -> dict[str, int]:
-    """Fin outlines traced with too few vertices, name -> vertex count."""
-    return {
-        name: len(annotation.polygons[name])
-        for name in FIN_POLYGONS
-        if name in annotation.polygons
-        and len(annotation.polygons[name]) < FIN_POLYGON_TARGET_VERTICES
-    }
-
-
 def _model_outline_note(spec) -> str:
     """What to say about outlines the model drew and nobody redrew, if any.
 
@@ -270,14 +259,6 @@ def _model_outline_note(spec) -> str:
         return ""
     return (f"outline drawn by the model and not redrawn: {', '.join(named)}"
             f" — the area follows from it")
-
-
-def _sparse_fin_note(sparse: dict[str, int]) -> str:
-    detail = ", ".join(f"{n}={c}" for n, c in sorted(sparse.items()))
-    return (
-        f"fin area biased low: {detail} vertices, under the "
-        f"{FIN_POLYGON_TARGET_VERTICES} needed for a reliable outline"
-    )
 
 
 def _calibration_from_block(
@@ -428,16 +409,6 @@ def process_specimen(spec: SpecimenInput,
     # here rather than at export so every consumer sees the same answer.
     metadata["group"] = grouping.resolve(
         spec.fish_id, metadata, group_table, group_pattern)
-
-    # Under-traced fins read small (see FIN_POLYGON_TARGET_VERTICES). The areas
-    # are still computed — the bias is systematic, not random, so the numbers
-    # stay comparable within a density band — but the QC sheet has to say which
-    # rows are affected, or a low fin area is indistinguishable from a small fin.
-    sparse = _sparse_fin_polygons(annotation)
-    if sparse:
-        metadata["data_note"] = "; ".join(
-            filter(None, [metadata.get("data_note"), _sparse_fin_note(sparse)])
-        )
 
     note = _model_outline_note(spec)
     if note:
