@@ -41,11 +41,26 @@
       },
       "unreviewed": [],
       "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-21T15:15:10.632Z"
+      "polygons_from_model": [
+        "anal",
+        "pectoral"
+      ],
+      "predicted_at": "2026-09-23T01:43:17.993Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "46002871787d9e32b2ff35d925197147f1b3217829b8cd0b0b9c50049a060026"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "46002871787d9e32b2ff35d925197147f1b3217829b8cd0b0b9c50049a060026"
+      }
+    },
     "coordinate_history": [
       {
         "at": "2026-09-21T15:18:30",
@@ -55,96 +70,324 @@
         "reason": "one photograph per fish: the lateral crop's start column"
       }
     ],
-    "images": {
-      "lateral": {
-        "width": 6000,
-        "height": 4000,
-        "sha256": "46002871787d9e32b2ff35d925197147f1b3217829b8cd0b0b9c50049a060026"
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.899,
+        "mouth_right": 0.902
       }
     }
   },
   "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2383,
+          1923
+        ],
+        [
+          2348,
+          1935
+        ],
+        [
+          2312,
+          1946
+        ],
+        [
+          2301,
+          1975
+        ],
+        [
+          2321,
+          2007
+        ],
+        [
+          2348,
+          2035
+        ],
+        [
+          2380,
+          2054
+        ],
+        [
+          2413,
+          2073
+        ],
+        [
+          2446,
+          2089
+        ],
+        [
+          2482,
+          2101
+        ],
+        [
+          2519,
+          2110
+        ],
+        [
+          2556,
+          2117
+        ],
+        [
+          2592,
+          2106
+        ],
+        [
+          2623,
+          2083
+        ],
+        [
+          2655,
+          2062
+        ],
+        [
+          2688,
+          2046
+        ],
+        [
+          2668,
+          2018
+        ],
+        [
+          2637,
+          1995
+        ],
+        [
+          2604,
+          1978
+        ],
+        [
+          2569,
+          1963
+        ],
+        [
+          2535,
+          1948
+        ],
+        [
+          2499,
+          1937
+        ],
+        [
+          2462,
+          1928
+        ],
+        [
+          2424,
+          1923
+        ]
+      ],
+      "anal": [
+        [
+          4222,
+          2033
+        ],
+        [
+          4179,
+          2042
+        ],
+        [
+          4137,
+          2053
+        ],
+        [
+          4094,
+          2061
+        ],
+        [
+          4052,
+          2073
+        ],
+        [
+          4010,
+          2084
+        ],
+        [
+          3968,
+          2093
+        ],
+        [
+          3925,
+          2102
+        ],
+        [
+          3882,
+          2111
+        ],
+        [
+          3841,
+          2125
+        ],
+        [
+          3844,
+          2139
+        ],
+        [
+          3889,
+          2141
+        ],
+        [
+          3935,
+          2144
+        ],
+        [
+          3979,
+          2151
+        ],
+        [
+          4024,
+          2153
+        ],
+        [
+          4070,
+          2151
+        ],
+        [
+          4115,
+          2151
+        ],
+        [
+          4161,
+          2151
+        ],
+        [
+          4206,
+          2146
+        ],
+        [
+          4251,
+          2142
+        ],
+        [
+          4293,
+          2132
+        ],
+        [
+          4323,
+          2108
+        ],
+        [
+          4296,
+          2075
+        ],
+        [
+          4261,
+          2050
+        ]
+      ]
+    },
     "keypoints": {
       "eye_anterior": [
-        1756.0,
-        1760.0
+        1756,
+        1760
       ],
       "eye_posterior": [
-        1937.0,
-        1731.0
+        1937,
+        1731
       ],
       "eye_dorsal": [
-        1835.0,
-        1672.0
+        1835,
+        1672
       ],
       "eye_ventral": [
-        1860.0,
-        1817.0
+        1860,
+        1817
       ],
       "premaxilla_tip": [
-        1631.0,
-        1822.0
+        1631,
+        1822
       ],
       "maxilla_mandible_intersection": [
-        1759.0,
-        1891.0
+        1759,
+        1891
       ],
       "lower_jaw_tip": [
-        1635.0,
-        1859.0
+        1635,
+        1859
       ],
       "operculum_posterior": [
-        2326.0,
-        1816.0
+        2326,
+        1816
       ],
       "pectoral_insertion_upper": [
-        2238.0,
-        1952.0
+        2238,
+        1952
       ],
       "pectoral_ray_tip": [
-        2691.0,
-        2022.0
+        2691,
+        2022
       ],
       "peduncle_narrowest_dorsal": [
-        4615.0,
-        1746.0
+        4615,
+        1746
       ],
       "peduncle_narrowest_ventral": [
-        4643.0,
-        1916.0
+        4643,
+        1916
       ],
       "caudal_base": [
-        4653.0,
-        1833.0
+        4653,
+        1833
       ],
       "dorsal_base_center": [
-        3307.0,
-        1471.0
+        3307,
+        1471
       ],
       "dorsal_tip": [
-        3564.0,
-        1299.0
+        3564,
+        1299
       ],
       "pelvic_base_center": [
-        3185.0,
-        2173.0
+        3185,
+        2173
       ],
       "pelvic_tip": [
-        3511.0,
-        2085.0
+        3511,
+        2085
       ],
       "anal_base_center": [
-        4052.0,
-        2067.0
+        4052,
+        2067
       ],
       "anal_tip": [
-        4337.0,
-        2118.0
+        4337,
+        2118
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1809,
+        769
+      ],
+      "point_b": [
+        3056,
+        769
+      ],
+      "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        294,
+        1901
+      ],
+      "mouth_right": [
+        498,
+        1918
+      ]
     }
   }
 }

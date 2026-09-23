@@ -135,8 +135,17 @@
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1414,
+        1039
+      ],
+      "point_b": [
+        4660,
+        1033
+      ],
+      "known_mm": 128,
+      "placed_by": "ruler-ticks"
     }
   },
   "frontal": {

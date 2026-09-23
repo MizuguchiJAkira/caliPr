@@ -167,6 +167,7 @@ def main(argv=None) -> int:
     # Pass 1: collect, so the landmark set and the scale policy can be decided
     # from the whole series rather than per specimen.
     specimens: list[tuple[str, dict, Path, int, float | None]] = []
+    metas: dict[str, dict] = {}
     skipped = 0
     for path in sorted(args.sidecars.glob("*.json")):
         sc = json.loads(path.read_text())
@@ -184,6 +185,7 @@ def main(argv=None) -> int:
             continue
 
         specimens.append((fid, kps, img, h, px_per_mm(sc)))
+        metas[fid] = sc.get("metadata") or {}
 
     if not specimens:
         print("No labelled specimens found.")
@@ -254,6 +256,27 @@ def main(argv=None) -> int:
                 w.writerow([label, img.name, f"{float(x):.3f}", f"{float(y):.3f}",
                             "mm" if ppm else "px"])
 
+    # One row per specimen: what an analysis needs beside the coordinates. The
+    # group, so a test does not have to parse it out of an ID with a regex; and
+    # the specimen's own scale, so centroid size can be put in millimetres in R
+    # even though the .tps is in pixels throughout. The .tps stays in pixels on
+    # purpose -- half a series rescaled and half not makes centroid size mean two
+    # different things -- and this is how to get millimetres anyway.
+    from fish_morpho import grouping
+    ds_dir = args.schema_dir or args.sidecars.parent
+    g_table = grouping.load_group_table(ds_dir)
+    g_pattern = grouping.filename_pattern(ds_dir)
+    spec_path = args.out / "specimens.csv"
+    with spec_path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["ID", "group", "px_per_mm", "landmarks_missing", "data_note"])
+        for fid, kps, img, h, ppm in specimens:
+            meta = metas.get(fid) or {}
+            w.writerow([fid, grouping.resolve(fid, meta, g_table, g_pattern),
+                        f"{ppm:.4f}" if ppm else "",
+                        sum(1 for n in order if n not in kps),
+                        (meta.get("data_note") or "").replace("\n", " ")])
+
     names_path = args.out / "landmark_names.csv"
     with names_path.open("w", newline="") as f:
         w = csv.writer(f)
@@ -266,55 +289,12 @@ def main(argv=None) -> int:
     # commented-out lines where it read as commentary.
     study = (args.schema_dir or args.sidecars.parent).name
     r_path = args.out / "load_landmarks.R"
-    r_path.write_text(f'''# Load the landmarks exported from caliPr.
-# No digitize2d needed -- the clicking already happened in the labeler.
-
-library(geomorph)
-
-# negNA = TRUE turns the negative placeholders into NA for landmarks that were
-# not placed. Without it they become real points at the image corner and drag
-# the Procrustes fit.
-# Expect: "Not all specimens have scale adjustment ... no rescaling will be
-# performed". That is correct when the series has no usable scale bar — the
-# coordinates are pixels. Procrustes removes scale, so shape analysis is
-# unaffected; only centroid size is in pixels rather than mm.
-A <- readland.tps("{args.name}.tps", specID = "ID", negNA = TRUE)
-
-# TPS stores landmarks by position; give them their names back.
-nm <- read.csv("landmark_names.csv", stringsAsFactors = FALSE)
-dimnames(A)[[1]] <- nm$name
-
-dim(A)             # landmarks x 2 x specimens
-dimnames(A)[[1]]   # named landmarks
-dimnames(A)[[3]]   # specimen IDs
-
-# If any landmarks are NA, either estimate them or drop those specimens.
-# gpagen() will not run with NA present.
-if (anyNA(A)) A <- estimate.missing(A, method = "TPS")
-
-gpa <- gpagen(A)               # Procrustes superimposition
-plot(gpa)
-
-# Shape space. Group by population once you have that mapping.
-pca <- gm.prcomp(gpa$coords)
-plot(pca, main = "{study} shape space")
-summary(pca)                   # variance explained, per component
-
-# ---------------------------------------------------------------------------
-# landmarks_imagej.csv holds the same points in the shape ImageJ's Multi-Measure
-# writes, for pooling with series digitised there. Note the y axis: this file
-# uses image coordinates (y downward), the .tps above uses Cartesian y, so the
-# two are mirror images -- pick one and stay with it.
-#
-# lm <- read.csv("landmarks_imagej.csv", stringsAsFactors = FALSE)
-# k  <- length(unique(lm$landmark))
-# B  <- arrayspecs(as.matrix(lm[, c("X", "Y")]), p = k, k = 2)
-# dimnames(B)[[1]] <- unique(lm$landmark)
-# dimnames(B)[[3]] <- unique(lm$Label)
-# Example test, once `pop` is a factor of landlocked / migratory per specimen:
-# gdf <- geomorph.data.frame(coords = gpa$coords, pop = pop, size = gpa$Csize)
-# procD.lm(coords ~ pop, data = gdf, iter = 999)
-''')
+    # The analysis script is a real .R file in scripts/r/, copied here with the
+    # study's name filled in. It used to be a Python f-string, where every R
+    # brace had to be doubled and nothing could run it -- which is how a brook
+    # trout export came to title its shape space "Alewife".
+    template = (_ROOT / "scripts" / "r" / "load_landmarks.R").read_text()
+    r_path.write_text(template.replace("@STUDY@", study))
 
     print(f"wrote {tps_path}  ({written} specimens, {len(LANDMARK_ORDER)} landmarks each)")
     print(f"      {names_path}")

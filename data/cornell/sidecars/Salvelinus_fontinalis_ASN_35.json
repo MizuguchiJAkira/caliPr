@@ -14,6 +14,7 @@
         "eye_ventral",
         "maxilla_mandible_intersection",
         "operculum_posterior",
+        "pectoral_ray_tip",
         "peduncle_narrowest_dorsal",
         "peduncle_narrowest_ventral",
         "premaxilla_tip"
@@ -42,25 +43,43 @@
           ],
           "px": 23.2,
           "conf": 0.803
+        },
+        "pelvic_tip": {
+          "from": [
+            2876,
+            1993
+          ],
+          "to": [
+            2819,
+            2126
+          ],
+          "px": 144.7,
+          "conf": 0.222
+        },
+        "pelvic_base_center": {
+          "from": [
+            2771,
+            2060
+          ],
+          "to": [
+            2837,
+            2028
+          ],
+          "px": 73.3,
+          "conf": 0.486
         }
       },
       "unreviewed": [
-        "anal_base_center",
-        "pectoral_ray_tip",
-        "pelvic_base_center"
+        "anal_base_center"
       ],
       "unreviewed_confidence": {
-        "anal_base_center": 0.981,
-        "pectoral_ray_tip": 0.519,
-        "pelvic_base_center": 0.486
+        "anal_base_center": 0.981
       },
       "polygons_from_model": [],
-      "predicted_at": "2026-09-17T15:34:11.836Z"
+      "predicted_at": "2026-09-23T01:28:05.816Z"
     },
     "unreviewed_predictions": [
-      "anal_base_center",
-      "pectoral_ray_tip",
-      "pelvic_base_center"
+      "anal_base_center"
     ],
     "assisted_by": "snapshot-best-170.pt",
     "images": {
@@ -253,6 +272,90 @@
           3414,
           1965
         ]
+      ],
+      "pelvic": [
+        [
+          2797,
+          2047
+        ],
+        [
+          2768,
+          2090
+        ],
+        [
+          2756,
+          2115
+        ],
+        [
+          2791,
+          2123
+        ],
+        [
+          2822,
+          2120
+        ],
+        [
+          2811,
+          2080
+        ],
+        [
+          2830,
+          2090
+        ],
+        [
+          2834,
+          2067
+        ],
+        [
+          2851,
+          2066
+        ],
+        [
+          2886,
+          2031
+        ],
+        [
+          2875,
+          2037
+        ],
+        [
+          2848,
+          2031
+        ]
+      ],
+      "dorsal": [
+        [
+          2665,
+          1544
+        ],
+        [
+          2708,
+          1524
+        ],
+        [
+          2810,
+          1512
+        ],
+        [
+          2863,
+          1512
+        ],
+        [
+          2898,
+          1519
+        ],
+        [
+          2992,
+          1535
+        ],
+        [
+          3023,
+          1568
+        ],
+        [
+          2984,
+          1584
+        ]
       ]
     },
     "keypoints": {
@@ -313,8 +416,8 @@
         1556
       ],
       "pelvic_base_center": [
-        2771,
-        2060
+        2837,
+        2028
       ],
       "anal_base_center": [
         3531,
@@ -331,6 +434,10 @@
       "anal_base_posterior": [
         3674,
         1933
+      ],
+      "pelvic_tip": [
+        2819,
+        2126
       ]
     },
     "calibration": {
