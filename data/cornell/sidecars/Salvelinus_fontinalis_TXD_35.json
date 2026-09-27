@@ -44,11 +44,11 @@
         "anal",
         "pectoral"
       ],
-      "predicted_at": "2026-09-23T01:00:49.758Z"
+      "predicted_at": "2026-09-24T01:52:37.343Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
-    "data_note": "dorsal fin is not visible",
+    "data_note": "dorsal fin is not visible; lateral known_mm corrected 50->10 (251px between the ruler points is one centimetre: 50 gave 5.0 px/mm against 25.1 for the TXD lot)",
     "images": {
       "lateral": {
         "width": 6000,
@@ -342,11 +342,23 @@
       "anal_tip": [
         4957,
         1835
+      ],
+      "dorsal_tip": [
+        3488,
+        1353
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1433,
+        893
+      ],
+      "point_b": [
+        1683,
+        877
+      ],
+      "known_mm": 10.0
     }
   },
   "frontal": {

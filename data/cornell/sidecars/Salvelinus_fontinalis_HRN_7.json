@@ -21,9 +21,21 @@
         "anal",
         "pectoral"
       ],
-      "predicted_at": "2026-09-23T00:55:29.407Z"
+      "predicted_at": "2026-09-24T01:28:19.675Z"
     },
     "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47"
+    },
     "assisted_by": "snapshot-best-170.pt",
     "data_note": "known_mm corrected 10->50 (data-entry typo; 1266px span is a 50mm span)",
     "images": {
@@ -46,24 +58,7 @@
         "points": 74,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ],
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.974,
-        "mouth_right": 0.952
-      }
-    }
+    ]
   },
   "lateral": {
     "polygons": {
@@ -582,6 +577,10 @@
       "anal_tip": [
         4572,
         2546
+      ],
+      "dorsal_tip": [
+        3611,
+        1844
       ]
     },
     "calibration": {
@@ -611,7 +610,6 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 23.2035,
-      "placed_by": "ruler-ticks",
       "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.60 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
     }
   }
