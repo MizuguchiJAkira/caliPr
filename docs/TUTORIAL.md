@@ -36,8 +36,9 @@ Without it the labeler runs normally, and Auto-label tells you what to run.
 
 ## 1. Add your photographs
 
-Open the **dataset** menu and choose **Add folder — a new study**, then pick a
-folder of photographs. It becomes a *study*, named after the folder.
+Click **Add folder** in the toolbar, then pick a folder of photographs. It
+becomes a *study*, named after the folder. The **Study** button at the top right
+switches between studies, as RStudio's project menu does.
 
 ![Add folder](img/tutorial/1-add-folder.png)
 
@@ -68,7 +69,14 @@ their names are kept: `Lake_2026/Site_A/IMG_01.jpg` arrives as
 `Site_A_IMG_01.jpg`, so a folder-per-site survives into the filenames. Anything
 that is not an image is ignored.
 
-To add more later, hover a study in the same menu and click **+ photos**.
+To add more later, click **Add photos** for the study that is open, or hover a
+study in the **Study** menu and click **+ photos**. To take one out, open it and
+click **Remove photo** above the photograph: it moves to `data/.trash/` with its
+labels, not deleted, so moving it back restores it. To take out many at once,
+search for them — a lot number, a year, `/todo` — and click **Remove N** beside
+the count: every specimen the search shows goes into one trash folder, with a
+list of what was removed. If any of them are labelled, it asks you to type how
+many.
 **remove** takes a study out of the list by moving its folder to `data/.trash/`;
 nothing is deleted, so moving the folder back restores it. A study with saved
 labels asks you to type its name first.
@@ -88,6 +96,14 @@ below the controls. Click a specimen to open it.
 `/` focuses the search box. It matches catalogue numbers as you type, and also
 takes words like `todo`, `labelled`, `heldout`. Terms combine, so `todo txd`
 gives the TXD specimens still to do.
+
+The **Reference** panel in the corner of the photograph shows an example fish,
+zoomed and centred on whichever landmark is selected, so you can see where the
+point goes before you click. Each study has its own example: open a fish you have
+labelled carefully, save it, and click **Use as example** above the photograph.
+`⤢` enlarges the panel, `–` (or `R`) minimises it. A study on caliPr's own
+landmarks shows a built-in brook trout until it has one of its own; a study on
+another scheme shows nothing until you choose one.
 
 ---
 
@@ -111,7 +127,7 @@ study traces it by hand. The **pectoral and anal fins** come back outlined — t
 are the two the fin outliner matches hand tracings on closely enough to be worth
 starting from (3.2% and 4.6% median area error, inside the spread between two
 tracings of the same fin). The dorsal and pelvic are not offered; trace those
-yourself. The sidebar lists what still needs review.
+yourself. The Landmarks pane lists what still needs review.
 
 Auto-label never replaces an outline you traced. Press it twice and it redraws
 its own outline, keeps yours, and says which it kept.
@@ -156,6 +172,11 @@ On the frontal view there is no ruler auto-scale: click the two ruler points and
 set **known span** to the millimetres between them. Without it the fish still
 exports, with mouth width left blank and the reason in the QC sheet.
 
+If you always mark the same span — one centimetre, say — click **Set as default**
+beside it. That span becomes the study's starting value for that view (kept in its
+`schema.json`), so a new fish opens with it instead of the built-in 50 mm. Fish
+that already have a span keep theirs.
+
 On the frontal view, check both corners whatever their colour. On the seven fish
 held out from training, the worst corner pair was 1.7 mm off in mouth width at
 0.95 confidence, and the best was placed at 0.27.
@@ -194,9 +215,11 @@ A study on another scheme asks for that scheme's points, in its numbering, and
 exports them to TPS in that order — which is what geomorph reads. No trait is
 computed there: every trait is defined in code against caliPr's landmarks, and a
 mapping between two schemes would be a claim about anatomy rather than a
-conversion. The measurements export says so instead of writing a sheet of blanks,
-and Auto-label is off, because the model only knows the landmarks it was trained
-on.
+conversion. So a study's measurements there are its landmark coordinates: one row
+per specimen, each landmark's x and y — in millimetres where the photograph has a
+scale — and centroid size, through the same preview and in the same CSV or
+workbook. Auto-label is off, because the model only knows the landmarks it was
+trained on.
 
 Switching is reversible and changes nothing already saved. Labels stay in their
 sidecars exactly as clicked; the other scheme's points simply stop being asked
@@ -221,7 +244,9 @@ your own to nothing removes it, and it asks first if the point is already placed
 
 ![Save and export](img/tutorial/4-save.png)
 
-**Save sidecar** writes one JSON file per specimen into `sidecars/`. That file
+**Save** (the disk above the photograph) writes one JSON file per specimen into
+`sidecars/`. Until then the photograph's tab shows its name in red with a `*`, the
+way RStudio marks an unsaved script. That file
 is the durable artefact — every export is derived from it, and it records which
 points you corrected and which you accepted.
 
@@ -229,14 +254,28 @@ If every landmark is still exactly where the model put it, Save asks first. A
 sidecar saved that way is model output entering the training set as ground
 truth, which is worth one deliberate click to avoid.
 
-Open **EXPORT**. Each export is saved under `results/<study>/` and opened on
-your computer rather than downloaded: the workbook in your spreadsheet app, the
-rest shown in Finder.
+Open **Export ▾** in the toolbar. Each export is saved under `results/<study>/`
+and opened on your computer rather than downloaded: the workbook in your
+spreadsheet app, the rest shown in Finder.
+
+**Measurements** writes `measurements.csv`, one row per specimen with the trait
+codes as headers, ready for `read.csv` in R, and `measurements.xlsx` beside it
+with the About, Ratios, Shape, QC and Validation sheets. **Format** in the preview
+picks which one you are handed: the CSV is shown in Finder, the workbook opens in
+your spreadsheet app. It opens a preview first: every trait column with how many fish
+have no value in it, and the table itself with each blank shown as `NA`. An
+analysis that cannot take blanks — a PCA in R drops every row with an NA — loses
+most of its fish to a column most fish lack, so leave such a column out here
+(tick it off, or leave out every column with more than *n* blanks), and tick
+**Complete rows only** to export just the fish with a value in every column you
+kept. *Show: specimens with a blank* lists the fish that still have a gap;
+click one to open it. The choice is remembered for the study and recorded on
+the workbook's About sheet.
 
 | | |
 |---|---|
-| **Measurements (.xlsx)** | one row per specimen, 33 traits, plus About / Ratios / Shape / QC / Validation sheets |
-| **Annotations for R (.zip)** | the coordinates — `.tps` for geomorph, `landmarks_imagej.csv` in the shape ImageJ writes, landmark names, and a loader snippet |
+| **Measurements (.csv or .xlsx)** | one row per specimen, standard length first, then the other traits; `measurements.xlsx` beside it adds About / Ratios / Shape / QC / Validation sheets |
+| **Annotations for R (.zip)** | the landmark coordinates, for Procrustes and PCA. Either **one file per specimen** — a folder of CSVs laid out as ImageJ writes them (landmark 1–N, Label, X, Y; cm or mm), with a landmark key, a table of specimens and `read_specimens.R`, which reads the folder into geomorph — or the **geomorph bundle**: one `.tps` with every specimen, `landmarks_imagej.csv`, landmark names and a starter analysis |
 | **Annotations (.zip)** | the labels themselves, to send back for training |
 | **Labelled images (.zip)** | each photograph with its annotation drawn on |
 
@@ -255,6 +294,47 @@ does; the `.tps` file uses Cartesian y, because that is what `readland.tps`
 expects. The two are mirror images, so pick one and stay with it. Coordinates are
 millimetres where the specimen has a scale and pixels where it does not, stated
 per row in a `units` column.
+
+### Specimen records
+
+**Specimen records** in the toolbar says which museum specimen each photograph
+is: institution, catalogue number, scientific name, sex, life stage, where and
+when it was collected, and by whom. The column names are
+[Darwin Core](https://dwc.tdwg.org/terms/) terms, the vocabulary that collection
+databases, iDigBio and GBIF use, so your measurements can be joined back to the
+museum's own record and merged with another lab's. Hover a column name to see
+what goes in it. The records are kept in `darwin_core.csv` in the study folder.
+
+There are three ways to fill them in:
+
+- **Type them.** Each column's **all…** button sets one value for every
+  photograph shown, for example one species for the whole study.
+- **Accept filename suggestions.** `1947_CUMV_68133_02` holds an institution and
+  a catalogue number, and `Salvelinus_fontinalis_ASN_31` holds a species. They
+  show greyed until you accept them, and nothing is recorded until you **Save**.
+  A leading year is not read as a collection date.
+- **Import CSV or Excel.** This takes a table such as an iDigBio harvest, your
+  dissection sheet (a `fish_id` column with `sex` and `maturity`), or a
+  museum's own export. Rows are matched to photographs by id or filename. A
+  museum export has one row per lot, so its rows are matched by catalogue number
+  instead, and each row fills in every photograph from that lot. You are shown
+  which columns became which terms and which rows matched nothing before
+  anything is written. Blank cells in the file never erase what you have.
+
+The **Specimen record** section under the landmark list shows the current fish's
+record.
+
+Once a study has records, they go into the exports:
+
+- **The workbook** gains a **Specimens** sheet, and a **MeasurementOrFact** sheet
+  that is the Measurements in Darwin Core's own long form: one row per value,
+  with its unit and the definition it was measured by.
+- **The `locality` and `collection_date` columns** of the Measurements sheet and
+  CSV are filled from the records.
+- **`specimens.csv` in the R export** carries the terms beside each specimen.
+
+Nothing else is added to the measurements CSV, so an R script that treats every
+other column as a trait keeps working.
 
 ---
 

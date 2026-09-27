@@ -135,6 +135,120 @@ def px_per_mm(sidecar: dict) -> float | None:
     return math.hypot(b[0] - a[0], b[1] - a[1]) / known
 
 
+PER_SPECIMEN_README = """\
+Landmarks, one file per specimen
+================================
+
+Each CSV is one specimen, laid out as ImageJ writes a Multi-Measure result:
+
+    (row), Label, X, Y
+    1,     <photograph>, x, y
+    ...
+    N,     <photograph>, x, y
+
+Row n is landmark n in every file; landmark_key.csv says which landmark that is.
+X and Y are measured from the photograph's TOP-LEFT corner, Y DOWNWARD (ImageJ's
+default), in {units} -- except a specimen with no scale, which is in pixels
+(specimens.csv says which). A landmark not placed on a specimen is NA; its row is
+kept, so row n is always landmark n.
+
+specimens.csv   one row per file: the specimen, its strain, units, scale, and
+                how many landmarks it lacks; then any Darwin Core records the
+                study keeps (catalogNumber, scientificName, locality ...)
+landmark_key.csv
+read_specimens.R  reads the folder into a geomorph array and runs a Procrustes
+                  superimposition and PCA on the complete specimens
+"""
+
+READ_SPECIMENS_R = """\
+# Read a folder of per-specimen landmark files (ImageJ layout) into geomorph.
+# Run from this folder:  setwd("<this folder>");  source("read_specimens.R", echo = TRUE)
+library(geomorph)
+
+key <- read.csv("landmark_key.csv")
+sp  <- read.csv("specimens.csv")
+
+# p landmarks x 2 coordinates x n specimens, in the order of specimens.csv
+A <- simplify2array(lapply(sp$file, function(f)
+  as.matrix(read.csv(f, check.names = FALSE)[, c("X", "Y")])))
+dimnames(A) <- list(key$name, c("X", "Y"), sp$ID)
+A[, "Y", ] <- -A[, "Y", ]     # ImageJ's Y runs down the photograph; flip it so plots are upright
+
+# Procrustes needs every landmark on every specimen.
+complete <- apply(A, 3, function(m) !anyNA(m))
+cat(sum(!complete), "of", length(complete), "specimens lack a landmark and are left out\n")
+A  <- A[, , complete]
+sp <- sp[complete, ]
+
+# Units must agree for centroid size to mean one thing; shape is unaffected either way.
+if (length(unique(sp$units)) > 1) warning("specimens are in different units: ",
+                                          paste(unique(sp$units), collapse = ", "))
+
+gpa <- gpagen(A, print.progress = FALSE)
+dimnames(gpa$coords) <- dimnames(A)      # gpagen drops the landmark names
+pca <- gm.prcomp(gpa$coords)
+print(summary(pca))
+plot(pca, pch = 19, col = as.integer(factor(sp$group)))
+legend("topright", legend = levels(factor(sp$group)), col = seq_along(levels(factor(sp$group))),
+       pch = 19, bty = "n")
+"""
+
+
+def write_per_specimen(folder: Path, specimens, order, labels, metas, units: str,
+                       ds_dir: Path) -> Path:
+    """One CSV per specimen in ImageJ's Multi-Measure layout, with a key beside it.
+
+    The layout a folder-per-series workflow in R expects: every file the same
+    landmarks in the same rows, so reading them in order gives a p x 2 x n array
+    ready for gpagen. A missing landmark keeps its row as NA -- dropping the row
+    would shift every landmark after it onto the wrong number.
+    """
+    from fish_morpho import darwin_core, grouping
+    folder.mkdir(parents=True, exist_ok=True)
+    # Only what this writes is cleared, so an older export does not leave a
+    # specimen behind that is no longer labelled.
+    for old in folder.glob("*.csv"):
+        old.unlink()
+    per_mm = {"cm": 10.0, "mm": 1.0}[units]
+    g_table = grouping.load_group_table(ds_dir)
+    g_pattern = grouping.filename_pattern(ds_dir)
+    dwc = darwin_core.load(ds_dir)
+    terms = darwin_core.used_terms(dwc, [s[0] for s in specimens])
+    rows = []
+    for fid, kps, img, h, ppm in specimens:
+        name = f"{fid}.csv"
+        with (folder / name).open("w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow([" ", "Label", "X", "Y"])
+            for i, n in enumerate(order, start=1):
+                pt = kps.get(n)
+                if pt is None:
+                    w.writerow([i, img.name, "NA", "NA"])
+                    continue
+                x, y = (pt[0] / ppm / per_mm, pt[1] / ppm / per_mm) if ppm else (pt[0], pt[1])
+                w.writerow([i, img.name, f"{float(x):.3f}", f"{float(y):.3f}"])
+        meta = metas.get(fid) or {}
+        rows.append([name, fid, grouping.resolve(fid, meta, g_table, g_pattern),
+                     units if ppm else "px", f"{ppm:.4f}" if ppm else "",
+                     sum(1 for n in order if n not in kps),
+                     (meta.get("data_note") or "").replace("\n", " "),
+                     *((dwc.get(fid) or {}).get(t, "") for t in terms)])
+    with (folder / "specimens.csv").open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["file", "ID", "group", "units", "px_per_mm", "landmarks_missing", "data_note",
+                    *terms])
+        w.writerows(rows)
+    with (folder / "landmark_key.csv").open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["index", "name", "label"])
+        for i, n in enumerate(order, start=1):
+            w.writerow([i, n, labels.get(n, n)])
+    (folder / "README.txt").write_text(PER_SPECIMEN_README.format(units=units))
+    (folder / "read_specimens.R").write_text(READ_SPECIMENS_R)
+    print(f"wrote {len(rows)} specimen files ({units}) to {folder}")
+    return folder
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="export_tps")
     ap.add_argument("--sidecars", type=Path, required=True)
@@ -149,6 +263,12 @@ def main(argv=None) -> int:
                     help="Write SCALE even when only some specimens have one. Off "
                          "by default: it makes centroid size millimetres for some "
                          "specimens and pixels for others, in one column.")
+    ap.add_argument("--per-specimen", type=Path, default=None,
+                    help="Also write a folder with one CSV per specimen, laid out as "
+                         "ImageJ writes one: landmark 1..N, Label, X, Y.")
+    ap.add_argument("--units", choices=("cm", "mm"), default="cm",
+                    help="Units of the per-specimen files (default cm, as ImageJ "
+                         "is usually set). A specimen with no scale is in pixels.")
     ap.add_argument("--require-complete", action="store_true",
                     help="Skip specimens missing any landmark instead of writing "
                          "negatives. geomorph can estimate missing landmarks, but "
@@ -262,20 +382,25 @@ def main(argv=None) -> int:
     # even though the .tps is in pixels throughout. The .tps stays in pixels on
     # purpose -- half a series rescaled and half not makes centroid size mean two
     # different things -- and this is how to get millimetres anyway.
-    from fish_morpho import grouping
+    # Then the study's Darwin Core records -- catalogue number, scientific name,
+    # locality -- so a specimen in R can be traced to the museum's record.
+    from fish_morpho import darwin_core, grouping
     ds_dir = args.schema_dir or args.sidecars.parent
     g_table = grouping.load_group_table(ds_dir)
     g_pattern = grouping.filename_pattern(ds_dir)
+    dwc = darwin_core.load(ds_dir)
+    terms = darwin_core.used_terms(dwc, [s[0] for s in specimens])
     spec_path = args.out / "specimens.csv"
     with spec_path.open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["ID", "group", "px_per_mm", "landmarks_missing", "data_note"])
+        w.writerow(["ID", "group", "px_per_mm", "landmarks_missing", "data_note", *terms])
         for fid, kps, img, h, ppm in specimens:
             meta = metas.get(fid) or {}
             w.writerow([fid, grouping.resolve(fid, meta, g_table, g_pattern),
                         f"{ppm:.4f}" if ppm else "",
                         sum(1 for n in order if n not in kps),
-                        (meta.get("data_note") or "").replace("\n", " ")])
+                        (meta.get("data_note") or "").replace("\n", " "),
+                        *((dwc.get(fid) or {}).get(t, "") for t in terms)])
 
     names_path = args.out / "landmark_names.csv"
     with names_path.open("w", newline="") as f:
@@ -283,6 +408,10 @@ def main(argv=None) -> int:
         w.writerow(["index", "name", "label"])
         for i, n in enumerate(LANDMARK_ORDER, start=1):
             w.writerow([i, n, LANDMARK_LABELS.get(n, n)])
+
+    if args.per_specimen:
+        write_per_specimen(args.per_specimen, specimens, LANDMARK_ORDER, LANDMARK_LABELS,
+                           metas, args.units, args.schema_dir or args.sidecars.parent)
 
     # The study this came from, so the snippet does not title a brook trout
     # plot "Alewife" -- which it did, in live code sitting under a block of

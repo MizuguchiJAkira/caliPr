@@ -76,12 +76,15 @@ def _post(url, path):
         return e.code, json.loads(e.read())
 
 
-def test_the_workbook_is_written_and_opened_not_downloaded(srv):
+def test_the_measurements_are_written_as_csv_and_shown_not_downloaded(srv):
     url, results, shown = srv
     code, r = _post(url, "/api/export/measurements?dataset=exportstudy")
-    assert code == 200 and r["ok"] and r["shown"] == "open", r
-    assert shown == [(results / "measurements.xlsx", "open")]
-    assert r["path"] == "results/exportstudy/measurements.xlsx"
+    assert code == 200 and r["ok"] and r["shown"] == "reveal", r
+    assert shown == [(results / "measurements.csv", "reveal")]
+    assert r["path"] == "results/exportstudy/measurements.csv"
+    head = (results / "measurements.csv").read_text().splitlines()[0].split(",")
+    assert head[0] == "fish_id" and head[head.index("units") + 1] == "SL"
+    # the workbook, for its About, QC and Validation sheets, is written beside it
     assert (results / "measurements.xlsx").stat().st_size > 1000
 
 
@@ -152,3 +155,18 @@ def test_the_page_is_told_why_a_workbook_was_not_opened(srv, monkeypatch):
                         lambda path, how: ("reveal", "no spreadsheet app"))
     code, r = _post(url, "/api/export/sidecars?dataset=exportstudy")
     assert r["shown"] == "reveal" and r["note"] == "no spreadsheet app"
+
+
+def test_annotations_for_r_can_be_a_folder_of_specimen_files(srv):
+    url, results, shown = srv
+    req = urllib.request.Request(url + "/api/export/tps?dataset=exportstudy", method="POST",
+                                 data=json.dumps({"format": "per_specimen", "units": "mm"}).encode(),
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        out = json.loads(r.read())
+    folder = results / "landmarks_by_specimen"
+    assert out["ok"] and shown == [(folder, "open")]
+    assert (folder / "Salvelinus_fontinalis_TXD_20.csv").is_file()
+    names = zipfile.ZipFile(results / "exportstudy_landmarks_by_specimen.zip").namelist()
+    assert "exportstudy_landmarks_by_specimen/Salvelinus_fontinalis_TXD_20.csv" in names
+    assert "exportstudy_landmarks_by_specimen/landmark_key.csv" in names

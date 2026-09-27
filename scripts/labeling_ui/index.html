@@ -5,369 +5,624 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>caliPr — Trout Labeler</title>
 <style>
-  :root { --bg:#12151a; --panel:#1b2029; --line:#2b3340; --fg:#e6ebf2; --mut:#8a97a8;
-          --accent:#4aa3ff; --good:#37c871; --warn:#ffb454; --kp:#ff5d6c; --ruler:#c07bff; }
+  /* The look is RStudio's: a grey frame, white panes with a tab strip and a
+     toolbar, Lucida Grande for the chrome and Monaco for anything that is data
+     (specimen ids, landmark names, counts). The people using this live in
+     RStudio for the analysis, so the labeller reads as part of the same kit. */
+  :root { --frame:#E3E6EA; --panel:#FFFFFF; --panel2:#F7F8FA;
+          --tab1:#F4F5F7; --tab2:#E6E9ED; --line:#D6DADF; --line2:#ECEEF1; --edge:#C3C9D0;
+          --fg:#22262A; --mut:#6B7279; --accent:#3A78B5; --accentsoft:#D8E6F5;
+          --hover:#EEF4FB; --good:#22864D; --goodfill:#35A263; --warn:#AE6600;
+          --warnfill:#F1A430; --warnsoft:#FFF2D6; --kp:#C9323F; --ruler:#8A55D6;
+          --viewer:#EEF0F2;
+          --ui:"Lucida Grande","Lucida Sans Unicode","Segoe UI",-apple-system,
+               BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+          --mono:Monaco,Menlo,"SF Mono",Consolas,"DejaVu Sans Mono",monospace; }
   * { box-sizing:border-box; }
-  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
-    font:13px/1.4 -apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
-  /* Wider by default, and draggable: the sidebar carries the landmark list, the
-     image controls and the key, and 290px cramped all three. */
+  html,body { margin:0; height:100%; background:var(--frame); color:var(--fg);
+    font:12px/1.4 var(--ui); overflow:hidden; }
+  body { display:flex; flex-direction:column; }
+
+  /* ---- application toolbar ------------------------------------------------ */
+  #topbar { flex:none; height:34px; display:flex; align-items:center; gap:2px;
+    padding:0 8px; background:linear-gradient(#FCFCFD,#ECEEF1);
+    border-bottom:1px solid var(--edge); position:relative; z-index:50; }
+  .brand { display:flex; align-items:center; gap:7px; padding:0 8px 0 2px;
+    font-weight:bold; font-size:13px; color:#23384F; white-space:nowrap; }
+  .brand small { font-weight:normal; font-size:11px; color:var(--mut); }
+  .brand .logo { width:20px; height:20px; border-radius:50%; flex:none;
+    background:radial-gradient(circle at 35% 30%,#94C1EA,#3A78B5 72%);
+    box-shadow:inset 0 0 0 1px #2D6197; color:#fff; text-align:center;
+    font:bold italic 13px/20px Georgia,serif; }
+  .spacer { flex:1; }
+  .tsep { width:1px; height:16px; margin:0 5px; background:#CBD0D6; flex:none; }
+
+  /* ---- buttons ------------------------------------------------------------ */
+  button { font:12px/16px var(--ui); color:var(--fg); cursor:pointer;
+    background:linear-gradient(#FFFFFF,#EDEFF2); border:1px solid var(--edge);
+    border-radius:3px; padding:3px 9px; }
+  button:hover { background:linear-gradient(#FFFFFF,#E3E7EB); border-color:#AAB2BB; }
+  button:active { background:#DCE1E6; }
+  button:focus-visible { outline:2px solid #75AADB; outline-offset:1px; }
+  button.on { background:linear-gradient(#E6F0FA,#D3E3F4); border-color:#8DB2D8;
+    color:#1C4E80; font-weight:bold; }
+  button.primary, #dlg .ok { background:linear-gradient(#63A0DA,#3A78B5);
+    border-color:#2E649B; color:#fff; font-weight:bold; }
+  button.primary:hover, #dlg .ok:hover { background:linear-gradient(#6DA9E2,#336FAA); }
+  button:disabled { opacity:.5; cursor:default; }
+  /* Toolbar buttons are flat until the pointer is over them, as in RStudio. */
+  .tb { display:inline-flex; align-items:center; gap:5px; height:24px; padding:2px 6px;
+    background:transparent; border-color:transparent; white-space:nowrap; }
+  .tb:hover { background:linear-gradient(#FFFFFF,#E8EBEF); border-color:#C3C9D0; }
+  .ib { display:inline-flex; align-items:center; gap:5px; }
+  .caret { font-size:9px; color:#6B7279; margin-left:1px; }
+
+  /* Icons, drawn inline so the page stays one file with nothing to fetch. They
+     are ::before content, so a button whose label the script rewrites keeps its
+     icon. */
+  [data-ico]::before { content:''; width:14px; height:14px; flex:none;
+    background:center/contain no-repeat; }
+  [data-ico=save]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M1.5 1.5h9l2 2v9h-11z' fill='%234A86C5' stroke='%232C5E94'/%3E%3Crect x='4' y='2' width='5' height='3.2' fill='%23fff'/%3E%3Crect x='3.3' y='8' width='7.4' height='4' fill='%23E6EFF9'/%3E%3C/svg%3E"); }
+  [data-ico=undo]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M4.5 2.5 1.5 5.5l3 3' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M2 5.5h6.3a3.6 3.6 0 0 1 0 7.2H5.5' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+  [data-ico=clear]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5.6' fill='%23D2504B'/%3E%3Cpath d='M4.8 4.8l4.4 4.4M9.2 4.8l-4.4 4.4' stroke='%23fff' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+  [data-ico=broom]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M12.5 1.5 7.4 7' stroke='%239A6531' stroke-width='1.7' stroke-linecap='round'/%3E%3Cpath d='M5.6 6.2l3.1 2.6-2 4.2C4.8 12.7 2.9 11.6 1.5 9.9z' fill='%23EBB54E' stroke='%23B07B1E' stroke-linejoin='round'/%3E%3Cpath d='M5.2 7.1l2.9 2.5' stroke='%23B07B1E'/%3E%3C/svg%3E"); }
+  [data-ico=wand]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 12.5 8.6 5.9' stroke='%23555B62' stroke-width='1.9' stroke-linecap='round'/%3E%3Cpath d='M10.4 1l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z' fill='%23F0B12B' stroke='%23C88A0E' stroke-width='.6'/%3E%3Ccircle cx='12.4' cy='8' r='.9' fill='%23F0B12B'/%3E%3Ccircle cx='6' cy='2.2' r='.8' fill='%23F0B12B'/%3E%3C/svg%3E"); }
+  [data-ico=runall]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M1 5.2h6V2.6l5.6 4.4L7 11.4V8.8H1z' fill='%233BAA48' stroke='%23268533' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  [data-ico=export]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2 6.5v6h10v-6' fill='none' stroke='%23707780' stroke-width='1.3'/%3E%3Cpath d='M7 9V1.8M4.3 4.4 7 1.6l2.7 2.8' fill='none' stroke='%233A78B5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  [data-ico=ruler]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='.8' y='4.3' width='12.4' height='5.4' rx='.6' fill='%23F6E6A8' stroke='%23B38F2E'/%3E%3Cpath d='M3 4.5v2.2M5 4.5v1.4M7 4.5v2.2M9 4.5v1.4M11 4.5v2.2' stroke='%23866A1D'/%3E%3C/svg%3E"); }
+  [data-ico=sheet]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1.5' y='1.5' width='11' height='11' rx='1' fill='%23fff' stroke='%232E8B57'/%3E%3Cpath d='M1.5 5h11M1.5 8.5h11M5.2 1.5v11' stroke='%232E8B57'/%3E%3C/svg%3E"); }
+  [data-ico=rdoc]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='6' fill='%23fff' stroke='%233A78B5'/%3E%3Ctext x='7' y='10.2' font-family='Georgia' font-size='9' font-weight='bold' text-anchor='middle' fill='%233A78B5'%3ER%3C/text%3E%3C/svg%3E"); }
+  [data-ico=zip]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 1.5h6l3 3v8h-9z' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M6 2v1M7 3v1M6 4v1M7 5v1M6 6v1' stroke='%23707780'/%3E%3Crect x='5.6' y='7.4' width='1.8' height='2.2' fill='%23707780'/%3E%3C/svg%3E"); }
+  [data-ico=image]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1.5' y='2.5' width='11' height='9' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M2 11l3.4-3.6 2.4 2.3 1.6-1.4L12 11' fill='%2398C379'/%3E%3Ccircle cx='9.4' cy='5.2' r='1.1' fill='%23F0B12B'/%3E%3C/svg%3E"); }
+  [data-ico=newfolder]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M.8 2.8h4l1.3 1.4h5.4v6.4H.8z' fill='%23F3C969' stroke='%23B8912F'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
+  [data-ico=addphotos]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='.8' y='1.8' width='10.4' height='8.4' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M1.3 9.7l3.1-3.2 2.1 2 1.5-1.3 2.6 2.5z' fill='%2398C379'/%3E%3Ccircle cx='8.3' cy='4.6' r='1' fill='%23F0B12B'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
+  [data-ico=trash]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 3.5h9M5.5 3.5V2h3v1.5' fill='none' stroke='%23707780' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M3.5 3.5l.7 9h5.6l.7-9' fill='%23fff' stroke='%23707780' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M5.8 5.5v5M8.2 5.5v5' stroke='%23C9323F' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E"); }
+  [data-ico=records]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1' y='2.5' width='12' height='9' rx='1' fill='%23fff' stroke='%23B8912F'/%3E%3Ccircle cx='4.3' cy='6' r='1.5' fill='%23F3C969' stroke='%23B8912F' stroke-width='.7'/%3E%3Cpath d='M2.4 9.6c.4-1.3 3.4-1.3 3.8 0M7.4 5.2h4M7.4 7.2h4M7.4 9.2h2.6' stroke='%23B8912F' stroke-width='.9'/%3E%3C/svg%3E"); }
+  [data-ico=star]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M7 1.2l1.75 3.6 3.95.55-2.87 2.77.7 3.93L7 10.18l-3.53 1.87.7-3.93L1.3 5.35l3.95-.55z' fill='%23F2C94C' stroke='%23B8912F' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  [data-ico=doc]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 1.5h6l3 3v8h-9z' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M4.5 6.5h5M4.5 8.5h5M4.5 10.5h3' stroke='%233A78B5'/%3E%3C/svg%3E"); }
+
+  /* ---- form controls ------------------------------------------------------ */
+  input[type=text], input[type=number], input[type=search], select {
+    font:12px var(--ui); color:var(--fg); background:#fff; border:1px solid var(--edge);
+    border-radius:3px; padding:2px 6px; height:23px; }
+  input[type=text]:focus, input[type=number]:focus, input[type=search]:focus, select:focus {
+    outline:none; border-color:#75AADB; box-shadow:0 0 0 2px #75AADB40; }
+  select { -webkit-appearance:none; appearance:none; padding-right:20px; cursor:pointer;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 5'%3E%3Cpath d='M0 0h8L4 5z' fill='%23555B62'/%3E%3C/svg%3E") right 7px center/7px 5px no-repeat,
+               linear-gradient(#FFFFFF,#EDEFF2); }
+  input[type=range], input[type=checkbox] { accent-color:var(--accent); }
+  kbd { font:11px var(--mono); background:var(--panel2); border:1px solid var(--edge);
+    border-bottom-width:2px; border-radius:3px; padding:0 4px; }
+
+  /* ---- panes -------------------------------------------------------------- */
   /* Three columns. The landmark list and the specimen list were both flex:1 in
      one sidebar and starved each other -- the specimen list ended up showing
      three rows. Separate columns let each have its own full height. */
-  #app { display:grid;
-    grid-template-columns:var(--sidew,320px) 6px var(--taskw,240px) 6px 1fr;
-    grid-template-rows:100%; height:100vh; max-height:100vh; overflow:hidden; }
-  #taskcol { background:var(--panel); border-right:1px solid var(--line);
-    display:flex; flex-direction:column; min-height:0; }
-  .colhdr { font-size:10px; text-transform:uppercase; letter-spacing:.6px;
-    color:var(--mut); padding:12px 14px 8px; border-bottom:1px solid var(--line);
-    display:flex; align-items:center; gap:8px; }
-  #taskcount { margin-left:auto; font-variant-numeric:tabular-nums; }
-  #schemerow { display:flex; align-items:center; gap:6px; flex-wrap:wrap;
-    padding:5px 12px; border-bottom:1px solid var(--line); font-size:11px; color:var(--mut); }
-  #schemepick { background:var(--panel2,#141a22); border:1px solid #2b3644; border-radius:4px;
-    color:inherit; font:inherit; font-size:11px; padding:2px 4px; }
-  #schemenote { color:var(--warn); }
-  #hideex { display:flex; align-items:center; gap:4px; cursor:pointer;
-    text-transform:none; letter-spacing:0; font-size:10px; }
+  #app { flex:1; display:grid; padding:6px;
+    grid-template-columns:var(--sidew,300px) 6px var(--taskw,250px) 6px 1fr;
+    grid-template-rows:100%; min-height:0; overflow:hidden; }
+  .col { display:flex; flex-direction:column; gap:6px; min-width:0; min-height:0; }
+  .pane { flex:none; display:flex; flex-direction:column; min-height:0; overflow:hidden;
+    background:var(--panel); border:1px solid var(--edge); border-radius:4px; }
+  .pane.grow { flex:1; }
+  .tabs { flex:none; display:flex; align-items:flex-end; gap:1px; height:28px;
+    padding:0 6px 0 4px; background:linear-gradient(var(--tab1),var(--tab2));
+    border-bottom:1px solid var(--line); }
+  .tab, button.tab { display:inline-flex; align-items:center; gap:6px; height:23px;
+    margin-bottom:-1px; padding:0 11px; font:bold 12px/22px var(--ui); color:#454B51;
+    background:transparent; border:1px solid transparent; border-bottom:0;
+    border-radius:4px 4px 0 0; white-space:nowrap; cursor:default; }
+  button.tab { cursor:pointer; }
+  button.tab:not(.on):hover { background:#FFFFFF8C; color:var(--fg); }
+  .tab.on, button.tab.on { height:24px; background:var(--panel); border-color:var(--line);
+    color:#1B1F23; font-weight:bold; }
+  .tabs .aux { margin-left:auto; align-self:center; }
+  .tabpanel { display:none; }
+  .tabpanel.on { display:block; }
+  .panebody { padding:9px 10px 10px; }
+  .toolbar { flex:none; display:flex; align-items:center; gap:1px; min-height:30px;
+    padding:2px 5px; background:linear-gradient(#FDFDFE,#F1F3F5);
+    border-bottom:1px solid var(--line); }
+  #grip, #grip2 { background:transparent; cursor:col-resize; border-radius:3px; }
+  #grip:hover, #grip.drag, #grip2:hover, #grip2.drag { background:#C6D5E6; }
+  body.resizing { cursor:col-resize; user-select:none; }
+  /* Last-resort guard: if the column ever outgrows the window, scroll it rather
+     than silently clipping a control off the bottom. */
+  #side { overflow-y:auto; }
+
+  /* ---- Scale / Image pane ------------------------------------------------- */
+  #cal { display:flex; align-items:center; flex-wrap:wrap; gap:4px 6px; color:#454B51; }
+  #setDefaultMM { padding:1px 8px; height:23px; font-size:11px; white-space:nowrap; }
+  #setDefaultMM:disabled { opacity:1; color:var(--good); background:transparent; border-color:transparent; }
+  #cal input { width:74px; font-family:var(--mono); }
+  #calread { margin-top:7px; font:11px/1.45 var(--mono); color:var(--mut);
+    font-variant-numeric:tabular-nums; }
+  #calread.warn { font-family:var(--ui); font-weight:bold; color:#5A3800;
+    background:var(--warnsoft); border:1px solid #EFC878; border-radius:3px; padding:3px 7px; }
+  #autocal { display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px; margin-top:8px; }
+  #useauto { white-space:nowrap; }
+  #autotxt { font:11px var(--mono); color:var(--mut); font-variant-numeric:tabular-nums; }
+  #ticktxt { font-size:11px; color:var(--mut); line-height:1.45; margin-top:4px; }
+  #ticktxt b { color:var(--fg); }
+  #imgstate { color:var(--warn); font-weight:normal; font-size:11px; }
+  #imgctrl { display:flex; flex-direction:column; gap:6px; font-size:11px; color:#454B51; }
+  #imgctrl label { display:grid; grid-template-columns:1fr auto; gap:0 6px; width:100%; }
+  #imgctrl label input { grid-column:1 / -1; }
+  #imgctrl label b { color:var(--fg); font:11px var(--mono); font-variant-numeric:tabular-nums; }
+  #imgctrl input[type=range] { width:100%; margin:2px 0 0; }
+  .imgbtns { display:flex; gap:5px; margin-top:3px; }
+  .imgbtns button { flex:1; padding:2px 6px; font-size:11px; }
+
+  /* ---- Specimens pane ----------------------------------------------------- */
+  #specsearchrow { position:relative; gap:5px; }
+  #specsearch { flex:1; min-width:0; padding-left:23px;
+    background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Ccircle cx='5' cy='5' r='3.6' fill='none' stroke='%23777E86' stroke-width='1.4'/%3E%3Cpath d='M7.7 7.7 11 11' stroke='%23777E86' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 7px center/12px no-repeat; }
+  #specsearch::-webkit-search-cancel-button { cursor:pointer; }
+  #cmdbtn { padding:1px 8px; height:23px; font-family:var(--mono); }
+  #speccount { font:11px var(--mono); color:var(--mut); white-space:nowrap; padding:0 2px; }
+  #speccount.filtered { color:var(--accent); font-weight:bold; }
+  #removeShown { height:23px; padding:1px 6px; color:var(--kp); }
+  #removeShown[hidden] { display:none; }
+  #cmdkey { display:none; position:absolute; left:5px; right:5px; top:100%; z-index:30;
+    background:#fff; border:1px solid #B7BEC7; border-radius:4px; box-shadow:0 6px 20px #0000002e;
+    max-height:340px; overflow:auto; padding:4px 0; font-size:11.5px; }
+  #cmdkey.on { display:block; }
+  #cmdkey .hd { padding:3px 10px 5px; color:var(--mut); font-size:11px;
+    border-bottom:1px solid var(--line); margin-bottom:3px; }
+  #cmdkey .row { display:grid; grid-template-columns:92px 1fr auto; gap:8px; padding:3px 10px;
+    cursor:pointer; align-items:baseline; }
+  #cmdkey .row:hover, #cmdkey .row.sel { background:var(--accentsoft); }
+  #cmdkey .c { font-family:var(--mono); color:var(--accent); }
+  #cmdkey .d { color:var(--fg); }
+  #cmdkey .n { color:var(--mut); font-family:var(--mono); font-variant-numeric:tabular-nums; }
+  #cmdkey .row.zero .n { opacity:.5; }
+  #specWrap { overflow:auto; flex:1; min-height:120px; }
+  .spec { display:flex; justify-content:space-between; align-items:center; gap:6px;
+    padding:2px 10px; cursor:pointer; border-bottom:1px solid var(--line2);
+    font:12px/19px var(--mono); }
+  .spec:hover { background:var(--hover); }
+  .spec.active { background:var(--accentsoft); box-shadow:inset 3px 0 0 var(--accent); }
+  .spec .st { color:var(--mut); font:11px var(--ui); white-space:nowrap; }
+  .spec.done .st { color:var(--good); }
+  .mk { display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
+    border-radius:3px; font:bold 10px/15px var(--ui); margin-left:3px;
+    background:#EEF0F2; color:#A4ABB3; box-shadow:inset 0 0 0 1px #DCE0E4; }
+  .mk.on { background:var(--goodfill); color:#fff; box-shadow:none; }
+  .mk.f.on { background:#8A5CD6; color:#fff; }
+  .mk.v.on { background:var(--goodfill); color:#fff; }
+  .mk.v.thin { background:var(--warnfill); color:#3A2400; box-shadow:none; }
+  .mk.h.on { background:var(--accent); color:#fff; }
+  .mk.s.on { background:#F2C94C; color:#3A2A00; }
+  .mk.p.on { background:#A9B2BC; color:#fff; }
+  #progress .mk { margin-left:6px; margin-right:2px; }
+  #uprog { flex:none; padding:0 10px; font-size:11px; color:var(--mut); }
+  #uprog.on { padding:5px 10px 6px; border-bottom:1px solid var(--line); background:var(--panel2); }
+  /* A hairline under the status text. It shows completed work, so it never runs
+     ahead of what has actually finished, and eases between steps rather than
+     jumping so a slow item does not read as a stall. */
+  #uprog .ptrack { height:3px; margin-top:5px; border-radius:2px; background:var(--line2);
+    overflow:hidden; display:none; }
+  #uprog.on .ptrack { display:block; }
+  #uprog .pfill { height:100%; width:0; background:var(--accent); transition:width .35s ease; }
+
+  /* Collapsible sections sit at the foot of their pane, like RStudio's
+     Environment groups. The key and the progress are the same five rows, so they
+     are one block: the badge explains itself and its count sits on the right. */
+  details.foot { flex:none; border-top:1px solid var(--line); background:var(--panel2);
+    padding:0 10px; }
+  details.foot > summary { cursor:pointer; list-style:none; padding:5px 0;
+    font-weight:bold; font-size:11.5px; color:#3A3F45; }
+  details.foot > summary::-webkit-details-marker { display:none; }
+  details.foot > summary::before { content:'▸'; display:inline-block; width:12px;
+    color:var(--mut); font-size:10px; }
+  details.foot[open] > summary::before { content:'▾'; }
+  details.foot[open] { padding-bottom:8px; }
+  #legend { font-size:11px; color:var(--mut); line-height:1.85; }
+  #legend .lr { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:6px; }
+  #legend .lr .n { font:11px var(--mono); color:var(--fg); font-variant-numeric:tabular-nums; }
+  #legend .mk { margin-left:0; margin-right:5px; }
+
+  /* ---- Landmarks pane ----------------------------------------------------- */
+  #taskcount { font:normal 11px var(--mono); color:var(--mut); font-variant-numeric:tabular-nums; }
+  #hideex { display:flex; align-items:center; gap:4px; cursor:pointer; font-size:11px;
+    color:var(--mut); white-space:nowrap; }
+  #schemerow { gap:6px; flex-wrap:wrap; color:#454B51; }
+  #schemepick { flex:1 1 140px; min-width:0; max-width:100%; text-overflow:ellipsis; }
+  #schemenote { color:var(--warn); font-size:11px; }
+  #hint { flex:none; padding:7px 10px; min-height:52px; max-height:132px; overflow:auto;
+    background:#F8FAFC; color:#4E555C; border-bottom:1px solid var(--line); font-size:12px; }
+  #hint b { color:var(--fg); }
+  /* Capped and scrolled: a fish with many dropped predictions (ASN_48 had nine,
+     each with its reason) otherwise grew this until the landmark list had no
+     room left at all. */
+  #autostat { flex:none; padding:0 10px; font-size:11px; color:var(--mut); line-height:1.45;
+    max-height:120px; overflow:auto; }
+  #autostat:not(:empty) { padding:5px 10px; border-bottom:1px solid var(--line); background:var(--panel2); }
+  #autostat b { color:var(--warn); }
+  /* Grouped and collapsible, the landmark list is a few rows tall, so it sizes to
+     its content instead of claiming half a column. */
+  #tasks { overflow:auto; flex:1; min-height:180px; }
+  .grouphdr { display:flex; align-items:center; gap:6px; padding:3px 10px;
+    font:bold 12px var(--ui); color:#33383D; background:#F3F4F6;
+    border-top:1px solid var(--line2); border-bottom:1px solid var(--line2); }
+  .grouphdr:first-child { border-top:0; }
+  .grouphdr .gn { flex:1; }
+  .grouphdr .gc { font:normal 11px var(--mono); color:var(--mut); font-variant-numeric:tabular-nums; }
+  .grouphdr.done .gc { color:var(--good); }
+  .task { display:flex; align-items:center; gap:7px; padding:1px 10px; cursor:pointer;
+    font:12px/19px var(--mono); }
+  .task:hover { background:var(--hover); }
+  .task.active { background:var(--accentsoft); box-shadow:inset 3px 0 0 var(--accent); }
+  .task .dot { width:9px; height:9px; border-radius:50%; flex:none; background:#fff;
+    box-shadow:inset 0 0 0 1.5px #B5BCC4; }
+  .task.set .dot { background:var(--goodfill); box-shadow:none; }
+  .task.thin .dot { background:var(--warnfill); box-shadow:none; }
+  /* The list mirrors the canvas: a point the model is unsure of reads the same
+     in both places, and correcting it turns both green. */
+  .task.unsure .dot { background:var(--warnfill); box-shadow:0 0 0 2px #F1A43040; }
+  .task.reviewed .dot { background:var(--goodfill); box-shadow:none; }
+  .task .nm { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .task .rn { display:none; color:var(--mut); font:11px var(--ui); padding:0 3px; }
+  .task:hover .rn { display:inline; }
+  .task .rn:hover { color:var(--accent); }
+  .task .kind { color:var(--mut); font:10px var(--ui); text-transform:uppercase; }
+  /* vertex counter for fin outlines */
+  .task .cnt { flex:none; font:10px/15px var(--mono); color:var(--mut); background:#EEF0F2;
+    border-radius:3px; padding:0 5px; font-variant-numeric:tabular-nums; }
+  .task.thin .cnt { color:#3A2400; background:var(--warnfill); font-weight:bold; }
+  .task.set .cnt { color:#fff; background:var(--goodfill); font-weight:bold; }
+  .task .conf { font:10px var(--ui); padding:0 4px; border-radius:3px; margin-left:4px;
+    background:var(--warnsoft); color:var(--warn); }
   /* Struck through rather than removed: an excluded landmark is a decision, and
      a decision you cannot see is one you cannot revisit. */
   .task.excluded .nm { text-decoration:line-through; opacity:.45; }
   .task.excluded .dot { background:transparent; box-shadow:inset 0 0 0 1px var(--mut); }
-  .task .ex { flex:none; width:14px; text-align:center; color:var(--mut);
-    opacity:0; font-size:11px; }
+  .task .ex { flex:none; width:14px; text-align:center; color:var(--mut); opacity:0;
+    font:11px var(--ui); }
   .task:hover .ex, .task.excluded .ex { opacity:1; }
   .task .ex:hover { color:var(--warn); }
-  #grip, #grip2 { background:var(--line); cursor:col-resize; }
-  #grip:hover, #grip.drag, #grip2:hover, #grip2.drag { background:var(--accent); }
-  body.resizing { cursor:col-resize; user-select:none; }
-  #side { background:var(--panel); border-right:1px solid var(--line); display:flex;
-    flex-direction:column; min-height:0; }
-  #side h1 { font-size:14px; margin:0; padding:12px 14px; border-bottom:1px solid var(--line);
-    letter-spacing:.3px; }
-  #side h1 small { color:var(--mut); font-weight:400; }
-  .sec { padding:10px 14px; border-bottom:1px solid var(--line); }
-  .sec h2 { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--mut);
-    margin:0 0 8px; }
-  #specWrap { overflow:auto; flex:1; min-height:120px; }
-  #specsearchrow { display:flex; align-items:center; gap:6px; padding:4px 6px 5px; }
-  #specsearch { flex:1; min-width:0; background:var(--panel2,#141a22);
-    border:1px solid #2b3644; border-radius:4px; color:inherit;
-    padding:4px 7px; font:inherit; font-size:12px; }
-  #specsearch:focus { outline:none; border-color:var(--accent); }
-  #specsearch::-webkit-search-cancel-button { cursor:pointer; }
-  #speccount { font-size:10px; color:var(--mut); white-space:nowrap; }
-  #cmdbtn { padding:2px 7px; font-size:11px; font-family:ui-monospace,Menlo,monospace; }
-  #specsearchrow { position:relative; }
-  #cmdkey { display:none; position:absolute; left:6px; right:6px; top:100%; z-index:30;
-    background:var(--panel,#10151c); border:1px solid #2b3644; border-radius:6px;
-    box-shadow:0 8px 24px #0009; max-height:340px; overflow:auto; padding:4px 0; font-size:11px; }
-  #cmdkey.on { display:block; }
-  #cmdkey .hd { padding:3px 10px 5px; color:var(--mut); font-size:10px; border-bottom:1px solid #2b3644; margin-bottom:3px; }
-  #cmdkey .row { display:grid; grid-template-columns:92px 1fr auto; gap:8px; padding:4px 10px; cursor:pointer; align-items:baseline; }
-  #cmdkey .row:hover, #cmdkey .row.sel { background:#1e2732; }
-  #cmdkey .c { font-family:ui-monospace,Menlo,monospace; color:var(--accent); }
-  #cmdkey .d { color:var(--fg); opacity:.85; }
-  #cmdkey .n { color:var(--mut); font-variant-numeric:tabular-nums; }
-  #cmdkey .row.zero .n { opacity:.5; }
-  #speccount.filtered { color:var(--accent); }
-  .spec { padding:5px 14px; cursor:pointer; display:flex; justify-content:space-between;
-    gap:6px; border-left:3px solid transparent; }
-  .spec:hover { background:#232a35; }
-  .spec.active { background:#26303d; border-left-color:var(--accent); }
-  .mk { display:inline-block; width:15px; height:15px; line-height:15px; text-align:center;
-    border-radius:3px; font-size:10px; font-weight:700; margin-left:3px;
-    background:#2b3340; color:#59657a; }
-  .mk.on { background:var(--good); color:#052; }
-  .mk.f.on { background:#c07bff; color:#1a0033; }
-  .mk.v.on { background:var(--good); color:#052; }
-  .mk.v.thin { background:var(--warn); color:#2a1a00; }
-  .mk.h.on { background:var(--accent); color:#04121f; }
-  .mk.s.on { background:#ffd166; color:#3a2a00; }
-  .mk.p.on { background:var(--line); color:var(--fg); }
-  #progress .mk { margin-left:6px; margin-right:2px; }
-  .spec .st { color:var(--mut); font-size:11px; }
-  .spec.done .st { color:var(--good); }
-  .pickers { display:flex; gap:8px; margin-bottom:8px; }
-  .pickers label, .pickers .pk { flex:1; display:flex; flex-direction:column; gap:3px;
-    font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:var(--mut); }
-  .pickers select { background:#0e1218; color:var(--fg); border:1px solid var(--line);
-    border-radius:5px; padding:5px 6px; font-size:12px; }
-  /* Collapsed by default: a key is looked at once and then never again, so it
-     should not hold five lines of a sidebar that is already tight. */
-  /* The key and the progress are the same five rows, so they are one block: the
-     badge explains itself and its own count sits against the right edge. */
-  #legend .lr { display:grid; grid-template-columns:auto 1fr auto; align-items:center;
-    gap:6px; padding:1px 0; }
-  #legend .lr .n { font-variant-numeric:tabular-nums; color:var(--fg); font-weight:600; }
-  #legendbox { border-bottom:1px solid var(--line); font-size:10.5px; color:var(--mut); }
-  #legendbox summary { cursor:pointer; list-style:none; padding:6px 14px;
-    text-transform:uppercase; letter-spacing:.5px; font-size:10px; }
-  #legendbox summary::-webkit-details-marker { display:none; }
-  #legendbox summary::before { content:'▸ '; }
-  #legendbox[open] summary::before { content:'▾ '; }
-  #legend { padding:0 14px 8px; line-height:1.9; }
-  #legend .mk { margin-left:0; margin-right:5px; }
-  button { background:#28303c; color:var(--fg); border:1px solid var(--line); border-radius:6px;
-    padding:6px 9px; cursor:pointer; font-size:12px; }
-  button:hover { background:#313b49; }
-  button.on { background:var(--accent); border-color:var(--accent); color:#04121f; font-weight:600; }
-  button.primary { background:var(--good); border-color:var(--good); color:#052; font-weight:600; }
-  button:disabled { opacity:.45; cursor:default; }
-  /* Grouped and collapsible, the landmark list is a few rows tall, so it sizes to
-     its content instead of claiming half a column. Capped so a fully expanded set
-     still cannot squeeze the specimen list out. */
-  #tasks { overflow:auto; flex:1; min-height:0; }
-  .task { display:flex; align-items:center; gap:7px; padding:2px 14px; cursor:pointer;
-    border-left:3px solid transparent; font-size:12px; line-height:1.5; }
-  .task:hover { background:#232a35; }
-  .task.active { background:#26303d; border-left-color:var(--accent); }
-  .task .dot { width:9px; height:9px; border-radius:50%; background:#3a4553; flex:none; }
-  .task.set .dot { background:var(--good); }
-  .task .nm { flex:1; }
-  .task .rn { display:none; color:var(--mut); font-size:11px; padding:0 3px; }
-  .task:hover .rn { display:inline; }
-  .task .rn:hover { color:var(--accent); }
-  .addkp { padding:3px 14px 6px; font-size:11px; color:var(--mut); cursor:pointer; }
-  .addkp:hover { color:var(--accent); }
-  .task .kind { color:var(--mut); font-size:10px; text-transform:uppercase; }
-  /* vertex counter for fin outlines: amber until the outline is dense enough */
-  .task .cnt { font-size:10px; font-variant-numeric:tabular-nums; color:var(--mut);
-               background:#232a35; border-radius:3px; padding:1px 5px; flex:none; }
-  .task.thin .dot { background:var(--warn); }
-  /* The list mirrors the canvas: a point the model is unsure of reads the same
-     in both places, and correcting it turns both green. Without this the list
-     showed every predicted point as done while the canvas said otherwise. */
-  .task.unsure .dot { background:var(--warn); box-shadow:0 0 0 2px #ffb45455; }
-  .task.reviewed .dot { background:var(--good); }
-  /* In-page dialog. Native confirm()/prompt()/alert() are suppressed in some
-     embedded browsers -- confirm() returns false in ~7ms with no one clicking --
-     so every button guarded by one silently did nothing. */
-  #dlg { position:fixed; inset:0; background:#0009; display:none;
-         align-items:center; justify-content:center; z-index:9999; }
-  #dlg.on { display:flex; }
-  #dlg .box { background:var(--panel,#1c1f24); color:var(--fg,#e8e8e8);
-              border:1px solid #fff2; border-radius:10px; padding:18px 20px;
-              width:min(460px,92vw); box-shadow:0 12px 40px #000a; }
-  #dlg .msg { white-space:pre-wrap; line-height:1.45; margin-bottom:14px; }
-  #dlg input[type=text] { width:100%; box-sizing:border-box; margin-bottom:14px;
-               padding:7px 9px; border-radius:6px; border:1px solid #fff3;
-               background:#0003; color:inherit; font:inherit; }
-  #dlg .btns { display:flex; gap:8px; justify-content:flex-end; }
-  #dlg .chk { display:flex; gap:8px; align-items:flex-start; margin:-4px 0 14px;
-              line-height:1.4; cursor:pointer; }
-  #dlg .chk input { flex:none; margin:3px 0 0; }
-  .task.thin .cnt { color:#2a1a00; background:var(--warn); font-weight:600; }
-  .task.set .cnt { color:#052; background:var(--good); font-weight:600; }
-  #hint { padding:9px 14px; background:#161b22; color:var(--mut); border-bottom:1px solid var(--line);
-    min-height:52px; max-height:132px; overflow:auto; flex:none; font-size:12px; }
-  #hint b { color:var(--fg); }
-  #cal { display:flex; align-items:center; gap:6px; }
-  #cal input { width:70px; background:#0e1218; border:1px solid var(--line); color:var(--fg);
-    border-radius:5px; padding:4px 6px; }
-  #autocal { display:flex; align-items:center; gap:7px; margin-top:6px; }
-  #autocal button { padding:3px 8px; font-size:11px; }
-  #autotxt { font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
-  #ticktxt { font-size:11px; color:var(--mut); line-height:1.4; margin-top:3px; }
-  #ticktxt b { color:var(--fg); font-weight:600; }
-  #calread { margin-top:6px; font-size:11px; color:var(--mut); font-variant-numeric:tabular-nums; }
-  #calread.warn { color:#04121f; background:var(--warn); border-radius:4px; padding:3px 6px; font-weight:600; }
-  /* Stacked, not side by side: two range inputs in a 290px sidebar overflowed by
-     136px and ran the brightness slider off the edge of the panel. */
-  #imgpanel { margin-top:8px; font-size:11px; color:var(--mut); }
-  #imgpanel summary { cursor:pointer; list-style:none; padding:3px 0;
-    text-transform:uppercase; letter-spacing:.5px; font-size:10px; }
-  #imgpanel summary::-webkit-details-marker { display:none; }
-  #imgpanel summary::before { content:'▸ '; }
-  #imgpanel[open] summary::before { content:'▾ '; }
-  #imgstate { color:var(--warn); text-transform:none; letter-spacing:0; }
-  /* Dataset names are folder names on disk; the surrounding label styling
-     uppercases its contents, which would misrepresent them. */
-  #dsWrap, #dsWrap * { text-transform:none; letter-spacing:normal; }
-  #dsWrap { position:relative; }
-  /* The dataset picker cannot be a <select>: each row carries a photo count and
-     two actions. So it is built to match one instead -- the same metrics as the
-     view picker beside it, and the pop-up menu's own proportions: a checkmark
-     gutter, inset rounded rows, and the accent colour filling the row under the
-     cursor rather than a grey wash. */
-  #dsBtn { width:100%; display:flex; align-items:center; justify-content:space-between;
-    gap:6px; background:#0e1218; border:1px solid var(--line);
-    border-radius:5px; color:inherit; padding:5px 6px; font:inherit; font-size:12px;
-    cursor:pointer; text-align:left; }
-  #dsBtn:hover, #dsWrap.open #dsBtn { border-color:var(--accent); }
-  #dsBtn #dsLabel { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  /* The two chevrons of a pop-up button, in its accent-filled well. */
-  #dsBtn i { font-style:normal; flex:none; display:flex; align-items:center;
-    justify-content:center; width:15px; height:17px; border-radius:3px;
-    background:var(--accent); color:#fff; font-size:8px; line-height:1;
-    letter-spacing:-.5px; }
-  /* The menu is not bound to the button's width: a row carries a name, a count
-     and a hover button, and squeezing those into the picker truncated the name
-     to "al…". */
-  #dsMenu { display:none; position:absolute; left:0; min-width:max(100%, 236px);
-    top:calc(100% + 4px); padding:4px;
-    z-index:600; background:#1d232c; border:1px solid #38414e;
-    border-radius:6px; box-shadow:0 10px 30px #000a, 0 1px 2px #0006; }
-  #dsMenu.on { display:block; }
-  .dsrow { display:flex; align-items:center; gap:6px; padding:3px 7px 3px 4px;
-    border-radius:4px; cursor:default; font-size:12px; line-height:18px; }
-  .dsrow:hover { background:var(--accent); color:#fff; }
-  .dsrow .nm { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .dsrow .ct { color:var(--mut); font-size:11px; }
-  .dsrow:hover .ct { color:#ffffffc0; }
-  .dsrow .tick { flex:none; width:13px; text-align:center; color:inherit; font-size:11px; }
-  /* The per-dataset add button only appears on hover, so the menu stays a list
-     of studies at rest rather than a wall of buttons. */
-  .dsrow .add { display:none; border:1px solid #ffffff59; border-radius:3px;
-    background:#ffffff1f; color:inherit; font:inherit; font-size:10px;
-    padding:1px 6px; cursor:pointer; white-space:nowrap; }
-  .dsrow:hover .add { display:inline-block; }
-  .dsrow .add:hover { background:#fff; color:var(--accent); border-color:#fff; }
-  .dsrow .rm:hover { background:#fff; color:var(--bad,#ff5d6c); border-color:#fff; }
-  /* A menu separator is inset from the panel's edge, not drawn across it. */
-  #dsMenu .sep { height:1px; background:#ffffff1f; margin:4px 8px; }
-  #dsNew { display:flex; align-items:center; gap:6px; padding:3px 7px 3px 21px;
-    border-radius:4px; cursor:default; font-size:12px; line-height:18px;
-    color:var(--mut); }
-  #dsNew:hover { background:var(--accent); color:#fff; }
-  .filebtn { flex:1; text-align:center; cursor:pointer; background:var(--btn,#1b222c);
-    border:1px solid #2b3644; border-radius:4px; padding:5px 6px; font-size:11px; }
-  .filebtn:hover { border-color:var(--accent); }
-  #uprog { padding:0 6px; font-size:11px; color:var(--mut); }
-  #uprog.on { padding:4px 6px 6px; }
-  /* A hairline under the status text. It shows completed work, so it never runs
-     ahead of what has actually finished, and eases between steps rather than
-     jumping so a slow item does not read as a stall. */
-  #uprog .ptrack { height:2px; margin-top:5px; border-radius:2px;
-                   background:var(--line); overflow:hidden; display:none; }
-  #uprog.on .ptrack { display:block; }
-  #uprog .pfill { height:100%; width:0; background:var(--accent);
-                  opacity:.85; transition:width .35s ease; }
-  #dropzone { position:fixed; inset:0; z-index:9999; display:none;
-    align-items:center; justify-content:center; text-align:center;
-    background:#04121fdd; border:3px dashed var(--accent); color:#fff;
-    font-size:20px; pointer-events:none; }
-  #dropzone.on { display:flex; }
-  #dropwhere { font-size:13px; color:var(--mut); margin-top:8px; }
-  #demobar { display:none; background:#ffb454; color:#2a1a00; font-weight:600;
-    text-align:center; padding:4px 8px; font-size:12px; }
-  #demobar.on { display:block; }
-  #autostat { margin-top:6px; font-size:11px; color:var(--mut); line-height:1.4; }
-  #autostat b { color:var(--warn); }
-  .task .conf { font-size:10px; padding:0 4px; border-radius:3px; margin-left:4px;
-                background:#ffb45426; color:var(--warn); }
-  #imgctrl { display:flex; flex-direction:column; gap:5px; margin-top:6px; }
-  #imgctrl label { display:flex; flex-direction:column; gap:2px; width:100%; }
-  #imgctrl label b { color:var(--fg); font-weight:600; font-variant-numeric:tabular-nums; }
-  #imgctrl input[type=range] { width:100%; accent-color:var(--accent); }
-  .imgbtns { display:flex; gap:5px; margin-top:3px; }
-  .imgbtns button { flex:1; padding:3px 6px; font-size:10.5px; }
-  .imgbtns button.on { background:var(--accent); border-color:var(--accent);
-    color:#04121f; font-weight:600; }
-  /* Last-resort guard: if the sidebar ever outgrows the window, scroll it rather
-     than silently clipping a control off the bottom. */
-  #side { overflow-y:auto; }
-  #rtsec { padding:8px 14px; }
-                          color:#04121f; font-weight:600; }
-  /* Regions collapse, and a finished one collapses itself. 28 landmarks in one
-     flat column is a tall list for a task that advances automatically — you look
-     at the region you are working, not all of them. */
-  .grouphdr { padding:6px 14px 2px; font-size:9.5px; text-transform:uppercase;
-              letter-spacing:.6px; color:var(--mut);
-              display:flex; align-items:center; gap:6px; }
-  .grouphdr .gn { flex:1; }
-  .grouphdr .gc { font-variant-numeric:tabular-nums; }
-  .grouphdr.done .gc { color:var(--good); }
-  /* Collapsible like the others: a compromise note is occasional, and 92px of
-     permanent chrome was coming out of the specimen list. The summary shows a
-     marker when the open specimen actually has one, so it is not hidden. */
-  #exportbox { padding:8px 14px; border-bottom:1px solid var(--line); }
-  #exportbox summary { cursor:pointer; list-style:none; padding:2px 0;
-    text-transform:uppercase; letter-spacing:.5px; font-size:10px; color:var(--mut); }
-  #exportbox summary::-webkit-details-marker { display:none; }
-  #exportbox summary::before { content:'▸ '; }
-  #exportbox[open] summary::before { content:'▾ '; }
-  #expstate { color:var(--warn); text-transform:none; letter-spacing:0; }
-  .exprow { margin-top:6px; }
-  .exprow button { width:100%; }
-  .exprow span { display:block; font-size:10px; color:var(--mut); margin-top:2px; }
-  #dcsec { padding:8px 14px; border-bottom:1px solid var(--line); }
-  #dcsec summary { cursor:pointer; list-style:none; padding:2px 0;
-    text-transform:uppercase; letter-spacing:.5px; font-size:10px; color:var(--mut); }
-  #dcsec summary::-webkit-details-marker { display:none; }
-  #dcsec summary::before { content:'▸ '; }
-  #dcsec[open] summary::before { content:'▾ '; }
-  #dcstate { color:var(--warn); text-transform:none; letter-spacing:0; }
+  .addkp { padding:5px 10px 7px; font-size:11px; color:var(--accent); cursor:pointer; }
+  .addkp:hover { text-decoration:underline; }
+  #dcstate { color:var(--warn); font-weight:normal; }
   #clipflags { display:flex; flex-wrap:wrap; gap:5px; margin-bottom:6px; }
-  #clipflags button { padding:3px 7px; font-size:11px; }
-  #clipflags button.on { background:var(--warn); border-color:var(--warn); color:#2a1a00; font-weight:600; }
-  #datanote { width:100%; background:#0e1218; border:1px solid var(--line); color:var(--fg);
-    border-radius:5px; padding:5px 7px; font-size:11px; }
-  #main { position:relative; min-width:0; min-height:0; overflow:hidden; background:#0b0e12; }
-  canvas { display:block; width:100%; height:100%; cursor:crosshair; background:#0b0e12; }
+  #clipflags button { padding:1px 7px; font-size:11px; }
+  #clipflags button.on { background:var(--warnsoft); border-color:#E3AE4A; color:#5A3800; font-weight:bold; }
+  #datanote { width:100%; font-size:11.5px; }
+
+  /* ---- Viewer pane -------------------------------------------------------- */
+  #viewtab.dirty #viewname { color:#C9323F; }
+  #viewtab.dirty #viewname::after { content:'*'; }
+  .tbsel { display:flex; align-items:center; gap:6px; color:#454B51; padding-right:2px; }
+  /* Wraps rather than clipping: on a narrow window the last buttons (Remove
+     photo, the view picker) ran off the edge of the pane and could not be reached. */
+  #viewbar { flex-wrap:wrap; row-gap:2px; }
+  #main .pane { min-width:0; }
+  #stage { position:relative; flex:1; min-height:0; overflow:hidden; background:var(--viewer); }
+  canvas { display:block; }
   /* The photograph and everything drawn over it are separate layers, so image
      adjustments can be a CSS filter on the photograph alone. Canvas's own filter
      property does nothing in WebKit (Safari, DuckDuckGo), and would also recolour
      the landmarks. */
-  #cvimg { position:absolute; left:0; top:0; pointer-events:none; background:transparent; }
-  #cv { position:relative; background:transparent; }
-  #hud { position:absolute; top:10px; left:12px; background:#0d1117cc; padding:6px 10px;
-    border-radius:6px; color:var(--mut); font-size:11px; pointer-events:none; }
-  #toast { position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
-    background:#0d1117ee; border:1px solid var(--line); padding:8px 14px; border-radius:8px;
-    opacity:0; transition:opacity .2s; }
+  #cvimg, #cv { position:absolute; left:0; top:0; width:100%; height:100%; background:transparent; }
+  #cvimg { pointer-events:none; }
+  #cv { cursor:crosshair; }
+  .statusbar { flex:none; display:flex; align-items:center; gap:10px; height:23px; padding:0 9px;
+    background:linear-gradient(#F8F9FA,#EDEFF2); border-top:1px solid var(--line);
+    font:11px var(--mono); color:#50565C; }
+  #hud { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #toast { position:absolute; bottom:14px; left:50%; transform:translateX(-50%); z-index:20;
+    background:#fff; color:var(--fg); border:1px solid var(--edge); border-radius:4px;
+    padding:6px 12px; box-shadow:0 4px 14px #0000002b; opacity:0; transition:opacity .2s;
+    pointer-events:none; }
   #toast.show { opacity:1; }
-  .row { display:flex; gap:6px; }
-  .row button { flex:1; }
-  kbd { background:#0e1218; border:1px solid var(--line); border-radius:3px; padding:0 4px; }
-  #refpanel { position:absolute; left:12px; bottom:12px; width:min(430px,calc(100% - 24px)); background:#0d1117f2;
-    border:1px solid var(--line); border-radius:10px; overflow:hidden; box-shadow:0 6px 24px #0008; }
-  /* Minimised, not closed. The old × removed the panel with no way back except an
-     undocumented keypress, so the reference was effectively destroyable. The
-     header always remains and is itself the restore control. */
+  #refpanel { position:absolute; left:10px; bottom:10px; width:min(430px,calc(100% - 20px));
+    background:#fff; border:1px solid var(--edge); border-radius:4px; overflow:hidden;
+    box-shadow:0 4px 16px #0000002e; }
+  /* Minimised, not closed. The header always remains and is itself the restore
+     control. */
   #refpanel.min #refcv, #refpanel.min #reflabel { display:none; }
   #refpanel.min { width:auto; }
   #refpanel.min #refhead { cursor:pointer; }
   #refpanel.hidden { display:none; }
-  #refhead { display:flex; justify-content:space-between; align-items:center; padding:6px 10px;
-    background:#161b22; border-bottom:1px solid var(--line); font-size:11px; color:var(--mut); }
-  #refhead button { padding:2px 7px; font-size:11px; }
-  #refcv { display:block; width:100%; height:190px; background:#0b0e12; cursor:default; }
-  #reflabel { padding:5px 10px; font-size:11px; color:var(--fg); border-top:1px solid var(--line);
+  #refhead { display:flex; justify-content:space-between; align-items:center; gap:10px;
+    height:27px; padding:0 4px 0 10px; background:linear-gradient(var(--tab1),var(--tab2));
+    border-bottom:1px solid var(--line); font-weight:bold; color:#3A3F45; }
+  #refhead button { padding:0 7px; font-size:11px; height:20px; }
+  #refcv { width:100%; height:190px; background:var(--viewer); cursor:default; }
+  #refpanel.big { width:min(820px, calc(100% - 20px)); }
+  #refpanel.big #refcv { height:min(460px, 58vh); }
+  #refpanel.min #refbig { display:none; }
+  #reflabel { padding:5px 10px; font-size:11.5px; color:var(--fg); border-top:1px solid var(--line);
     min-height:16px; }
   #reflabel b { color:var(--accent); }
+
+  /* ---- menus -------------------------------------------------------------- */
+  .menu { display:none; position:absolute; top:calc(100% + 3px); z-index:600; padding:4px 0;
+    background:#fff; border:1px solid #B7BEC7; border-radius:4px; box-shadow:0 6px 22px #00000030; }
+  .menu.on { display:block; }
+  #expWrap, #dsWrap { position:relative; }
+  #expstate { color:var(--warn); }
+  #exportbox { left:0; width:340px; }
+  #exportbox button { display:block; position:relative; width:100%; text-align:left;
+    background:transparent; border:0; border-radius:0; padding:5px 12px 6px 33px; }
+  #exportbox button:hover { background:var(--accentsoft); }
+  #exportbox button::before { position:absolute; left:11px; top:7px; }
+  #exportbox button b { display:block; font-size:12px; }
+  #exportbox button span { display:block; font-size:11px; line-height:1.35; color:var(--mut);
+    margin-top:1px; }
+  #exportbox .sep { height:1px; background:var(--line); margin:4px 0; }
+  /* The dataset picker cannot be a <select>: each row carries a photo count and
+     two actions. It sits where RStudio keeps its project menu. */
+  #dsBtn { display:flex; align-items:center; gap:6px; max-width:320px; height:25px;
+    padding:2px 8px; font-weight:bold; }
+  #dsBtn:hover, #dsWrap.open #dsBtn { border-color:#8DB2D8; }
+  #dsWrap .dslab { font-size:11px; color:var(--mut); margin-right:6px; }
+  #dsBtn::before { content:''; width:15px; height:15px; flex:none;
+    background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 15 15'%3E%3Cpath d='M7.5 1l6 3.3v6.4l-6 3.3-6-3.3V4.3z' fill='%234F8FCB' stroke='%232F5F90' stroke-linejoin='round'/%3E%3Cpath d='M7.5 1l6 3.3-6 3.3-6-3.3z' fill='%23A9CDEE' stroke='%232F5F90' stroke-linejoin='round'/%3E%3Cpath d='M7.5 7.6V14' stroke='%232F5F90'/%3E%3C/svg%3E") center/contain no-repeat; }
+  #dsWrap { display:flex; align-items:center; }
+  #dsBtn #dsLabel { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #dsBtn i { font-style:normal; font-size:9px; color:#6B7279; }
+  #dsMenu { right:0; min-width:max(100%,270px); }
+  .dsrow { display:flex; align-items:center; gap:6px; padding:3px 10px 3px 6px; cursor:default;
+    font-size:12px; line-height:18px; }
+  .dsrow:hover { background:var(--accentsoft); }
+  .dsrow .nm { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dsrow .ct { color:var(--mut); font:11px var(--mono); }
+  .dsrow .tick { flex:none; width:13px; text-align:center; color:var(--accent); font-size:11px; }
+  /* The per-dataset buttons only appear on hover, so the menu stays a list of
+     studies at rest rather than a wall of buttons. */
+  .dsrow .add { display:none; padding:0 6px; height:18px; font-size:10.5px; line-height:16px;
+    background:#fff; white-space:nowrap; }
+  .dsrow:hover .add { display:inline-block; }
+  .dsrow .add:hover { border-color:var(--accent); color:var(--accent); }
+  .dsrow .rm:hover { border-color:var(--kp); color:var(--kp); }
+  #dsMenu .sep { height:1px; background:var(--line); margin:4px 0; }
+  #dsNew { padding:3px 10px 3px 25px; font-size:12px; line-height:18px; color:var(--accent);
+    cursor:default; }
+  #dsNew:hover { background:var(--accentsoft); }
+  .filebtn { flex:1; text-align:center; cursor:pointer; background:#fff;
+    border:1px solid var(--edge); border-radius:3px; padding:4px 6px; font-size:11px; }
+  .filebtn:hover { border-color:var(--accent); }
+  .row { display:flex; gap:6px; }
+  .row button { flex:1; }
+
+  /* ---- dialogs and overlays ---------------------------------------------- */
+  /* In-page dialog. Native confirm()/prompt()/alert() are suppressed in some
+     embedded browsers -- confirm() returns false in ~7ms with no one clicking --
+     so every button guarded by one silently did nothing. */
+  #dlg { position:fixed; inset:0; background:#1E28324D; display:none;
+    align-items:center; justify-content:center; z-index:9999; }
+  #dlg.on { display:flex; }
+  #dlg .box { background:#fff; color:var(--fg); border:1px solid #A9B1BA; border-radius:5px;
+    padding:16px 18px 14px; width:min(460px,92vw); box-shadow:0 12px 40px #00000047; }
+  #dlg .msg { white-space:pre-wrap; line-height:1.5; margin-bottom:14px; }
+  #dlg input[type=text] { width:100%; margin-bottom:14px; }
+  #dlg .btns { display:flex; gap:8px; justify-content:flex-end; }
+  #dlg .btns button { min-width:74px; }
+  #dlg .chk { display:flex; gap:8px; align-items:flex-start; margin:-4px 0 14px;
+    line-height:1.4; cursor:pointer; }
+  #dlg .chk input { flex:none; margin:3px 0 0; }
+  #dlg .opt { display:flex; gap:9px; align-items:flex-start; padding:8px 10px; margin-bottom:7px;
+    border:1px solid var(--line); border-radius:4px; cursor:pointer; line-height:1.4; }
+  #dlg .opt:hover { background:var(--hover); }
+  #dlg .opt input { flex:none; margin:3px 0 0; }
+  #dlg .opt small, #dlg .units small { color:var(--mut); }
+  #dlg .units { display:flex; align-items:center; gap:8px; margin:10px 0 14px; }
+  #dropzone { position:fixed; inset:0; z-index:9999; display:none; align-items:center;
+    justify-content:center; text-align:center; background:#EAF2FBEE;
+    border:3px dashed var(--accent); color:var(--fg); font-size:20px; pointer-events:none; }
+  #dropzone.on { display:flex; }
+  #dropwhere { font-size:13px; color:var(--mut); margin-top:8px; }
+  #demobar { display:none; margin-right:8px; padding:2px 8px; border-radius:3px;
+    background:var(--warnsoft); border:1px solid #EFC878; color:#5A3800;
+    font-weight:bold; font-size:11px; }
+  #demobar.on { display:block; }
+  /* ---- export preview: a data viewer, as View() opens one in RStudio ------ */
+  #xp { position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
+    justify-content:center; background:#1E28324D; }
+  #xp .win { width:min(1180px,95vw); height:min(720px,92vh); display:flex; flex-direction:column;
+    background:#fff; border:1px solid #A9B1BA; border-radius:5px; overflow:hidden;
+    box-shadow:0 14px 44px #00000050; }
+  #xp .xhead { flex:none; display:flex; align-items:baseline; gap:10px; height:32px; padding:0 14px;
+    line-height:32px; font-weight:bold; font-size:13px; color:#23384F;
+    background:linear-gradient(var(--tab1),var(--tab2)); border-bottom:1px solid var(--line); }
+  #xp .xhead span { font:normal 11px var(--mono); color:var(--mut); }
+  #xp .xbody { flex:1; min-height:0; display:grid; grid-template-columns:290px 1fr; }
+  #xp .xside { display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line);
+    background:var(--panel2); }
+  #xp .xsec { flex:none; padding:9px 12px; border-bottom:1px solid var(--line); }
+  #xp .xlab { color:#454B51; margin-bottom:5px; }
+  #xp .xrow { display:flex; align-items:center; gap:6px; }
+  #xp .xrow input { width:64px; font-family:var(--mono); }
+  #xp .xlinks { margin-top:6px; gap:12px; font-size:11px; }
+  #xp .xlinks a { color:var(--accent); cursor:pointer; }
+  #xp .xlinks a:hover { text-decoration:underline; }
+  #xp .xcols { flex:1; min-height:0; overflow:auto; background:#fff; }
+  #xp .xc { display:grid; grid-template-columns:auto 44px 1fr 28px; grid-template-rows:auto 3px;
+    align-items:center; column-gap:6px; padding:4px 12px 5px; cursor:pointer;
+    border-bottom:1px solid var(--line2); }
+  #xp .xc:hover { background:var(--hover); }
+  #xp .xc input { margin:0; }
+  #xp .xc code { font:bold 12px var(--mono); color:var(--fg); }
+  #xp .xc .lb { font-size:11px; color:var(--mut); white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; }
+  #xp .xc .ms { font:11px var(--mono); text-align:right; }
+  #xp .xc .bar { grid-column:2 / -1; height:3px; border-radius:2px; background:var(--line2);
+    overflow:hidden; }
+  #xp .xc .bar i { display:block; height:100%; }
+  #xp .xc.off code, #xp .xc.off .lb { color:#A4ABB3; text-decoration:line-through; }
+  /* Landmark names (dorsal_fin_base_anterior) do not fit the slot a trait code
+     (SL, CPd) gets, and ran over their description; they take a line of their
+     own with the description beneath. */
+  #xp .xcols.long .xc { grid-template-columns:auto minmax(0,1fr) 28px;
+    grid-template-rows:auto auto 3px; row-gap:1px; }
+  #xp .xcols.long .xc input { grid-column:1; grid-row:1; }
+  #xp .xcols.long .xc code { grid-column:2; grid-row:1; min-width:0; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+  #xp .xcols.long .xc .ms { grid-column:3; grid-row:1; }
+  #xp .xcols.long .xc .lb { grid-column:2 / 4; grid-row:2; }
+  #xp .xcols.long .xc .bar { grid-column:2 / 4; grid-row:3; }
+  #xp .z { color:var(--good); } #xp .lo { color:#6B7279; }
+  #xp .mid { color:var(--warn); } #xp .hi { color:var(--kp); font-weight:bold; }
+  #xp .bar i.z { background:transparent; } #xp .bar i.lo { background:#A9B2BC; }
+  #xp .bar i.mid { background:var(--warnfill); } #xp .bar i.hi { background:#D9534F; }
+  #xp .xchk { display:flex; gap:8px; align-items:flex-start; cursor:pointer; border-bottom:0;
+    border-top:1px solid var(--line); }
+  #xp .xchk input { margin:2px 0 0; }
+  #xp .xchk small { color:var(--mut); font-size:11px; }
+  #xp .xmain { display:flex; flex-direction:column; min-width:0; min-height:0; }
+  #xp .xbar { flex:none; display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px;
+    min-height:32px; padding:3px 10px; background:linear-gradient(#FDFDFE,#F1F3F5);
+    border-bottom:1px solid var(--line); color:#454B51; }
+  #xp .xbar label { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  #xp #xpSum { flex:1 1 260px; min-width:0; }
+  #xp .xgrid { flex:1; min-height:0; overflow:auto; }
+  #xp table { border-collapse:separate; border-spacing:0; font:12px var(--mono); }
+  #xp th, #xp td { padding:2px 8px; border-right:1px solid var(--line2);
+    border-bottom:1px solid var(--line2); white-space:nowrap; text-align:left; }
+  #xp th { position:sticky; top:0; z-index:1; background:#F3F4F6; font:bold 12px var(--ui);
+    color:#33383D; border-bottom:1px solid var(--line); }
+  #xp th small { display:block; font:10px var(--mono); min-height:12px; }
+  #xp .num { text-align:right; }
+  #xp th.num small { text-align:right; }
+  #xp .rn { color:#9AA1A9; background:#F7F8FA; text-align:right; font-size:11px; }
+  #xp td.id a { color:var(--accent); cursor:pointer; }
+  #xp td.id a:hover { text-decoration:underline; }
+  #xp td.na { color:var(--kp); font-style:italic; background:#FDF1F1; }
+  #xp td.px { color:var(--warn); font-weight:bold; }
+  #xp .off, #xp td.na.off { color:#B9BFC6; background:#F6F7F8; font-style:normal; }
+  #xp th.off { color:#A4ABB3; text-decoration:line-through; }
+  #xp tbody tr:hover td { background:var(--hover); }
+  #xp tr.gone td { color:#B9BFC6; background:#FAFAFB; }
+  #xp tr.gone td.id a { color:#B9BFC6; text-decoration:line-through; }
+  #xp td.empty { color:var(--mut); font-family:var(--ui); padding:14px; }
+  #xp .xfoot { flex:none; display:flex; align-items:center; gap:8px; padding:9px 14px;
+    border-top:1px solid var(--line); background:var(--panel2); }
+  #xp .xfoot button { min-width:80px; }
+  #xp .xnote { font-size:11px; color:var(--mut); }
+  #xp .xfmt { display:flex; align-items:center; gap:6px; color:#454B51; margin-right:6px;
+    white-space:nowrap; }
+  #xp .xfoot .xnote { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; }
+  /* ---- specimen records: Darwin Core, edited as a data grid ---------------- */
+  #dwc { position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
+    justify-content:center; background:#1E28324D; }
+  #dwc .win { width:min(1280px,96vw); height:min(760px,92vh); display:flex; flex-direction:column;
+    background:#fff; border:1px solid #A9B1BA; border-radius:5px; overflow:hidden;
+    box-shadow:0 14px 44px #00000050; }
+  #dwc .xhead { flex:none; display:flex; align-items:baseline; gap:10px; height:32px; padding:0 14px;
+    line-height:32px; font-weight:bold; font-size:13px; color:#23384F;
+    background:linear-gradient(var(--tab1),var(--tab2)); border-bottom:1px solid var(--line); }
+  #dwc .xhead span { font:normal 11px var(--mono); color:var(--mut); }
+  #dwc .xbar { flex:none; display:flex; align-items:center; flex-wrap:wrap; gap:4px 8px;
+    min-height:32px; padding:3px 10px; background:linear-gradient(#FDFDFE,#F1F3F5);
+    border-bottom:1px solid var(--line); color:#454B51; }
+  #dwc .xbar label { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+  #dwc #dwcFind { width:170px; }
+  #dwc #dwcSum { flex:1 1 200px; min-width:0; text-align:right; }
+  #dwc .plan { flex:none; max-height:40%; overflow:auto; padding:10px 14px; line-height:1.55;
+    background:var(--warnsoft); border-bottom:1px solid #EFC878; }
+  #dwc .plan code { font:11px var(--mono); }
+  #dwc .plan .btns { display:flex; gap:8px; margin-top:8px; }
+  #dwc .xgrid { flex:1; min-height:0; overflow:auto; }
+  #dwc table { border-collapse:separate; border-spacing:0; font:12px var(--mono); }
+  #dwc th, #dwc td { padding:0; border-right:1px solid var(--line2);
+    border-bottom:1px solid var(--line2); white-space:nowrap; text-align:left; }
+  #dwc th { position:sticky; top:0; z-index:2; background:#F3F4F6; font:bold 12px var(--ui);
+    color:#33383D; border-bottom:1px solid var(--line); padding:3px 4px 3px 8px; }
+  #dwc th .all { margin-left:6px; padding:0 5px; height:17px; font-size:10px; line-height:15px;
+    color:var(--mut); }
+  #dwc th.sp, #dwc td.sp { position:sticky; left:0; z-index:1; background:#F7F8FA; }
+  #dwc th.sp { z-index:3; }
+  #dwc td.sp { padding:2px 8px; }
+  #dwc td.sp a { color:var(--accent); cursor:pointer; }
+  #dwc td.sp a:hover { text-decoration:underline; }
+  #dwc td input { width:118px; border:0; border-radius:0; background:transparent;
+    font:12px var(--mono); padding:3px 6px; }
+  #dwc td input.w { width:230px; } #dwc td input.m { width:170px; } #dwc td input.n { width:84px; }
+  #dwc td input::placeholder { color:#9AA7B4; font-style:italic; }
+  #dwc td input:focus { outline:2px solid #75AADB; outline-offset:-2px; background:#fff; }
+  #dwc td.ch { background:var(--warnsoft); }
+  #dwc tbody tr:hover td:not(.ch) { background:var(--hover); }
+  #dwc tr.focus td { background:var(--accentsoft); }
+  #dwc td.empty { color:var(--mut); font-family:var(--ui); padding:14px; }
+  #dwc .xfoot { flex:none; display:flex; align-items:center; gap:8px; padding:9px 14px;
+    border-top:1px solid var(--line); background:var(--panel2); }
+  #dwc .xfoot button { min-width:80px; }
+  #dwc .xnote { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;
+    white-space:nowrap; font-size:11px; color:var(--mut); }
+  #dwcDirty { color:var(--warn); font-weight:bold; white-space:nowrap; }
+  #recstate { font-weight:normal; font:11px var(--mono); color:var(--mut); }
+  #recbody { font-size:11px; line-height:1.6; color:#454B51; }
+  #recbody dl { display:grid; grid-template-columns:auto 1fr; gap:0 8px; margin:0 0 4px; }
+  #recbody dt { color:var(--mut); } #recbody dd { margin:0; overflow-wrap:anywhere; }
+  #recbody a { color:var(--accent); cursor:pointer; }
+  #recbody a:hover { text-decoration:underline; }
 </style>
 </head>
 <body>
+<div id="topbar">
+  <span class="brand"><span class="logo">c</span>caliPr <small>labeler</small></span>
+  <span class="tsep"></span>
+  <button id="tbNewStudy" class="tb" data-ico="newfolder" type="button"
+    title="Add a folder of photographs as a new study">Add folder</button>
+  <button id="tbAddPhotos" class="tb" data-ico="addphotos" type="button"
+    title="Add photographs to the study that is open">Add photos</button>
+  <span class="tsep"></span>
+  <button id="autoall" class="tb" data-ico="runall" title="Run the model over every
+unlabelled specimen and cache the results, so reviewing them afterwards is
+instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
+  <span class="tsep"></span>
+  <div id="expWrap">
+    <button id="expBtn" class="tb" data-ico="export" type="button">Export<span id="expstate"></span><span class="caret">▾</span></button>
+    <div id="exportbox" class="menu">
+      <button data-exp="measurements" data-ico="sheet"><b>Measurements (.xlsx or .csv)</b>
+        <span>traits per specimen, with ratios, QC and checks — preview it and choose the
+        columns first</span></button>
+      <button data-exp="tps" data-ico="rdoc"><b>Annotations for R (.zip)</b>
+        <span>the landmark coordinates, for Procrustes and PCA: a folder with one file
+        per specimen in ImageJ's layout, or a geomorph .tps bundle</span></button>
+      <div class="sep"></div>
+      <button data-exp="sidecars" data-ico="zip"><b>Annotations (.zip)</b>
+        <span>the labels themselves, to send back for training — shown in Finder</span></button>
+      <button data-exp="overlays" data-ico="image"><b>Labelled images (.zip)</b>
+        <span>each photo with its annotation drawn on — opens the folder</span></button>
+    </div>
+  </div>
+  <button id="tbRecords" class="tb" data-ico="records" type="button" hidden
+    title="Darwin Core records for this study's specimens: institution, catalogue number,
+species, sex, where and when collected. Typed, imported from a spreadsheet or iDigBio,
+or read from the filenames; carried into every export.">Specimen records</button>
+  <span class="spacer"></span>
+  <div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
+  <!-- Not a <label>: a click anywhere inside one is forwarded to the control it
+       labels, so picking a study from the menu re-triggered the button and the
+       menu never closed. -->
+  <div id="dsWrap"><span class="dslab">Study</span>
+    <button id="dsBtn" type="button" title="Switch study, add photographs to one, or add a new one"><span id="dsLabel"></span><i>▾</i></button>
+    <div id="dsMenu" class="menu"></div>
+  </div>
+</div>
 <div id="app">
-  <div id="side">
-    <h1>caliPr <small>labeler</small></h1>
-    <div class="sec">
-      <div class="pickers">
-        <!-- Not a <label>: a click anywhere inside one is forwarded to the
-             control it labels, so picking a study from the menu re-triggered the
-             button and the menu never closed. -->
-        <div class="pk"><span class="pklab">dataset</span><div id="dsWrap">
-          <button id="dsBtn" type="button"><span id="dsLabel"></span><i>⌃<br>⌄</i></button>
-          <div id="dsMenu"></div>
-        </div></div>
-        <label>view<select id="viewPick">
-          <option value="lateral">lateral</option>
-          <option value="frontal">frontal</option>
-        </select></label>
+  <div id="side" class="col">
+    <section class="pane" id="toolpane">
+      <div class="tabs">
+        <button class="tab on" type="button" data-tab="tabScale">Scale</button>
+        <button class="tab" type="button" data-tab="tabImage">Image<span id="imgstate"></span></button>
       </div>
-      <div id="cal">
-        <span>known span</span>
-        <input id="knownmm" type="number" step="0.1" value="10" />
-        <span>mm</span>
+      <div class="tabpanel panebody on" id="tabScale">
+        <div id="cal">
+          <span>Known span</span>
+          <input id="knownmm" type="number" step="0.1" value="10" />
+          <span>mm</span>
+          <button id="setDefaultMM" type="button">Set as default</button>
+        </div>
+        <div id="calread">—</div>
+        <div id="autocal"><button id="useauto" class="ib" data-ico="ruler" title="Find the ruler and put point a and point b on it, the way Auto-label places a landmark">Place the ruler points</button><span id="autotxt"></span></div>
+        <div id="ticktxt"></div>
       </div>
-      <div id="calread">—</div>
-      <div id="autocal"><button id="useauto" title="Find the ruler and put point a and point b on it, the way Auto-label places a landmark">place the ruler points</button><span id="autotxt"></span></div>
-      <div id="ticktxt"></div>
-      <details id="imgpanel">
-        <summary>image adjustments <span id="imgstate"></span></summary>
-        <div id="imgctrl">
+      <div class="tabpanel panebody" id="tabImage">
+        <div id="imgpanel"><div id="imgctrl">
           <label>contrast <b id="vCtrst">1.00</b>
             <input id="ctrst" type="range" min="1" max="3.5" step="0.05" value="1"></label>
           <label>brightness <b id="vBrt">1.00</b>
@@ -377,92 +632,93 @@
           <label>gamma <b id="vGam">1.00</b>
             <input id="gam" type="range" min="0.4" max="2.2" step="0.05" value="1"></label>
           <div class="imgbtns">
-            <button id="tGray" title="Drop colour — sometimes an edge is clearer without it">grayscale</button>
-            <button id="tInv" title="Invert — can lift a faint margin out of a dark ground">invert</button>
-            <button id="enhReset">reset</button>
+            <button id="tGray" title="Drop colour — sometimes an edge is clearer without it">Grayscale</button>
+            <button id="tInv" title="Invert — can lift a faint margin out of a dark ground">Invert</button>
+            <button id="enhReset">Reset</button>
           </div>
-        </div>
-      </details>
-    </div>
-    <div class="sec" id="rtsec">
-    </div>
-    <details id="exportbox"><summary>export <span id="expstate"></span></summary>
-      <div class="exprow"><button data-exp="measurements">Measurements (.xlsx)</button>
-        <span>traits per specimen, ratios, QC — opens in your spreadsheet app</span></div>
-      <div class="exprow"><button data-exp="tps">Annotations for R (.zip)</button>
-        <span>the coordinates: .tps for geomorph, the same points as ImageJ writes
-        them, landmark names and a loader snippet — shown in Finder</span></div>
-      <div class="exprow"><button data-exp="sidecars">Annotations (.zip)</button>
-        <span>the labels themselves, to send back for training — shown in Finder</span></div>
-      <div class="exprow"><button data-exp="overlays">Labelled images (.zip)</button>
-        <span>each photo with its annotation drawn on — opens the folder</span></div>
-    </details>
-    <details id="legendbox" open><summary>badge key</summary><div id="legend"></div></details>
-    <div id="dropzone"><div><b>Drop photographs to add them</b>
-  <div id="dropwhere"></div></div></div>
-<div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
-    <input id="addimgs" type="file" accept="image/*" multiple hidden>
-    <input id="addfolder" type="file" webkitdirectory directory multiple hidden>
-    <div class="row" style="padding:4px 6px 0">
-      <button id="autoall" style="flex:1" title="Run the model over every
-unlabelled specimen and cache the results, so reviewing them afterwards is
-instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
-    </div>
-    <div id="uprog"><span class="ptext"></span><div class="ptrack"><div class="pfill"></div></div></div>
-    <div id="specsearchrow">
-      <input id="specsearch" type="search" placeholder="find specimen  (/)  ·  type / for commands"
-             autocomplete="off" spellcheck="false">
-      <button id="cmdbtn" title="Search commands">/</button>
-      <span id="speccount"></span>
-      <div id="cmdkey"></div>
-    </div>
-    <div id="specWrap"></div>
-    <details id="dcsec"><summary>data note / compromise <span id="dcstate"></span></summary>
-      <div id="clipflags"></div>
-      <input id="datanote" type="text" placeholder="note any photo compromise…" />
-    </details>
-    <div class="sec">
-      <div class="row" style="margin-bottom:6px">
-        <button id="undo" title="Undo the last change — a placed point, a drag, a vertex, a clear (Z or ⌘/Ctrl+Z). Redo: ⇧⌘Z">↶ Undo</button>
-        <button id="clear" title="Clear the selected landmark or outline (undoable)">Clear pt</button>
-        <button id="clearall" title="Clear every point and outline on this view (undoable — Z)">Clear all</button>
+        </div></div>
       </div>
-      <div class="row" style="margin-bottom:6px">
-        <button id="autolabel" title="Run the trained model on this specimen and
-drop its landmarks in. Points it is unsure about come in orange — those are the
-ones to check.">Auto-label</button>
+    </section>
+    <section class="pane grow" id="specpane">
+      <div class="tabs"><span class="tab on">Specimens</span></div>
+      <div id="specsearchrow" class="toolbar">
+        <input id="specsearch" type="search" placeholder="Find specimen (/) · / for commands"
+               autocomplete="off" spellcheck="false">
+        <button id="cmdbtn" title="Search commands">/</button>
+        <span id="speccount"></span>
+        <button id="removeShown" class="tb" data-ico="trash" type="button" hidden
+          title="Take every specimen the search shows out of the study (moved to data/.trash/, not deleted)">Remove</button>
+        <div id="cmdkey"></div>
       </div>
-      <div class="row">
-        <button id="save" class="primary">Save sidecar</button>
-      </div>
-      <div id="autostat"></div>
-    </div>
+      <div id="uprog"><span class="ptext"></span><div class="ptrack"><div class="pfill"></div></div></div>
+      <div id="specWrap"></div>
+      <details id="legendbox" class="foot" open><summary>Badge key</summary><div id="legend"></div></details>
+    </section>
   </div>
   <div id="grip" title="Drag to resize"></div>
-  <div id="taskcol">
-    <div class="colhdr">Landmarks <span id="taskcount"></span>
-      <label id="hideex" title="Hide the landmarks this study does not collect">
-        <input type="checkbox" id="hideExcl"> hide excluded</label></div>
-    <div id="schemerow">scheme <select id="schemepick" title="Which landmark scheme this study collects"></select>
-      <span id="schemenote"></span></div>
-    <div id="hint">Select a specimen to begin.</div>
-    <div id="tasks"></div>
+  <div id="taskcol" class="col">
+    <section class="pane grow">
+      <div class="tabs"><span class="tab on">Landmarks <span id="taskcount"></span></span>
+        <label id="hideex" class="aux" title="Hide the landmarks this study does not collect">
+          <input type="checkbox" id="hideExcl"> hide excluded</label></div>
+      <div id="schemerow" class="toolbar">Scheme <select id="schemepick" title="Which landmark scheme this study collects"></select>
+        <span id="schemenote"></span></div>
+      <div id="hint">Select a specimen to begin.</div>
+      <div id="autostat"></div>
+      <div id="tasks"></div>
+      <details id="dcsec" class="foot"><summary>Data note / compromise <span id="dcstate"></span></summary>
+        <div id="clipflags"></div>
+        <input id="datanote" type="text" placeholder="note any photo compromise…" />
+      </details>
+      <details id="recsec" class="foot" hidden><summary>Specimen record <span id="recstate"></span></summary>
+        <div id="recbody"></div>
+      </details>
+    </section>
   </div>
   <div id="grip2" title="Drag to resize"></div>
-  <div id="main">
-    <canvas id="cvimg"></canvas>
-    <canvas id="cv"></canvas>
-    <div id="hud"></div>
-    <div id="toast"></div>
-    <div id="refpanel">
-      <div id="refhead"><span id="reftitle">Reference — example fish</span>
-        <span><button id="refmode" title="Toggle overview / zoom">zoom</button>
-        <button id="refmin" title="Minimise / restore (R)">–</button></span></div>
-      <canvas id="refcv"></canvas>
-      <div id="reflabel"></div>
-    </div>
+  <div id="main" class="col">
+    <section class="pane grow">
+      <div class="tabs"><span class="tab on" id="viewtab" data-ico="doc"><span id="viewname">No specimen</span></span></div>
+      <div id="viewbar" class="toolbar">
+        <button id="save" class="tb" data-ico="save" title="Save sidecar — write this specimen's labels to disk">Save</button>
+        <span class="tsep"></span>
+        <button id="undo" class="tb" data-ico="undo" title="Undo the last change — a placed point, a drag, a vertex, a clear (Z or ⌘/Ctrl+Z). Redo: ⇧⌘Z">Undo</button>
+        <button id="clear" class="tb" data-ico="clear" title="Clear the selected landmark or outline (undoable)">Clear point</button>
+        <button id="clearall" class="tb" data-ico="broom" title="Clear every point and outline on this view (undoable — Z)">Clear all</button>
+        <span class="tsep"></span>
+        <button id="autolabel" class="tb" data-ico="wand" title="Run the trained model on this specimen and
+drop its landmarks in. Points it is unsure about come in orange — those are the
+ones to check.">Auto-label</button>
+        <span class="tsep"></span>
+        <button id="useExample" class="tb" data-ico="star" title="Make this fish the example shown in the reference panel for this study, from its saved landmarks">Use as example</button>
+        <button id="removePhoto" class="tb" data-ico="trash" title="Take this photograph out of the study. It is moved to data/.trash/ with its labels, not deleted.">Remove photo</button>
+        <span class="spacer"></span>
+        <label class="tbsel">View <select id="viewPick">
+          <option value="lateral">Lateral</option>
+          <option value="frontal">Frontal</option>
+        </select></label>
+      </div>
+      <div id="stage">
+        <canvas id="cvimg"></canvas>
+        <canvas id="cv"></canvas>
+        <div id="toast"></div>
+        <div id="refpanel">
+          <div id="refhead"><span id="reftitle">Reference — example fish</span>
+            <span><button id="refmode" title="Toggle overview / zoom">zoom</button>
+            <button id="refbig" title="Enlarge the example">⤢</button>
+            <button id="refmin" title="Minimise / restore (R)">–</button></span></div>
+          <canvas id="refcv"></canvas>
+          <div id="reflabel"></div>
+        </div>
+      </div>
+      <div class="statusbar"><span id="hud"></span></div>
+    </section>
   </div>
 </div>
+<div id="dropzone"><div><b>Drop photographs to add them</b>
+  <div id="dropwhere"></div></div></div>
+<input id="addimgs" type="file" accept="image/*" multiple hidden>
+<input id="addfolder" type="file" webkitdirectory directory multiple hidden>
 <script>
 const $ = s => document.querySelector(s);
 const api = async (u,o) => (await fetch(u,o)).json();
@@ -773,7 +1029,7 @@ function persistDraft(){ if(!cur||!model)return;
   model._pred = predToJSON();
   localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
   localStorage.setItem('calipr_last', cur.id);
-}catch(e){} }
+}catch(e){} markDirty(true); }
 // A draft older than the sidecar on disk is stale: the file changed outside this
 // browser (bulk edit, hand fix, git checkout) and the draft would silently
 // resurrect the old values. Drop it and say so rather than showing stale work.
@@ -791,7 +1047,9 @@ function loadDraft(id){
     return d;
   }catch(e){ return null; }
 }
-function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){} }
+function clearDraft(id){ try{ localStorage.removeItem(draftKey(id)); }catch(e){}
+  if(cur && cur.id===id) markDirty(false); }
+function markDirty(on){ const t=$('#viewtab'); if(t) t.classList.toggle('dirty', !!on); }
 
 async function refreshDatasets(){
   const info=await api('/api/datasets');
@@ -954,6 +1212,27 @@ async function loadSpecs(){
   SPECS=await api('/api/specimens'+dsq());
   renderLegend();          // counts live on the key's rows now
   renderSpecList();
+  syncViewPick();
+  loadDwc();
+}
+
+// A head-on view exists only where the scheme asks for head-on landmarks AND a
+// fish has a head-on photograph (a frontal/ image, or the mirror in a single
+// photograph). Where it does not -- every BGNN study -- the view switch, the F
+// badge and its row in the key are hidden rather than offering something that
+// cannot be done. A study that has one but a fish that does not: that fish's
+// badge is hidden and the switch is greyed while it is open.
+function frontalScheme(){
+  return ((SCHEMA && SCHEMA.frontal && SCHEMA.frontal.keypoints) || []).some(k => !k.excluded);
+}
+function hasFrontal(s){ return frontalScheme() && (s ? !!s.frontal : SPECS.some(x => x.frontal)); }
+function syncViewPick(){
+  const sel=$('#viewPick'); if(!sel) return;
+  const study=hasFrontal(), here=cur ? hasFrontal(cur) : study;
+  const box=sel.closest('.tbsel'); if(box) box.style.display = study ? '' : 'none';
+  const opt=sel.querySelector('option[value=frontal]');
+  if(opt){ opt.disabled=!here; opt.textContent = here ? 'Frontal' : 'Frontal (no head-on photo)'; }
+  if(view==='frontal' && !here) setView('lateral');
 }
 
 // Pure render from SPECS. Split out from loadSpecs so filtering as you type
@@ -979,6 +1258,7 @@ function renderSpecList(){
   const unknown=cmds.filter(c=>!commandNamed(c));
   const terms=all.filter(t=>!t.startsWith('/'));
   if(unknown.length){
+    updateRemoveShown(null);
     const cnt0=$('#speccount'); if(cnt0){ cnt0.textContent='?'; cnt0.classList.add('filtered'); }
     w.innerHTML='<div style="padding:10px;color:var(--mut);font-size:11px">'
       + `no command /${unknown[0].replace(/</g,'&lt;')} — type <b>/</b> to see them.</div>`;
@@ -996,6 +1276,7 @@ function renderSpecList(){
     });
   }
   const filtering = terms.length || cmds.length;
+  updateRemoveShown(filtering ? shown : null);
   const cnt=$('#speccount');
   if(cnt){
     cnt.textContent = filtering ? `${shown.length}/${SPECS.length}`
@@ -1017,7 +1298,7 @@ function renderSpecList(){
     // separate from L because a fully landmarked fish can still have fins
     // traced too sparsely — amber means "labeled, but the fins need points".
     const L=`<span class="mk ${s.lateral_done?'on':''}" title="lateral">L</span>`;
-    const F=`<span class="mk f ${s.frontal_done?'on':''}" title="frontal / mouth width">F</span>`;
+    const F=hasFrontal(s) ? `<span class="mk f ${s.frontal_done?'on':''}" title="frontal / mouth width">F</span>` : '';
     // V is about fin-outline density; a dataset that traces no fin outlines can
     // never satisfy it, so showing a permanently grey badge is just noise.
     const V=dsInfo().has_fin_polygons
@@ -1048,7 +1329,7 @@ function sizeMismatches(placedOn, sizes){
   return out;
 }
 async function selectSpec(s){
-  cur=s; model=blankModel(); clearPred();
+  cur=s; model=blankModel(); clearPred(); showRecord();
   let draft=loadDraft(s.id);
   const staleDraft = draft ? sizeMismatches(draft._placed_on, s.sizes) : {};
   if(Object.keys(staleDraft).length){
@@ -1059,6 +1340,7 @@ async function selectSpec(s){
   }
   // One chain, in priority order: unsaved work, then saved labels, then a cached
   // prediction. Each later source is used only when every earlier one is absent.
+  markDirty(!!draft);
   if(draft){ model=draft; predFromJSON(draft._pred); }   // unsaved work wins
   else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id)+dsq());
     model._base_mtime = sc._mtime || 0;
@@ -1177,11 +1459,24 @@ function loadImage(){
 // per-view default, switching tabs silently inherited the other view's value,
 // which is a 5x calibration error that nothing downstream can detect.
 const DEFAULT_MM={lateral:50, frontal:10};
+// The span a fish starts with: the study's own default where one is set (its
+// schema.json, via "Set as default"), the built-in one otherwise.
+const defaultMM = v => (SCHEMA && SCHEMA.known_mm_default && SCHEMA.known_mm_default[v]) || DEFAULT_MM[v];
+function updateDefaultBtn(){
+  const b=$('#setDefaultMM'); if(!b) return;
+  const mm=parseFloat($('#knownmm').value), d=defaultMM(view);
+  const own = !!(SCHEMA && SCHEMA.known_mm_default && SCHEMA.known_mm_default[view]!==undefined);
+  const same = mm===d;
+  b.disabled = !(mm>0) || same;
+  b.textContent = same ? '✓ Default' : 'Set as default';
+  b.title = same ? `${d} mm is ${own?"this study's":'the built-in'} default ${view} span`
+                 : `Make ${mm} mm the default ${view} span for “${dataset}”: a fish with no span of its own starts with it`;
+}
 function setView(v){ view=v; $('#viewPick').value=v; blankRetries=0; loadFrames().then(()=>{
     if(view===v && imgW){ fit(); draw(); } });
   pred=predBy[v]; renderAutoStat(); applyCachedPrediction(v);
   if(!cur){ activeTask=null; buildTasks(); showHint(); draw(); return Promise.resolve(); }
-  $('#knownmm').value = (model && model[view].known_mm) || DEFAULT_MM[v];
+  $('#knownmm').value = (model && model[view].known_mm) || defaultMM(v);
   if(model) model[view].known_mm = parseFloat($('#knownmm').value);
   activeTask=null; showHint(); return loadImage(); }
 
@@ -1288,7 +1583,7 @@ function renderLegend(){
   const hDone=SPECS.filter(s=>s.heldout&&s.lateral_done).length;
   const rows=[
     ['mk on','L','lateral view labelled', dl, n],
-    ['mk f on','F','frontal labelled (mouth width)', df, n],
+    hasFrontal() ? ['mk f on','F','frontal labelled (mouth width)', df, SPECS.filter(s=>hasFrontal(s)).length] : null,
     dsInfo().has_fin_polygons
       ? ['mk v on','V','fin outlines dense enough', dv, dl] : null,
     sTot ? ['mk s on','S','stratified subset — do these first', sDone, sTot] : null,
@@ -1643,6 +1938,7 @@ function draw(){
   const perPx = vs.scale>0 ? 1/vs.scale : 0;
   const coarse = perPx > COARSE_PX;
   const hud=$('#hud');
+  $('#viewname').textContent = cur ? `${shortId(cur.id)} · ${view}` : 'No specimen';
   hud.textContent=`${cur?cur.id.replace('Salvelinus_fontinalis_',''):'—'} · ${view} · `+
     `${(vs.scale*100|0)}% · ±${perPx.toFixed(1)}px`+(coarse?' — zoom in to place accurately':'');
   hud.style.color = coarse ? 'var(--warn)' : '';
@@ -1992,7 +2288,16 @@ function warnIfNoScale(){
   if(!has) toast('No scale on '+cur.id.replace('Salvelinus_fontinalis_','')+
                  ' — this specimen will measure in pixels');
 }
+// The round span that would put this ruler in line with the rest of its lot, if
+// one does. The slip it catches is two points a centimetre apart with the span
+// left at its 50 mm default: ASN_48, HRN_41 and TXD_35 in one evening, each
+// measuring five times too small.
+function spanThatFits(px){
+  if(!calMedian) return null;
+  return [1,2,5,10,20,25,50,100].find(mm=>Math.abs(px/mm/calMedian-1)<0.15) || null;
+}
 function updateCalRead(){
+  updateDefaultBtn();
   const el=$('#calread'); if(!el||!model) return;
   // Every path out of here ends in reserve(): the no-scale banner wraps to two
   // lines where a clean readout is one, and that difference used to move the
@@ -2012,7 +2317,12 @@ function updateCalRead(){
   let msg=`${px.toFixed(0)} px ÷ ${km} mm = ${ppm.toFixed(2)} px/mm`;
   const off = calMedian && (ppm>calMedian*1.35 || ppm<calMedian*0.74);
   if(off){ el.className='warn';
-    el.textContent=`⚠ ${ppm.toFixed(1)} px/mm — others ≈ ${calMedian.toFixed(1)}. Check "known span".`; }
+    const fit=spanThatFits(px);
+    el.innerHTML=`⚠ ${ppm.toFixed(1)} px/mm — others ≈ ${calMedian.toFixed(1)}. Check "known span".`
+      + (fit && fit!==km ? ` The points are about ${fit} mm apart. `
+        + `<button id="useFitSpan" type="button">Use ${fit} mm</button>` : '');
+    const b=$('#useFitSpan');
+    if(b) b.onclick=()=>{ $('#knownmm').value=fit; $('#knownmm').onchange(); }; }
   else { el.className=''; el.textContent=msg + (calMedian?`  (batch ≈ ${calMedian.toFixed(1)})`:''); }
   done();
 }
@@ -2060,21 +2370,45 @@ async function pickDataset(name){
   imgToken++;                    // abandon any image still loading from the old set
   SCHEMA=await api('/api/schema'+dsq());
   renderSchemePicker();
-  await loadSpecs(); loadCalStats();
+  await loadSpecs(); loadCalStats(); loadRef();
   buildTasks(); showHint(); draw();
   if(SPECS.length) await selectSpec(SPECS[0]);
   toast('Switched to '+dataset);
 }
 $('#knownmm').onchange=()=>{if(model){model[view].known_mm=parseFloat($('#knownmm').value);persistDraft();updateCalRead();}};
+$('#knownmm').addEventListener('input', updateDefaultBtn);
+$('#setDefaultMM').onclick=async()=>{
+  const mm=parseFloat($('#knownmm').value); if(!(mm>0)) return;
+  const r=await api('/api/schema/known_mm'+dsq(), {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({view, known_mm:mm})});
+  if(!r.ok){ tell('Default not saved:\n\n'+(r.error||'?')); return; }
+  SCHEMA.known_mm_default=r.known_mm_default; updateDefaultBtn();
+  toast(`${mm} mm is now the default ${view} span for ${dataset}`);
+};
 // Browsers restore <details> state across a reload on their own, which looks
 // like the panel reopening itself. Make it deliberate instead: remember the
 // choice per panel so it is predictable and survives a real cold start.
-['legendbox','imgpanel','dcsec'].forEach(id=>{
+['legendbox','dcsec'].forEach(id=>{
   const el=document.getElementById(id); if(!el) return;
   const key='calipr_open_'+id;
   const saved=localStorage.getItem(key);
   if(saved!==null) el.open = saved==='1';
   el.addEventListener('toggle',()=>localStorage.setItem(key, el.open?'1':'0'));
+});
+
+// Tabs inside a pane, as in RStudio: one panel showing at a time, and the choice
+// remembered like the collapsible sections are.
+document.querySelectorAll('.tabs button.tab[data-tab]').forEach(tab=>{
+  const strip=tab.parentElement, key='calipr_tab_'+strip.parentElement.id;
+  const show=()=>{
+    strip.querySelectorAll('button.tab[data-tab]').forEach(t=>{
+      t.classList.toggle('on', t===tab);
+      $('#'+t.dataset.tab).classList.toggle('on', t===tab);
+    });
+    try{ localStorage.setItem(key, tab.dataset.tab); }catch(e){}
+  };
+  tab.onclick=show;
+  try{ if(localStorage.getItem(key)===tab.dataset.tab) show(); }catch(e){}
 });
 
 // Column widths: remembered, clamped, and applied before first paint so the
@@ -2133,43 +2467,449 @@ async function downloadExport(kind){
   a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   toast('Exported '+a.download+' ('+Math.round(blob.size/1024)+' KB)');
 }
-document.querySelectorAll('#exportbox button[data-exp]').forEach(btn=>{
-  btn.onclick=async()=>{
-    const kind=btn.dataset.exp, label=btn.textContent;
-    const all=[...document.querySelectorAll('#exportbox button[data-exp]')];
-    all.forEach(b=>b.disabled=true);
-    btn.textContent='working…'; $('#expstate').textContent=' — building '+kind;
-    try{
-      const r=await api('/api/export/'+kind+dsq(),{method:'POST'});
-      // A server started before exports opened themselves has no such route.
-      if(r.error==='unknown route'){ await downloadExport(kind); return; }
-      if(!r.ok){ await tell('Export failed:\n\n'+(r.error||'?')); return; }
-      if(r.note) await tell('Saved '+r.path+'\n\n'+r.note);
-      else if(r.shown==='open') toast('Opened '+r.path);
-      else if(r.shown==='reveal') toast('Saved '+r.path+' — shown in '+(r.shown_in||'Finder'));
-      else await downloadExport(kind);
-    }catch(e){ tell('Export failed:\n\n'+e.message); }
-    finally{ btn.textContent=label; all.forEach(b=>b.disabled=false);
-             $('#expstate').textContent=''; }
-  };
+// Export menu, in the application toolbar where RStudio keeps its own.
+function closeExpMenu(){ $('#exportbox').classList.remove('on'); }
+$('#expBtn').onclick=e=>{ e.stopPropagation(); closeDsMenu();
+  $('#exportbox').classList.toggle('on'); };
+$('#dsBtn').addEventListener('click', ()=>closeExpMenu());
+document.addEventListener('click', ()=>closeExpMenu());
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeExpMenu(); });
+
+async function runExport(kind, opts){
+  const btn=$('#expBtn');
+  btn.disabled=true; $('#expstate').textContent=' — building '+kind+'…';
+  try{
+    const r=await api('/api/export/'+kind+dsq(),{method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(opts||{})});
+    // A server started before exports opened themselves has no such route.
+    if(r.error==='unknown route'){ await downloadExport(kind); return; }
+    if(!r.ok){ await tell('Export failed:\n\n'+(r.error||'?')); return; }
+    if(r.note) await tell('Saved '+r.path+'\n\n'+r.note);
+    else if(r.shown==='open') toast('Opened '+r.path);
+    else if(r.shown==='reveal') toast('Saved '+r.path+' — shown in '+(r.shown_in||'Finder'));
+    else await downloadExport(kind);
+  }catch(e){ tell('Export failed:\n\n'+e.message); }
+  finally{ btn.disabled=false; $('#expstate').textContent=''; }
+}
+document.querySelectorAll('#exportbox button[data-exp]').forEach(item=>{
+  item.onclick=e=>{ e.stopPropagation(); closeExpMenu();
+    if(item.dataset.exp==='measurements') exportPreview();
+    else if(item.dataset.exp==='tps') rExportDialog();
+    else runExport(item.dataset.exp); };
 });
+
+// ---- annotations for R: which layout -----------------------------------------
+// A folder with one file per specimen is what a series-by-files workflow in R
+// reads (the ImageJ layout: landmark 1..N, Label, X, Y). The geomorph bundle is
+// one .tps holding every specimen. The choice is remembered per study.
+function rExportDialog(){
+  const key='calipr_rexport_'+dataset;
+  let saved={}; try{ saved=JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){}
+  const fmt=saved.format==='geomorph'?'geomorph':'per_specimen', units=saved.units==='mm'?'mm':'cm';
+  let root=document.getElementById('dlg');
+  if(!root){ root=document.createElement('div'); root.id='dlg'; document.body.appendChild(root); }
+  root.innerHTML=`<div class="box">
+    <div class="msg"><b>Annotations for R</b> — the landmark coordinates of every labelled specimen</div>
+    <label class="opt"><input type="radio" name="rfmt" value="per_specimen" ${fmt==='per_specimen'?'checked':''}>
+      <span><b>One file per specimen</b><br><small>a folder of CSVs laid out as ImageJ writes them —
+      landmark 1–N, Label, X, Y — with a landmark key, a table of specimens and a script that
+      reads the folder into geomorph for Procrustes and PCA</small></span></label>
+    <label class="opt"><input type="radio" name="rfmt" value="geomorph" ${fmt==='geomorph'?'checked':''}>
+      <span><b>geomorph bundle</b><br><small>one .tps with every specimen, the same points as a single
+      ImageJ-style table, and a starter analysis</small></span></label>
+    <label class="units">Units <select id="rUnits">
+      <option value="cm" ${units==='cm'?'selected':''}>cm (as ImageJ is usually set)</option>
+      <option value="mm" ${units==='mm'?'selected':''}>mm</option></select>
+      <small>per-specimen files only</small></label>
+    <div class="btns"><button class="cancel" type="button">Cancel</button>
+      <button class="ok" type="button">Export</button></div></div>`;
+  root.classList.add('on');
+  const sync=()=>{ $('#rUnits').disabled = root.querySelector('input[name=rfmt]:checked').value!=='per_specimen'; };
+  root.querySelectorAll('input[name=rfmt]').forEach(r=>r.onchange=sync); sync();
+  const close=()=>{ root.classList.remove('on'); root.innerHTML='';
+    document.removeEventListener('keydown',keys,true); };
+  const go=()=>{ const opts={format:root.querySelector('input[name=rfmt]:checked').value, units:$('#rUnits').value};
+    try{ localStorage.setItem(key, JSON.stringify(opts)); }catch(e){}
+    close(); runExport('tps', opts); };
+  const keys=e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
+                  else if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); go(); } };
+  document.addEventListener('keydown',keys,true);
+  root.querySelector('.cancel').onclick=close;
+  root.querySelector('.ok').onclick=go;
+}
+
+// ---- export preview ---------------------------------------------------------
+// The measurements are shown before they are written, the way View() shows a
+// data frame, with every column's count of fish that have no value in it. A PCA
+// in R throws out every row with an NA, so a column most fish lack costs most of
+// the rows; leaving it out here keeps them. The choice is remembered per study,
+// and the workbook's About sheet records it.
+async function exportPreview(){
+  const btn=$('#expBtn');
+  btn.disabled=true; $('#expstate').textContent=' — measuring…';
+  let d;
+  try{ d=await api('/api/export/preview'+dsq()); }
+  catch(e){ d={ok:false, error:e.message}; }
+  finally{ btn.disabled=false; $('#expstate').textContent=''; }
+  // A server started before the preview existed: export as before.
+  if(d.ok===undefined && /unknown (export|route)/.test(d.error||'')){
+    toast('Restart the labeler server to preview exports — exporting every column');
+    return runExport('measurements');
+  }
+  if(!d.ok){ await tell('Could not measure this study:\n\n'+(d.error||'?')); return; }
+
+  const key='calipr_export_'+dataset;
+  let saved={}; try{ saved=JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){}
+  const cols=d.columns, rows=d.rows, N=rows.length;
+  const off=new Set((saved.leave_out||[]).filter(c=>cols.some(k=>k.code===c)));
+  let complete=!!saved.complete_only, filter='all';
+  const fmt0 = saved.format==='csv' ? 'csv' : 'xlsx';
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const kept=()=>cols.map((c,i)=>i).filter(i=>!off.has(cols[i].code));
+  const blankIn=(r,ks)=>ks.some(i=>r.values[i]===null);
+  const tone=m=> m===0 ? 'z' : m/N<=0.1 ? 'lo' : m/N<=0.3 ? 'mid' : 'hi';
+
+  const root=document.createElement('div'); root.id='xp';
+  root.innerHTML=`<div class="win" role="dialog" aria-label="Export measurements">
+    <div class="xhead">Export Measurements <span>${esc(dataset)} · ${N} specimens · ${cols.length} ${d.what||'traits'}</span></div>
+    <div class="xbody">
+      <div class="xside">
+        <div class="xsec">
+          <div class="xlab">Leave out columns with more than</div>
+          <div class="xrow"><input type="number" id="xpT" min="0" max="${N}" value="${saved.threshold ?? Math.round(N*0.2)}">
+            <span>blanks</span><button id="xpApply" type="button">Apply</button></div>
+          <div class="xrow xlinks"><a id="xpAll">keep all</a><a id="xpNone">leave out all</a></div>
+        </div>
+        <div class="xcols${cols.some(c=>c.code.length>6)?' long':''}" id="xpCols"></div>
+        <label class="xsec xchk"><input type="checkbox" id="xpComplete">
+          <span>Complete rows only<br><small>leave out every fish with a blank in a kept column</small></span></label>
+      </div>
+      <div class="xmain">
+        <div class="xbar"><span id="xpSum"></span><span class="spacer"></span>
+          <label>Show <select id="xpFilter">
+            <option value="all">all specimens</option>
+            <option value="blank">specimens with a blank</option>
+            <option value="complete">complete specimens</option></select></label></div>
+        <div class="xgrid" id="xpGrid"></div>
+      </div>
+    </div>
+    <div class="xfoot"><span class="xnote">Click a specimen to open it and fill its gaps.</span>
+      <span class="spacer"></span>
+      <label class="xfmt">Format <select id="xpFmt">
+        <option value="xlsx">Excel workbook (.xlsx)</option>
+        <option value="csv">CSV (.csv)</option></select></label>
+      <button id="xpCancel" type="button">Cancel</button>
+      <button id="xpGo" type="button" class="primary">Export</button></div>
+  </div>`;
+  document.body.appendChild(root);
+
+  const render=()=>{
+    const ks=kept();
+    $('#xpCols').innerHTML=cols.map(c=>
+      `<label class="xc ${off.has(c.code)?'off':''}" title="${esc(c.label)}: ${c.missing} of ${N} blank">`
+      + `<input type="checkbox" data-code="${esc(c.code)}" ${off.has(c.code)?'':'checked'}>`
+      + `<code>${esc(c.code)}</code><span class="lb">${esc(c.label)}</span>`
+      + `<span class="ms ${tone(c.missing)}">${c.missing}</span>`
+      + `<span class="bar"><i class="${tone(c.missing)}" style="width:${(100*c.missing/N).toFixed(1)}%"></i></span></label>`).join('');
+    $('#xpCols').querySelectorAll('input').forEach(b=>b.onchange=()=>{
+      b.checked ? off.delete(b.dataset.code) : off.add(b.dataset.code); render(); });
+    const full=rows.filter(r=>!blankIn(r,ks)).length;
+    $('#xpSum').innerHTML=`<b>${ks.length}</b> of ${cols.length} columns · `
+      + `<b>${full}</b> of ${N} specimens complete — `
+      + (complete ? `<b>${full}</b> rows will be exported`
+                  : `all ${N} rows will be exported, ${N-full} with a blank`);
+    $('#xpComplete').checked=complete;
+    const shown=rows.filter(r=> filter==='all' || (filter==='blank') === blankIn(r,ks));
+    const th=cols.map(c=>`<th class="num${off.has(c.code)?' off':''}" title="${esc(c.label)} — ${c.missing} blank">`
+      + `${esc(c.code)}<small class="${tone(c.missing)}">${c.missing||''}</small></th>`).join('');
+    const body=shown.map((r,n)=>{
+      const gone=complete && blankIn(r,ks);
+      return `<tr class="${gone?'gone':''}"><td class="rn">${n+1}</td>`
+        + `<td class="id"><a data-id="${esc(r.id)}">${esc(shortId(r.id))}</a></td>`
+        + `<td>${esc(r.group)}</td><td class="${r.units==='px'?'px':''}">${esc(r.units)}</td>`
+        + r.values.map((v,i)=>`<td class="num${off.has(cols[i].code)?' off':''}${v===null?' na':''}">`
+          + (v===null?'NA':esc(v))+'</td>').join('') + '</tr>';
+    }).join('');
+    $('#xpGrid').innerHTML=`<table><thead><tr><th class="rn"></th><th>specimen</th><th>group</th>`
+      + `<th>units</th>${th}</tr></thead><tbody>`
+      + (body || `<tr><td colspan="${cols.length+4}" class="empty">none</td></tr>`) + `</tbody></table>`;
+    $('#xpGrid').querySelectorAll('a[data-id]').forEach(a=>a.onclick=()=>{
+      const s=SPECS.find(x=>x.id===a.dataset.id); if(!s) return;
+      close(); selectSpec(s); });
+  };
+  const close=()=>{ root.remove(); document.removeEventListener('keydown',keys,true); };
+  const keys=e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown',keys,true);
+  $('#xpApply').onclick=()=>{ const t=parseInt($('#xpT').value,10); if(isNaN(t)) return;
+    off.clear(); cols.forEach(c=>{ if(c.missing>t) off.add(c.code); }); render(); };
+  $('#xpAll').onclick=()=>{ off.clear(); render(); };
+  $('#xpNone').onclick=()=>{ cols.forEach(c=>off.add(c.code)); render(); };
+  $('#xpComplete').onchange=e=>{ complete=e.target.checked; render(); };
+  $('#xpFilter').onchange=e=>{ filter=e.target.value; render(); };
+  $('#xpFmt').value=fmt0;
+  $('#xpCancel').onclick=close;
+  root.onclick=e=>{ if(e.target===root) close(); };
+  $('#xpGo').onclick=()=>{
+    if(!kept().length){ toast('Keep at least one column'); return; }
+    const opts={leave_out:[...off], complete_only:complete, format:$('#xpFmt').value};
+    try{ localStorage.setItem(key, JSON.stringify({...opts,
+      threshold:parseInt($('#xpT').value,10)})); }catch(e){}
+    close(); runExport('measurements', opts);
+  };
+  render();
+}
+
+// ---- specimen records (Darwin Core) ------------------------------------------
+// Which museum specimen each photograph is: institution, catalogue number,
+// species, sex, where and when it was collected -- under Darwin Core's term
+// names, so a measurement can be joined back to the collection's own record.
+// Kept per study in darwin_core.csv and carried into every export. What the
+// filenames suggest is shown greyed and written only when accepted.
+let DWC=null;
+const DWC_WIDE=new Set(['occurrenceID','locality','associatedMedia','recordedBy','license']);
+const DWC_MID=new Set(['scientificName','fieldNumber','stateProvince','county','basisOfRecord']);
+const DWC_NARROW=new Set(['sex','lifeStage','institutionCode','collectionCode','eventDate','country']);
+async function loadDwc(){
+  const want=dataset;
+  let d=null;
+  try{ const r=await fetch('/api/dwc'+dsq()); if(r.ok) d=await r.json(); }catch(e){}
+  if(want!==dataset) return;                 // switched study while this was loading
+  DWC = d && d.terms ? d : null;
+  $('#tbRecords').hidden=!DWC; $('#recsec').hidden=!DWC;
+  showRecord();
+}
+function dwcBrief(rec){
+  const id=[rec.institutionCode, rec.catalogNumber].filter(Boolean).join(' ');
+  return [id, rec.scientificName, rec.sex].filter(Boolean).join(' · ');
+}
+function showRecord(){
+  if(!DWC) return;
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const id=cur && cur.id, rec=(id && DWC.records[id]) || {}, sug=(id && DWC.suggestions[id]) || {};
+  const have=DWC.terms.filter(t=>rec[t.term]);
+  $('#recstate').textContent = !id ? '' : (have.length ? dwcBrief(rec) || `${have.length} terms` : 'none');
+  if(!id){ $('#recbody').innerHTML='Select a specimen.'; return; }
+  let h = have.length
+    ? '<dl>'+have.map(t=>`<dt title="${esc(t.help)}">${esc(t.term)}</dt><dd>${esc(rec[t.term])}</dd>`).join('')+'</dl>'
+    : '<div>No record for this specimen yet.</div>';
+  const s=Object.entries(sug);
+  if(s.length) h+=`<div>The filename suggests ${s.map(([t,v])=>`${esc(t)} <b>${esc(v)}</b>`).join(', ')}.
+    <a id="recAccept">Accept</a></div>`;
+  h+=`<div><a id="recEdit">${have.length?'Edit':'Add one'} in the records table</a></div>`;
+  $('#recbody').innerHTML=h;
+  $('#recEdit').onclick=()=>recordsDialog(id);
+  if($('#recAccept')) $('#recAccept').onclick=async()=>{
+    const r=await dwcPost('/api/dwc', {changes:{[id]:sug}});
+    if(r) toast(`Recorded ${Object.keys(sug).join(', ')} for ${shortId(id)}`);
+  };
+}
+async function dwcPost(url, body){
+  let r;
+  try{ r=await api(url+dsq(), {method:'POST', headers:{'Content-Type':'application/json'},
+                               body:JSON.stringify(body)}); }
+  catch(e){ r={ok:false, error:e.message}; }
+  if(r.ok===undefined && /unknown route/.test(r.error||''))
+    r.error='Restart the labeler server to use specimen records.';
+  if(!r.ok){ if(!r.plan) await tell(r.error||'Nothing was written.'); return r.plan ? r : null; }
+  if(r.records){ DWC.records=r.records;
+    for(const [f,rec] of Object.entries(r.records)) if(DWC.suggestions[f]){
+      for(const t of Object.keys(rec)) delete DWC.suggestions[f][t];
+      if(!Object.keys(DWC.suggestions[f]).length) delete DWC.suggestions[f]; }
+    showRecord(); }
+  return r;
+}
+function toBase64(buf){
+  const b=new Uint8Array(buf); let out='';
+  for(let i=0;i<b.length;i+=0x8000) out+=String.fromCharCode.apply(null, b.subarray(i,i+0x8000));
+  return btoa(out);
+}
+async function recordsDialog(focusId){
+  if(!DWC) return;
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const terms=DWC.terms, ids=DWC.ids;
+  let edits={}, show='all', find='', plan=null, upload=null;
+  const val=(f,t)=> edits[f] && t in edits[f] ? edits[f][t] : ((DWC.records[f]||{})[t]||'');
+  const nEdits=()=>Object.values(edits).reduce((n,e)=>n+Object.keys(e).length,0);
+  const setEdit=(f,t,v)=>{ const was=(DWC.records[f]||{})[t]||'';
+    edits[f]=edits[f]||{}; if(v===was) delete edits[f][t]; else edits[f][t]=v;
+    if(!Object.keys(edits[f]).length) delete edits[f]; };
+  const shown=()=>ids.filter(f=>{
+    if(show==='none' && terms.some(t=>val(f,t.term))) return false;
+    if(show==='some' && !terms.some(t=>val(f,t.term))) return false;
+    return !find || f.toLowerCase().includes(find.toLowerCase());
+  });
+  const sugCells=()=>ids.reduce((n,f)=>n+Object.keys(DWC.suggestions[f]||{})
+    .filter(t=>!val(f,t)).length,0);
+
+  const root=document.createElement('div'); root.id='dwc';
+  root.innerHTML=`<div class="win" role="dialog" aria-label="Specimen records">
+    <div class="xhead">Specimen records <span>${esc(dataset)} · Darwin Core · ${esc(DWC.file)}</span></div>
+    <div class="xbar">
+      <button id="dwcImport" class="tb" data-ico="sheet" type="button"
+        title="Read a CSV or Excel sheet: an iDigBio harvest, a museum's export, a lab's data sheet. Its rows are matched to photographs by id or filename, its columns to terms by name. You see what it would change before anything is written.">Import CSV or Excel…</button>
+      <button id="dwcAccept" class="tb" data-ico="wand" type="button"
+        title="Fill empty cells with what the filenames say (the greyed values). They become unsaved changes you can check before saving."></button>
+      <input id="dwcFile" type="file" accept=".csv,.tsv,.txt,.xlsx,.xlsm" hidden>
+      <span class="tsep"></span>
+      <label>Show <select id="dwcShow"><option value="all">all photographs</option>
+        <option value="none">without a record</option><option value="some">with a record</option></select></label>
+      <input id="dwcFind" type="search" placeholder="Find specimen" spellcheck="false">
+      <span id="dwcSum"></span>
+    </div>
+    <div class="plan" id="dwcPlan" hidden></div>
+    <div class="xgrid" id="dwcGrid"></div>
+    <div class="xfoot"><span class="xnote">Hover a column name for what goes in it. A blank cell is
+      simply not recorded; greyed values are suggestions from the filename.</span>
+      <span class="spacer"></span><span id="dwcDirty"></span>
+      <button id="dwcClose" type="button">Close</button>
+      <button id="dwcSave" type="button" class="primary">Save</button></div>
+  </div>`;
+  document.body.appendChild(root);
+  $('#dwcFind').value=find;
+
+  const foot=()=>{
+    const n=nEdits();
+    $('#dwcDirty').textContent = n ? `${n} unsaved change${n>1?'s':''}` : '';
+    $('#dwcSave').disabled=!n;
+    const k=sugCells();
+    $('#dwcAccept').textContent=`Accept filename suggestions (${k})`;
+    $('#dwcAccept').disabled=!k;
+    const withRec=ids.filter(f=>terms.some(t=>val(f,t.term))).length;
+    $('#dwcSum').innerHTML=`<b>${withRec}</b> of ${ids.length} photographs have a record`;
+  };
+  const render=()=>{
+    const rows=shown();
+    const cls=t=>DWC_WIDE.has(t)?'w':DWC_MID.has(t)?'m':(DWC_NARROW.has(t)?'n':'');
+    const th=terms.map(t=>`<th title="${esc(t.help)}">${esc(t.term)}`
+      + `<button class="all" type="button" data-term="${esc(t.term)}" title="Set ${esc(t.term)} for every photograph shown">all…</button></th>`).join('');
+    const body=rows.map(f=>{
+      const sug=DWC.suggestions[f]||{};
+      return `<tr data-id="${esc(f)}" class="${f===focusId?'focus':''}"><td class="sp"><a>${esc(shortId(f))}</a></td>`
+        + terms.map(t=>{ const ch=edits[f] && t.term in edits[f];
+            return `<td class="${ch?'ch':''}"><input class="${cls(t.term)}" data-t="${esc(t.term)}"`
+              + ` value="${esc(val(f,t.term))}" placeholder="${esc(val(f,t.term)?'':(sug[t.term]||''))}"`
+              + ` spellcheck="false"></td>`; }).join('') + '</tr>';
+    }).join('');
+    $('#dwcGrid').innerHTML=`<table><thead><tr><th class="sp">specimen</th>${th}</tr></thead><tbody>`
+      + (body || `<tr><td colspan="${terms.length+1}" class="empty">none</td></tr>`) + '</tbody></table>';
+    $('#dwcGrid').querySelectorAll('tbody input').forEach(inp=>inp.oninput=()=>{
+      const f=inp.closest('tr').dataset.id;
+      setEdit(f, inp.dataset.t, inp.value.trim());
+      inp.parentElement.classList.toggle('ch', !!(edits[f] && inp.dataset.t in edits[f]));
+      foot(); });
+    $('#dwcGrid').querySelectorAll('td.sp a').forEach(a=>a.onclick=async()=>{
+      const s=SPECS.find(x=>x.id===a.closest('tr').dataset.id); if(!s) return;
+      if(await close()) selectSpec(s); });
+    $('#dwcGrid').querySelectorAll('th .all').forEach(b=>b.onclick=async()=>{
+      const t=b.dataset.term, rs=shown();
+      const v=await askText(`Set ${t} for the ${rs.length} photograph${rs.length>1?'s':''} shown.\n\n`
+        + (terms.find(x=>x.term===t)||{}).help + '\n\nLeave it empty to clear them.', '');
+      if(v===null) return;
+      rs.forEach(f=>setEdit(f,t,v.trim())); render(); });
+    foot();
+    if(focusId){ const tr=$('#dwcGrid').querySelector('tr.focus');
+      if(tr){ tr.scrollIntoView({block:'center'}); const i=tr.querySelector('input'); if(i) i.focus(); }
+      focusId=null; }
+  };
+  const showPlan=()=>{
+    const el=$('#dwcPlan');
+    if(!plan){ el.hidden=true; el.innerHTML=''; return; }
+    const cols=Object.entries(plan.columns);
+    el.innerHTML=`<b>${esc(upload.name)}</b>: ${plan.rows} rows. `
+      + (plan.by==='lot'
+          ? `One row per lot, matched by catalogue number (<code>${esc(plan.key)}</code>) to the lots already recorded here — photographs reached: <b>${plan.named}</b>`
+          : `Photographs matched by the column <code>${esc(plan.key)}</code>: <b>${plan.named}</b>`)
+      + (plan.named-plan.matched ? ` (${plan.named-plan.matched} of them have nothing to add)` : '') + '.<br>'
+      + (cols.length ? 'Read as: ' + cols.map(([c,t])=>`<code>${esc(c)}</code> → <code>${esc(t)}</code>`).join(', ') + '.<br>'
+                     : 'No column in it has a Darwin Core name, so there is nothing to import.<br>')
+      + (plan.unused.length ? `Not used: ${plan.unused.map(c=>`<code>${esc(c)}</code>`).join(', ')}.<br>` : '')
+      + (plan.unmatched.length ? `${plan.unmatched.length} row${plan.unmatched.length>1?'s name':' names'} no photograph in this study`
+          + ` (e.g. <code>${esc(plan.unmatched.slice(0,3).join(', '))}</code>).<br>` : '')
+      + (plan.overwrites ? `<b>${plan.overwrites} value${plan.overwrites>1?'s':''} already recorded would be replaced.</b> ` : '')
+      + 'Blank cells in the file change nothing.'
+      + `<div class="btns"><button id="dwcPlanGo" class="primary" type="button" ${plan.matched?'':'disabled'}>`
+      + `Import ${plan.matched} record${plan.matched===1?'':'s'}</button><button id="dwcPlanNo" type="button">Cancel</button></div>`;
+    el.hidden=false;
+    $('#dwcPlanNo').onclick=()=>{ plan=null; upload=null; showPlan(); };
+    $('#dwcPlanGo').onclick=async()=>{
+      const r=await dwcPost('/api/dwc/import', {...upload, apply:true});
+      if(r && r.applied){ toast(`Imported records for ${r.plan.matched} photograph${r.plan.matched===1?'':'s'}`);
+        plan=null; upload=null; showPlan(); render(); }
+    };
+  };
+  const close=async()=>{
+    const n=nEdits();
+    if(n && !(await ask(`Discard ${n} unsaved change${n>1?'s':''} to the specimen records?`))) return false;
+    root.remove(); document.removeEventListener('keydown',keys,true); return true;
+  };
+  const keys=e=>{ if(e.key==='Escape' && !$('#dlg.on')){ e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown',keys,true);
+  $('#dwcClose').onclick=close;
+  root.onclick=e=>{ if(e.target===root) close(); };
+  $('#dwcShow').onchange=e=>{ show=e.target.value; render(); };
+  $('#dwcFind').oninput=e=>{ find=e.target.value.trim(); render(); };
+  $('#dwcAccept').onclick=()=>{
+    for(const f of ids) for(const [t,v] of Object.entries(DWC.suggestions[f]||{}))
+      if(!val(f,t)) setEdit(f,t,v);
+    render(); toast('Filled from the filenames — check them, then Save');
+  };
+  $('#dwcSave').onclick=async()=>{
+    const n=Object.keys(edits).length;
+    const r=await dwcPost('/api/dwc', {changes:edits});
+    if(r){ edits={}; render(); toast(`Saved records for ${n} photograph${n===1?'':'s'}`); }
+  };
+  $('#dwcImport').onclick=async()=>{
+    if(nEdits() && !(await ask('Save or discard your changes before importing. Discard them?'))) return;
+    edits={}; render(); $('#dwcFile').value=''; $('#dwcFile').click();
+  };
+  $('#dwcFile').onchange=async()=>{
+    const f=$('#dwcFile').files[0]; if(!f) return;
+    upload={name:f.name, data:toBase64(await f.arrayBuffer())};
+    const r=await dwcPost('/api/dwc/import', upload);
+    plan = r && r.plan ? r.plan : null;
+    if(r && r.ok===false && r.error) await tell(r.error);
+    if(r && r.ok===false) plan=null;
+    showPlan();
+  };
+  render();
+}
+$('#tbRecords').onclick=()=>recordsDialog(cur && cur.id);
 
 $('#hideExcl').onchange=e=>{ localStorage.setItem('calipr_hide_excl', e.target.checked?'1':'0');
   buildTasks(); };
 $('#hideExcl').checked = localStorage.getItem('calipr_hide_excl')==='1';
 
 window.addEventListener('resize',()=>{resize();draw();drawRef();});
-function resize(){ document.getElementById('app').style.height=window.innerHeight+'px'; // pin to real visible height
+function resize(){ document.getElementById('app').style.height=
+    (window.innerHeight - $('#topbar').offsetHeight)+'px'; // pin to real visible height
   const r=cv.getBoundingClientRect();cv.width=r.width;cv.height=r.height;
   cvi.width=r.width; cvi.height=r.height; cvi.style.width=r.width+'px'; cvi.style.height=r.height+'px'; }
 
 // ---- reference panel ----
-let refAnnot=new Image(), refBase=new Image(), refData=null, refMode='zoom';
+let refAnnot=new Image(), refBase=new Image(), refData=null, refMode='zoom', refOwn=false;
+const VIEWER_BG=getComputedStyle(document.documentElement).getPropertyValue('--viewer').trim()||'#eef0f2';
 const rcv=$('#refcv'), rctx=rcv.getContext('2d');
+// The example is the study's own when it has one (made with "Use as example",
+// kept in <study>/reference/). Otherwise the built-in brook trout -- but only for
+// a study on caliPr's own landmarks: shown to a study on another scheme, it
+// pointed at landmarks that study does not have.
 async function loadRef(){
-  try{ refData=await api('/ui/reference.json'); }catch(e){ return; }
-  refAnnot.onload=()=>drawRef(); refAnnot.src='/ui/reference_annot.jpg';
-  refBase.src='/ui/reference_base.jpg';
+  refData=null; refOwn=false;
+  let d=null, base='/ui/', sfx='';
+  try{ const r=await fetch('/api/reference/reference.json'+dsq());
+       if(r.ok){ d=await r.json(); base='/api/reference/'; sfx=dsq()+'&t='+Date.now(); refOwn=true; } }catch(e){}
+  if(!d && !(SCHEMA && SCHEMA.scheme && SCHEMA.scheme!=='calipr')){
+    try{ d=await api('/ui/reference.json'); }catch(e){} }
+  refData=d; refTitle();
+  if(!d){ drawRef(); return; }
+  refAnnot.onload=()=>drawRef(); refAnnot.src=base+'reference_annot.jpg'+sfx;
+  refBase.onload=()=>drawRef();  refBase.src=base+'reference_base.jpg'+sfx;
+}
+function refTitle(){
+  const min=$('#refpanel').classList.contains('min');
+  const who=refData && refData.specimen ? shortId(refData.specimen) : '';
+  $('#reftitle').textContent = min ? 'Reference'
+    : (who ? `Reference — ${who}${refOwn?'':' (built-in)'}` : 'Reference — no example yet');
 }
 // The region of the reference to show, in reference-image pixels. Framing the
 // STRUCTURE rather than applying a fixed magnification is what makes this
@@ -2195,9 +2935,16 @@ function refRegionFor(task){
   return null; // ruler → overview
 }
 function drawRef(){
-  if(!refData||!refAnnot.complete){return;}
+  if(!refData){
+    const W=rcv.width=rcv.clientWidth, H=rcv.height=rcv.clientHeight;
+    rctx.setTransform(1,0,0,1,0,0); rctx.fillStyle=VIEWER_BG; rctx.fillRect(0,0,W,H);
+    $('#reflabel').innerHTML='No example for this study yet. Open a well-labelled fish, save it, '
+      + 'and click <b>Use as example</b> above the photograph.';
+    return;
+  }
+  if(!refAnnot.complete){return;}
   const W=rcv.width=rcv.clientWidth, H=rcv.height=rcv.clientHeight;
-  rctx.setTransform(1,0,0,1,0,0); rctx.fillStyle='#0b0e12'; rctx.fillRect(0,0,W,H);
+  rctx.setTransform(1,0,0,1,0,0); rctx.fillStyle=VIEWER_BG; rctx.fillRect(0,0,W,H);
   const reg = refMode==='zoom' ? refRegionFor(activeTask) : null;
   const lbl=$('#reflabel');
   if(reg){ // zoomed focus on the landmark or fin
@@ -2258,17 +3005,26 @@ function setRefMin(v){
   $('#refpanel').classList.toggle('min', v);
   $('#refmin').textContent = v ? '+' : '–';
   $('#refmin').title = (v?'Restore':'Minimise')+' reference (R)';
-  $('#reftitle').textContent = v ? 'Reference' : 'Reference — example fish';
+  refTitle();
   localStorage.setItem('calipr_ref_min', v?'1':'0');
   if(!v) drawRef();
 }
 const toggleRefMin=()=>setRefMin(!$('#refpanel').classList.contains('min'));
+// Enlarged for a closer look at the example, remembered like minimised.
+function setRefBig(v){
+  $('#refpanel').classList.toggle('big', v);
+  $('#refbig').title = v ? 'Shrink the example' : 'Enlarge the example';
+  try{ localStorage.setItem('calipr_ref_big', v?'1':'0'); }catch(e){}
+  drawRef();
+}
+$('#refbig').onclick=e=>{ e.stopPropagation(); setRefBig(!$('#refpanel').classList.contains('big')); };
 $('#refmin').onclick=e=>{e.stopPropagation(); toggleRefMin();};
 // the whole header restores it, so a minimised panel is never a puzzle
 $('#refhead').onclick=()=>{ if($('#refpanel').classList.contains('min')) setRefMin(false); };
 window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return;
   if(e.key==='r'||e.key==='R') toggleRefMin(); });
 setRefMin(localStorage.getItem('calipr_ref_min')==='1');
+setRefBig(localStorage.getItem('calipr_ref_big')==='1');
 
 function reviewed(name){          // the human MOVED this point
   if(pred.conf[name]===undefined) return;
@@ -2783,6 +3539,9 @@ function openFolderPicker(intent){
   $('#addfolder').click();          // must stay in the click's own tick
 }
 
+$('#tbNewStudy').onclick=()=>openFolderPicker({mode:'new'});
+$('#tbAddPhotos').onclick=()=>$('#addimgs').click();
+
 $('#addimgs').onchange=e=>{
   pendingUpload={mode:'existing', dataset:null};
   uploadFiles(e.target.files); e.target.value='';
@@ -2846,6 +3605,86 @@ $('#addfolder').onchange=async e=>{
     uploadFiles(e.dataTransfer.files||[]);   // browsers without the entry API
   });
 })();
+// Make the open fish this study's example. Built from its SAVED landmarks, so an
+// unsaved edit is not what gets shown to everyone as the convention.
+$('#useExample').onclick=async()=>{
+  if(!cur){ toast('Open a specimen first'); return; }
+  const name=shortId(cur.id);
+  if(!cur.labeled){ tell(`Save ${name} first: the example is made from its saved landmarks.`); return; }
+  if($('#viewtab').classList.contains('dirty')
+     && !await ask(`${name} has unsaved changes. The example is made from its saved landmarks, `
+                   + `so those changes would not be in it.`, {ok:'Use the saved version'})) return;
+  const prev = refOwn && refData && refData.specimen ? shortId(refData.specimen) : null;
+  if(prev && prev!==name && !await ask(`Make ${name} the example for “${dataset}”? It replaces ${prev}.`,
+                                       {ok:'Use as example'})) return;
+  const r=await api('/api/reference'+dsq(), {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:cur.id})});
+  if(!r.ok){ tell('Could not make the example:\n\n'+(r.error||'?')); return; }
+  await loadRef(); setRefMin(false);
+  toast(`${name} is now the example for ${dataset}`);
+};
+
+// Remove every specimen the search shows -- the way to clear out a study down to
+// the photographs wanted, a filter at a time. Offered only while the search is
+// narrowing the list, so the whole study is never one click away. One trash
+// folder per batch, with a list of what went; typing the count is asked for when
+// any of them carries saved labels.
+var SHOWN=null;          // var: the list can draw before this line has run
+function updateRemoveShown(list){
+  SHOWN = list && list.length ? list : null;
+  const b=$('#removeShown'); if(!b) return;
+  b.hidden=!SHOWN;
+  if(SHOWN) b.textContent=`Remove ${SHOWN.length}`;
+}
+$('#removeShown').onclick=async()=>{
+  const list=(SHOWN||[]).slice(); if(!list.length) return;
+  const n=list.length, labelled=list.filter(s=>s.labeled).length, q=$('#specsearch').value.trim();
+  const msg=`Remove the ${n} specimen${n>1?'s':''} the search “${q}” shows from “${dataset}”?\n\n`
+    + (labelled ? `${labelled} of them ${labelled>1?'have':'has'} saved labels, which go with ${labelled>1?'them':'it'}. ` : '')
+    + `They are moved to data/.trash/ in one folder, with a list of what was removed — not deleted.`;
+  if(labelled){
+    const typed=await askText(msg+`\n\nType ${n} to confirm.`, '');
+    if(typed===null) return;
+    if(typed.trim()!==String(n)){ toast('Number did not match — nothing removed'); return; }
+  } else if(!await ask(msg, {ok:`Remove ${n}`})) return;
+  const r=await api('/api/specimen/remove'+dsq(), {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({ids:list.map(s=>s.id)})});
+  if(!r.ok){ tell('Nothing removed:\n\n'+(r.error||'?')); return; }
+  list.forEach(s=>clearDraft(s.id));
+  const gone=new Set(list.map(s=>s.id)), wasOpen=cur && gone.has(cur.id);
+  $('#specsearch').value='';
+  await loadSpecs();
+  try{ await refreshDatasets(); }catch(e){}
+  if(wasOpen){
+    if(SPECS.length) await selectSpec(SPECS[0]);
+    else { cur=null; model=blankModel(); buildTasks(); showHint(); draw(); }
+  }
+  toast(`Removed ${n} — in ${r.moved_to}`);
+};
+
+// Remove the open photograph from the study. Moved to data/.trash/ with its
+// labels and cached predictions, not deleted -- a wrong click is undone by
+// moving the files back -- so it asks once, and says so when there are labels.
+$('#removePhoto').onclick=async()=>{
+  if(!cur){ toast('Open a specimen first'); return; }
+  const s=cur, name=shortId(s.id), i=SPECS.findIndex(x=>x.id===s.id);
+  const msg=`Remove ${name} from “${dataset}”?\n\n`
+    + (s.labeled ? `Its saved labels go with it. ` : '')
+    + `The photograph${s.labeled?' and labels are':' is'} moved to data/.trash/, not deleted: `
+    + `move ${s.labeled?'them':'it'} back into the study to restore.`;
+  if(!await ask(msg, {ok:'Remove'})) return;
+  const r=await api('/api/specimen/remove'+dsq(), {method:'POST',
+    headers:{'Content-Type':'application/json'}, body:JSON.stringify({id:s.id})});
+  if(!r.ok){ tell('Not removed:\n\n'+(r.error||'?')); return; }
+  clearDraft(s.id);
+  await loadSpecs();
+  try{ await refreshDatasets(); }catch(e){}
+  const next=SPECS[Math.min(Math.max(i,0), SPECS.length-1)];
+  if(next) await selectSpec(next);
+  else { cur=null; model=blankModel(); buildTasks(); showHint(); draw(); }
+  toast(`Removed ${name} — in ${r.moved_to}`);
+};
+
 $('#save').onclick=async()=>{
   if(!cur){toast('No specimen');return;}
   if(model._blocked && Object.keys(model._blocked).length){
@@ -2858,6 +3697,22 @@ $('#save').onclick=async()=>{
   const km=parseFloat($('#knownmm').value);
   if(!isNaN(km) && (model[view].ruler.a||model[view].ruler.b)) model[view].known_mm=km;
   syncCompromise();
+  // A scale far from the rest of its lot multiplies every length on the fish by
+  // the same factor, and nothing downstream can tell. The readout warns, but it
+  // went unread three times in one evening, so saving asks too.
+  const L=model.lateral;
+  if(calMedian && L.ruler.a && L.ruler.b && L.known_mm>0 && !L.auto_ppm){
+    const px=Math.hypot(L.ruler.b[0]-L.ruler.a[0], L.ruler.b[1]-L.ruler.a[1]), ppm=px/L.known_mm;
+    if(ppm>calMedian*1.35 || ppm<calMedian*0.74){
+      const fit=spanThatFits(px);
+      if(!await ask(`The scale on ${shortId(cur.id)} reads ${ppm.toFixed(1)} px/mm; the rest of `
+          + `its lot reads about ${calMedian.toFixed(1)}. Every length on this fish would be off `
+          + `by ${Math.max(ppm/calMedian, calMedian/ppm).toFixed(1)}×.`
+          + (fit && fit!==L.known_mm ? `\n\nThe two ruler points are about ${fit} mm apart, `
+             + `not ${L.known_mm} — set "known span" to ${fit}.` : '')
+          + `\n\nSave anyway?`, {ok:'Save anyway'})) return;
+    }
+  }
   const strain=(cur.id.match(/_([A-Z]{2,4})_\d+$/)||[])[1]||'';
   const out={fish_id:cur.id, metadata:{strain, source:'hand-labeled'}};
   const untouched=['lateral','frontal'].filter(v=>{

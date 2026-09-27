@@ -130,6 +130,16 @@ def shift_view(doc: dict, view: str, dx: float, dy: float = 0.0) -> int:
     for key in ("point_a", "point_b"):
         if cal.get(key):
             cal[key] = mv(cal[key])
+    # Where the model first put each point it was corrected on. Not a label, so
+    # not counted, but it names a pixel like one: left behind by the 2026-09-21
+    # un-split, the labeller drew every correction line from ~1000 px off.
+    assist = (doc.get("metadata") or {}).get("assist" if view == "lateral"
+                                             else f"assist_{view}") or {}
+    for rec in (assist.get("corrected") or {}).values():
+        for key in ("from", "to"):
+            if rec.get(key):
+                rec[key] = [round(float(rec[key][0]) + dx, 1),
+                            round(float(rec[key][1]) + dy, 1)]
     return moved
 
 
