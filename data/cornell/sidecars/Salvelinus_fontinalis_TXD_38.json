@@ -69,7 +69,11 @@
         "points": 17,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ]
+    ],
+    "exclude_traits": [
+      "DFh"
+    ],
+    "data_note": "outlier, excluded: DFh (3.23x of its strain's typical, size-corrected \u2014 the fin is folded flat, so base to tip is its folded length)"
   },
   "lateral": {
     "polygons": {

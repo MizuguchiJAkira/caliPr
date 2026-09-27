@@ -76,7 +76,7 @@
         "anal_base_center": 0.981
       },
       "polygons_from_model": [],
-      "predicted_at": "2026-09-23T01:28:05.816Z"
+      "predicted_at": "2026-09-24T01:24:13.686Z"
     },
     "unreviewed_predictions": [
       "anal_base_center"
@@ -438,6 +438,10 @@
       "pelvic_tip": [
         2819,
         2126
+      ],
+      "dorsal_tip": [
+        2868,
+        1511
       ]
     },
     "calibration": {
