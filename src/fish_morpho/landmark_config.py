@@ -1126,7 +1126,13 @@ def trait_column_order() -> list[str]:
         traits_by_source(TraitSource.EXTRAS),
         key=lambda t: (t.number if t.number is not None else 10**6, t.code),
     )
-    return [t.code for t in (*morfishj, *extras)]
+    order = [t.code for t in (*morfishj, *extras)]
+    # Standard length leads: it is the size every other length is read against,
+    # the denominator of the Ratios sheet, and the first column anyone looks for.
+    if "SL" in order:
+        order.remove("SL")
+        order.insert(0, "SL")
+    return order
 
 
 def trait_labels() -> dict[str, str]:

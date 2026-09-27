@@ -10,10 +10,11 @@ library(geomorph)
 # negNA = TRUE turns the -1 placeholders into NA for landmarks nobody placed.
 # Without it they become real points at the image corner and drag the fit.
 #
-# The coordinates are PIXELS for every specimen, on purpose: rescaling only the
-# ones that carry a scale would leave centroid size meaning two different things
-# in one series. specimens.csv carries each fish's own px/mm, used below to put
-# size in millimetres anyway.
+# When EVERY specimen carries a scale, the .tps has a SCALE line for each and
+# readland.tps applies it, so the coordinates arrive in millimetres. When only
+# some do, the .tps is left in pixels throughout -- rescaling some and not others
+# would make centroid size mean two different things in one series -- and
+# specimens.csv carries each fish's own px/mm to put size in millimetres below.
 A  <- readland.tps("landmarks.tps", specID = "ID", negNA = TRUE, warnmsg = FALSE)
 nm <- read.csv("landmark_names.csv", stringsAsFactors = FALSE)
 dimnames(A)[[1]] <- nm$name
@@ -49,11 +50,14 @@ print(table(group))
 gpa <- gpagen(A, print.progress = FALSE)
 dimnames(gpa$coords) <- dimnames(A)      # gpagen drops the landmark names
 
-# Centroid size in millimetres, from each fish's own scale. A fish with no
+# Centroid size in millimetres. If the .tps carried SCALE lines it already is;
+# dividing by px/mm again made it 20-25x too small, by a different factor for
+# every fish. Otherwise each fish's own scale converts it, and a fish with no
 # scale uses the series' median px/mm: the rig's magnification varies by about
 # 1.5% between photographs, far less than size varies between fish.
+scaled <- any(grepl("^SCALE=", readLines("landmarks.tps")))
 ppm  <- ifelse(is.na(sp$px_per_mm), median(sp$px_per_mm, na.rm = TRUE), sp$px_per_mm)
-size <- gpa$Csize / ppm
+size <- if (scaled) gpa$Csize else gpa$Csize / ppm
 
 # ---- body arching ----------------------------------------------------------
 # Preserved fish lie curved, and how curved is decided on the tray, not by the

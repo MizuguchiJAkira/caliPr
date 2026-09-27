@@ -18,6 +18,13 @@ The checks, and what each one is protecting against:
     different photograph, usually after a re-crop. The geometry stays
     self-consistent, so nothing downstream can notice.
 
+``landmark_off_body``
+    A landmark further from the fish than any part of a fish can be. The model,
+    finding no fin, puts its guess in a corner of the frame; accepted with a
+    keypress, that guess measured a dorsal fin 109 mm tall on an 81 mm trout
+    (ASN_50), and a corner point in the .tps is one specimen's whole shape axis.
+    Placed relative to the snout-to-caudal-base line, so it holds at any scale.
+
 ``duplicate_id``
     Two sidecars claiming one fish_id silently collapse to one row.
 
@@ -49,7 +56,9 @@ from typing import Iterable, Sequence
 
 from .landmark_config import (
     FIN_POLYGONS,
+    KEYPOINTS,
     Unit,
+    View,
 )
 
 #: Robust z-score past which a size-corrected trait is called an outlier. 3.5 on
@@ -104,6 +113,44 @@ def check_landmarks_in_frame(records) -> list[Issue]:
                 "error", "landmark_in_frame", rec.measurements.fish_id,
                 f"{len(bad)} landmark(s) outside the image ({', '.join(sorted(bad)[:4])})"
                 " — the sidecar probably belongs to a different photograph"))
+    return out
+
+
+#: Where a landmark can sit, in standard lengths along and across the line from
+#: the snout to the caudal base. Wide: a fin tip or a gaping jaw stays well
+#: inside these, and a corner of the frame falls well outside.
+BODY_ALONG = (-0.3, 1.45)
+BODY_ACROSS = 0.6
+
+#: Head-on landmarks sit in the mirror, in another part of the photograph, so
+#: the side view's body line says nothing about them.
+_FRONTAL = frozenset(k.name for k in KEYPOINTS if k.view == View.FRONTAL)
+
+
+def check_landmarks_on_body(records) -> list[Issue]:
+    out = []
+    for rec in records:
+        kps = getattr(rec, "keypoints", None) or {}
+        a, b = kps.get("premaxilla_tip"), kps.get("caudal_base")
+        if not a or not b:
+            continue
+        sl = math.dist(a, b)
+        if sl <= 0:
+            continue
+        ux, uy = (b[0] - a[0]) / sl, (b[1] - a[1]) / sl
+        bad = []
+        for n, p in kps.items():
+            if n in _FRONTAL:
+                continue
+            dx, dy = p[0] - a[0], p[1] - a[1]
+            along, across = (dx * ux + dy * uy) / sl, (-dx * uy + dy * ux) / sl
+            if not (BODY_ALONG[0] <= along <= BODY_ALONG[1]) or abs(across) > BODY_ACROSS:
+                bad.append(n)
+        if bad:
+            out.append(Issue(
+                "error", "landmark_off_body", rec.measurements.fish_id,
+                f"{', '.join(sorted(bad))} placed off the fish — every trait and the "
+                f".tps shape built on it are wrong until it is moved"))
     return out
 
 
@@ -205,6 +252,7 @@ def validate(records, lot_of=lambda fid: "") -> list[Issue]:
     """Every check, most severe first."""
     issues: list[Issue] = []
     for fn in (check_duplicate_ids, check_orientation, check_landmarks_in_frame,
+               check_landmarks_on_body,
                check_units, check_shape_outliers,
                check_completeness):
         issues.extend(fn(records))

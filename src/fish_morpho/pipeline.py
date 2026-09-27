@@ -87,7 +87,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import grouping, schemes
+from . import darwin_core, grouping, schemes
 from .export import ExportRecord, export_to_xlsx
 from .validation import summarise, validate
 from .landmark_config import (
@@ -99,6 +99,7 @@ from .measurement_engine import (
     MeasurementSet,
     MeasurementValue,
     compute_all,
+    measurement_column_order,
 )
 from .ruler_calibration import (
     CalibrationResult,
@@ -554,7 +555,19 @@ def run(
     mode: str,
     model_config: Path | None,
     drop_traits: tuple[str, ...] = (),
+    left_out: tuple[str, ...] = (),
+    complete_only: bool = False,
 ) -> Path:
+    """Measure every specimen and write the workbook.
+
+    ``drop_traits`` are the traits the study does not collect. ``left_out`` are
+    traits the person exporting chose to leave out, usually because too many
+    fish lack them; they go the same way, but the About sheet names them apart,
+    since "never in scope" and "left out of this file" are different facts.
+    ``complete_only`` keeps only the specimens with a value in every remaining
+    column -- what a PCA in R needs, and what it would otherwise do silently by
+    dropping every row with an NA.
+    """
     if mode == "manual":
         if labels_dir is None:
             raise ValueError("--labels is required when --mode manual")
@@ -591,6 +604,16 @@ def run(
                 f"Every specimen failed to process ({len(failed)} of them). "
                 f"First error: {failed[0][1] if failed else 'unknown'}"
             )
+        # Where and when each fish was collected, from the study's Darwin Core
+        # records, into the columns the workbook already has for them. A value
+        # on the sidecar itself wins.
+        dwc = darwin_core.load(dataset_dir)
+        for r in records:
+            rec = dwc.get(r.measurements.fish_id) or {}
+            meta = r.measurements.metadata
+            for col, term in (("locality", "locality"), ("collection_date", "eventDate")):
+                if rec.get(term) and not str(meta.get(col) or "").strip():
+                    meta[col] = rec[term]
 
     elif mode == "auto":
         if model_config is None:
@@ -626,6 +649,23 @@ def run(
         log.info("omitting %d trait column(s) the study does not collect: %s",
                  len(drop_traits), ", ".join(sorted(drop_traits)))
 
+    drop_all = tuple(sorted(set(drop_traits) | set(left_out)))
+    incomplete: list[str] = []
+    if complete_only:
+        keys = [k for k in measurement_column_order() if k not in drop_all]
+
+        def blank(rec, k):
+            v = rec.measurements.values.get(k)
+            return v is None or math.isnan(v.value)
+        incomplete = sorted(r.measurements.fish_id for r in records
+                            if any(blank(r, k) for k in keys))
+        records = [r for r in records if r.measurements.fish_id not in set(incomplete)]
+        log.info("left out %d specimen(s) with a blank in a kept column", len(incomplete))
+        if not records:
+            raise RuntimeError("no specimen has a value in every kept column — "
+                               "leave out more columns, or export without "
+                               "'complete rows only'")
+
     issues = validate(records, lot_of=_lot_of)
     counts = summarise(issues)
     if counts["error"]:
@@ -642,12 +682,14 @@ def run(
     # out with the rest of the R material.
     _, lm_labels = schemes.study_landmarks(images_dir.parent)
     return export_to_xlsx(
-        records, output_path, drop_traits=drop_traits, issues=issues,
+        records, output_path, drop_traits=drop_all, issues=issues,
         landmark_labels=lm_labels,
         provenance={
             "dataset": images_dir.parent.name,
             "generated": datetime.now().astimezone().strftime("%Y-%m-%d %H:%M %Z"),
             "commit": _git_commit(),
+            "left_out": sorted(left_out),
+            "incomplete": incomplete if complete_only else None,
         })
 
 

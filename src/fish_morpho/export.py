@@ -227,7 +227,9 @@ def _write_ratios_sheet(
     which makes this the only sheet where a scale-free specimen and a calibrated
     one can honestly sit in the same column.
     """
-    keys = [k for k in measurement_column_order() if k not in drop_traits]
+    # SL is the denominator here, so its own column would read 1 on every row.
+    keys = [k for k in measurement_column_order()
+            if k not in drop_traits and k != "SL"]
     labels = measurement_labels()
 
     # Say what each column was actually divided by. The header used to read
@@ -315,6 +317,9 @@ def _write_about_sheet(sheet: Worksheet, records, drop_traits, issues,
         lat = rec.calibrations.get("lateral")
         return None if lat is None else ("px" if lat.method == "none" else "mm")
 
+    left_out = list(provenance.get("left_out") or [])
+    incomplete = provenance.get("incomplete")
+    out_of_scope = set(drop_traits) - set(left_out)
     mm = sum(1 for r in records if unit_of(r) == "mm")
     px = sum(1 for r in records if unit_of(r) == "px")
     counts = {"error": 0, "warning": 0, "note": 0}
@@ -352,18 +357,34 @@ def _write_about_sheet(sheet: Worksheet, records, drop_traits, issues,
         ("CHECKS", f"{counts['error']} error(s), {counts['warning']} warning(s), "
                    f"{counts['note']} note(s) — see the Validation sheet"),
         ("", ""),
-        ("OUT OF SCOPE", ", ".join(sorted(drop_traits)) if drop_traits
+        ("OUT OF SCOPE", ", ".join(sorted(out_of_scope)) if out_of_scope
                          else "no traits excluded"),
         ("", "Traits the study does not collect have no column at all, rather "
              "than a column of blanks."
-         if drop_traits else ""),
+         if out_of_scope else ""),
     ]
+    # What the person exporting chose to leave out of this particular file, kept
+    # apart from the study's scope: a column dropped for its blanks was measured.
+    if left_out or incomplete is not None:
+        rows += [
+            ("", ""),
+            ("LEFT OUT AT EXPORT", ""),
+            ("columns", ", ".join(left_out) if left_out else "none"),
+        ]
+        if incomplete is not None:
+            rows.append(("specimens", (
+                f"{len(incomplete)} with a blank in a kept column: "
+                + ", ".join(incomplete)) if incomplete
+                else "none — every specimen had a value in every kept column"))
+            rows.append(("", "Complete rows only: every specimen here has a value in "
+                             "every column, so an analysis that drops rows with NA "
+                             "drops nothing further."))
     for k, v in rows:
         sheet.append([k, v])
     sheet["A1"].font = Font(bold=True, size=14)
     for r in range(1, sheet.max_row + 1):
         a = sheet.cell(row=r, column=1)
-        if a.value in ("SHEETS", "UNITS", "CHECKS", "OUT OF SCOPE"):
+        if a.value in ("SHEETS", "UNITS", "CHECKS", "OUT OF SCOPE", "LEFT OUT AT EXPORT"):
             a.font = Font(bold=True)
         sheet.cell(row=r, column=2).alignment = Alignment(wrap_text=True,
                                                           vertical="top")
