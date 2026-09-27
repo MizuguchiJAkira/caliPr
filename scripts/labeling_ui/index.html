@@ -162,7 +162,7 @@
   #speccount { font:11px var(--mono); color:var(--mut); white-space:nowrap; padding:0 2px; }
   #speccount.filtered { color:var(--accent); font-weight:bold; }
   #removeShown { height:23px; padding:1px 6px; color:var(--kp); }
-  #removeShown[hidden] { display:none; }
+  #removeShown[hidden], .tb[hidden] { display:none; }
   #cmdkey { display:none; position:absolute; left:5px; right:5px; top:100%; z-index:30;
     background:#fff; border:1px solid #B7BEC7; border-radius:4px; box-shadow:0 6px 20px #0000002e;
     max-height:340px; overflow:auto; padding:4px 0; font-size:11.5px; }
@@ -589,7 +589,7 @@ instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
         <span>each photo with its annotation drawn on — opens the folder</span></button>
     </div>
   </div>
-  <button id="tbRecords" class="tb" data-ico="records" type="button" hidden
+  <button id="tbRecords" class="tb" data-ico="records" type="button"
     title="Darwin Core records for this study's specimens: institution, catalogue number,
 species, sex, where and when collected. Typed, imported from a spreadsheet or iDigBio,
 or read from the filenames; carried into every export.">Specimen records</button>
@@ -2665,17 +2665,23 @@ async function exportPreview(){
 // names, so a measurement can be joined back to the collection's own record.
 // Kept per study in darwin_core.csv and carried into every export. What the
 // filenames suggest is shown greyed and written only when accepted.
-let DWC=null;
+let DWC=null, DWC_ERR='';
 const DWC_WIDE=new Set(['occurrenceID','locality','associatedMedia','recordedBy','license']);
 const DWC_MID=new Set(['scientificName','fieldNumber','stateProvince','county','basisOfRecord']);
 const DWC_NARROW=new Set(['sex','lifeStage','institutionCode','collectionCode','eventDate','country']);
 async function loadDwc(){
   const want=dataset;
-  let d=null;
-  try{ const r=await fetch('/api/dwc'+dsq()); if(r.ok) d=await r.json(); }catch(e){}
+  let d=null, err='';
+  try{ const r=await fetch('/api/dwc'+dsq());
+       if(r.ok) d=await r.json();
+       else err = r.status===404
+         ? 'The labeler server was started before specimen records existed. Restart it, then reload this page.'
+         : `The server could not read this study's records (HTTP ${r.status}).`; }
+  catch(e){ err='The labeler server is not answering.'; }
   if(want!==dataset) return;                 // switched study while this was loading
   DWC = d && d.terms ? d : null;
-  $('#tbRecords').hidden=!DWC; $('#recsec').hidden=!DWC;
+  DWC_ERR = DWC ? '' : (err || 'Specimen records are not available.');
+  $('#recsec').hidden=!DWC;
   showRecord();
 }
 function dwcBrief(rec){
@@ -2873,7 +2879,13 @@ async function recordsDialog(focusId){
   };
   render();
 }
-$('#tbRecords').onclick=()=>recordsDialog(cur && cur.id);
+// Always shown, like the other toolbar commands: a button that is there but does
+// nothing reads as broken, so when the records cannot be had it says why.
+$('#tbRecords').onclick=async()=>{
+  if(!DWC) await loadDwc();
+  if(!DWC){ await tell(DWC_ERR); return; }
+  recordsDialog(cur && cur.id);
+};
 
 $('#hideExcl').onchange=e=>{ localStorage.setItem('calipr_hide_excl', e.target.checked?'1':'0');
   buildTasks(); };
