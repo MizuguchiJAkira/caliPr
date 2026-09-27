@@ -47,6 +47,7 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 
 from fish_morpho import auth, schemes  # noqa: E402
 from fish_morpho import image_identity  # noqa: E402
+from fish_morpho import darwin_core  # noqa: E402
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
     FIN_KEYPOINTS,
@@ -283,8 +284,25 @@ def load_profile(images_dir: Path) -> dict:
         # the rig's mirror, its head. Nothing is cut up, and both sets of
         # landmarks are placed on the same image in the same coordinates.
         "single_photo": bool(prof.get("single_photo")),
+        # The ruler span a fish starts with until it is given its own, per view.
+        # The built-in 50 mm lateral default was right for the rigs it came from
+        # and wrong where people mark a centimetre -- which scaled three fish 5x.
+        "known_mm_default": _span_defaults(prof.get("known_mm_default")),
         "note": prof.get("note", ""),
     }
+
+
+def _span_defaults(raw) -> dict:
+    """{"lateral": mm, "frontal": mm}, keeping only sane positive numbers."""
+    out = {}
+    for view, mm in (raw or {}).items() if isinstance(raw, dict) else ():
+        try:
+            mm = float(mm)
+        except (TypeError, ValueError):
+            continue
+        if view in ("lateral", "frontal") and 0 < mm < 10000:
+            out[view] = mm
+    return out
 
 
 def build_schema(profile: dict | None = None) -> dict:
@@ -378,6 +396,7 @@ def build_schema(profile: dict | None = None) -> dict:
         # One photograph per fish: both views are placed on the same image, and
         # the labeler zooms to the head-on view rather than opening a crop.
         "single_photo": bool(profile.get("single_photo")),
+        "known_mm_default": dict(profile.get("known_mm_default") or {}),
         "scheme": scheme,
         "scheme_title": (schemes.get(scheme) or {}).get("title", "caliPr"),
         "schemes": schemes.listing(),
@@ -830,6 +849,170 @@ class Handler(BaseHTTPRequestHandler):
         median = vals[len(vals) // 2] if vals else None
         return {"median_px_per_mm": median, "n": len(vals)}
 
+    #: What a study's own example consists of; nothing else is served from there.
+    REFERENCE_FILES = ("reference.json", "reference_base.jpg", "reference_annot.jpg")
+
+    def _set_reference(self):
+        """Make a labelled fish this study's example in the reference panel.
+
+        Built from the fish's SAVED landmarks into ``<study>/reference/``, so the
+        example is the study's own -- its species, its scheme, its convention --
+        rather than the one brook trout every study used to be shown.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            fid = str(json.loads(self.rfile.read(n) or b"{}").get("id", ""))
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        if not fid or fid != Path(fid).name or fid.startswith("."):
+            return self._send(400, {"ok": False, "error": "no such specimen"})
+        if not (self.out_dir / f"{fid}.json").is_file():
+            return self._send(400, {"ok": False, "error": "Save this fish first: the example "
+                                                         "is made from its saved landmarks."})
+        img = view_image(self.images_dir, fid, "lateral")
+        if img is None:
+            return self._send(404, {"ok": False, "error": f"no photograph for “{fid}”"})
+        prof = load_profile(self.images_dir)
+        out = self.images_dir / "reference"
+        r = subprocess.run(
+            [sys.executable, str(_ROOT / "scripts/make_reference.py"), "--specimen", fid,
+             "--sidecars", str(self.out_dir), "--image", str(img), "--out", str(out),
+             "--skip-keypoints", ",".join(sorted(prof.get("exclude_keypoints") or ())),
+             "--skip-polygons", ",".join(sorted(prof.get("exclude_polygons") or ()))],
+            capture_output=True, text=True, timeout=120, cwd=_ROOT)
+        if r.returncode != 0:
+            return self._send(400, {"ok": False, "error": (r.stderr or r.stdout).strip()[-400:]})
+        return self._send(200, {"ok": True, "specimen": fid})
+
+    def _reference_file(self, name: str):
+        """One of this study's example files, or 404 when it has none."""
+        if name not in self.REFERENCE_FILES:
+            return self._send(404, {"error": "unknown file"})
+        path = self.images_dir / "reference" / name
+        if not path.is_file():
+            return self._send(404, {"error": "this study has no example of its own"})
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json" if name.endswith(".json") else "image/jpeg")
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _set_known_mm_default(self):
+        """Make a ruler span the study's default for one view.
+
+        Kept in the study's schema.json, beside its other settings, so it holds for
+        everyone labelling that study. A fish that already has a span keeps it.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+            view, mm = str(data.get("view", "")), float(data.get("known_mm"))
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        if view not in ("lateral", "frontal") or not 0 < mm < 10000:
+            return self._send(400, {"ok": False, "error": "give a view and a span in mm"})
+        path = self.images_dir / "schema.json"
+        prof = {}
+        if path.is_file():
+            try:
+                prof = json.loads(path.read_text())
+            except Exception:
+                return self._send(500, {"ok": False, "error": "this study's schema.json "
+                                                            "could not be read; nothing written"})
+        spans = _span_defaults(prof.get("known_mm_default"))
+        spans[view] = mm
+        prof["known_mm_default"] = spans
+        path.write_text(json.dumps(prof, indent=2) + "\n")
+        return self._send(200, {"ok": True, "known_mm_default": spans})
+
+    def _fish_ids(self) -> list[str]:
+        """Every photograph's specimen id in this study, as the list names them."""
+        out = []
+        for name in sorted(list_images(self.images_dir / "lateral")):
+            m = _ID_RE.match(Path(name).stem)
+            out.append(m.group(1) if m else Path(name).stem)
+        return out
+
+    def _dwc(self):
+        """The study's Darwin Core records, and what the filenames suggest.
+
+        Suggestions are sent apart from the records: they are shown, and written
+        only when someone accepts them.
+        """
+        ids = self._fish_ids()
+        records = darwin_core.load(self.images_dir)
+        suggestions = {}
+        for fid in ids:
+            s = darwin_core.suggest(fid, self.images_dir.name)
+            s = {t: v for t, v in s.items() if not (records.get(fid) or {}).get(t)}
+            if s:
+                suggestions[fid] = s
+        return self._send(200, {
+            "terms": [{"term": t, "help": h} for t, h in darwin_core.TERMS],
+            "ids": ids, "records": {f: r for f, r in records.items()},
+            "suggestions": suggestions, "file": darwin_core.FILENAME})
+
+    def _dwc_update(self):
+        """Set or clear terms: ``{"changes": {fish_id: {term: value}}}``."""
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            changes = json.loads(self.rfile.read(n) or b"{}").get("changes") or {}
+            assert isinstance(changes, dict)
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        known = set(self._fish_ids()) | set(darwin_core.load(self.images_dir))
+        stray = sorted(set(changes) - known)
+        if stray:
+            return self._send(404, {"ok": False, "error": f"no photograph for “{stray[0]}”"})
+        try:
+            records = darwin_core.update(self.images_dir, changes)
+        except ValueError as exc:
+            return self._send(400, {"ok": False, "error": str(exc)})
+        return self._send(200, {"ok": True, "records": records})
+
+    def _dwc_import(self):
+        """Read a CSV or Excel sheet into the study's records.
+
+        ``{"name": file, "data": base64, "apply": bool}``. Without ``apply`` it
+        only reports what would change -- which column named the photographs,
+        which columns became which terms, what matched nothing -- so the person
+        importing sees that before anything is written.
+        """
+        import base64
+        n = int(self.headers.get("Content-Length", 0))
+        if n > 30 * 1024 * 1024:
+            return self._send(413, {"ok": False, "error": "that file is too large to be a "
+                                                        "table of specimens"})
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            name = str(body.get("name") or "table.csv")
+            rows = darwin_core.read_table(name, base64.b64decode(body.get("data") or ""))
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"could not read that file: {exc}"})
+        if not rows:
+            return self._send(400, {"ok": False, "error": "that file has no rows"})
+        existing = darwin_core.load(self.images_dir)
+        plan = darwin_core.plan_import(rows, self._fish_ids(), existing)
+        plan["rows"] = len(rows)
+        if not plan["key"] or not plan["named"]:
+            return self._send(400, {"ok": False, "plan": plan, "error": (
+                "No row in that file names a photograph in this study. It needs a "
+                "column of specimen ids or filenames, e.g. fish_id or local_filename.")})
+        if not body.get("apply"):
+            return self._send(200, {"ok": True, "plan": plan, "applied": False})
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        records = darwin_core.update(self.images_dir, plan["changes"])
+        return self._send(200, {"ok": True, "plan": plan, "applied": True, "records": records})
+
     def _set_scheme(self):
         """Switch this study to another landmark scheme, or back to caliPr's.
 
@@ -1107,7 +1290,7 @@ class Handler(BaseHTTPRequestHandler):
             "dropped_traits": sorted(traits_requiring(kps, polys)),
         })
 
-    def _build_export(self, kind: str) -> dict:
+    def _build_export(self, kind: str, opts: dict | None = None) -> dict:
         """Write an export under ``results/<dataset>/`` and say how to show it.
 
         Returns the file to download (``file``, ``name``, ``type``) and what to open
@@ -1137,22 +1320,52 @@ class Handler(BaseHTTPRequestHandler):
         # the repository's own data/, so a server started with --data-root or
         # --images elsewhere produced exports that looked for a directory that
         # does not exist — or worse, found a same-named study in the repo.
-        scheme = load_profile(self.images_dir).get("scheme")
-        if kind == "measurements" and schemes.get(scheme):
-            raise ExportError(
-                f"This study collects the {schemes.get(scheme)['title']} landmarks. Every trait "
-                f"is defined against caliPr's own landmarks, so there is nothing to measure here "
-                f"— export Landmarks for R (.tps) instead, which carries all "
-                f"{len(schemes.get(scheme)['landmarks'])} points in the protocol's order.")
+        # A study on another landmark scheme exports its landmark coordinates
+        # as its measurements (scripts/scheme_export.py); the same call serves it.
         if kind == "measurements":
+            # What the export preview chose: columns to leave out, and whether to
+            # keep only the fish with a value in every remaining column.
+            opts = opts or {}
+            codes = [str(c) for c in opts.get("leave_out") or []
+                     if re.fullmatch(r"[A-Za-z0-9_]+", str(c))]
+            # The CSV is what R reads. The workbook is still written beside it,
+            # because its About, QC and Validation sheets have no place in a CSV.
+            # Shown in the file browser rather than opened: a spreadsheet app
+            # opening a CSV reinterprets it, and saving it back is how a column
+            # of IDs becomes dates.
             out = root / "measurements.xlsx"
+            csv_out = root / "measurements.csv"
             run([str(_ROOT / "scripts/export_measurements.py"), "--dataset", ds,
                  "--images", str(self.images_dir / "lateral"),
-                 "--labels", str(self.out_dir), "--out", str(out)], 600)
-            if not out.is_file():
-                raise ExportError("the workbook was not written")
-            return {"file": out, "name": f"{ds}_measurements.xlsx", "type": XLSX,
-                    "show": out, "how": "open"}
+                 "--labels", str(self.out_dir), "--out", str(out), "--csv", str(csv_out),
+                 *(["--leave-out", ",".join(codes)] if codes else []),
+                 *(["--complete-only"] if opts.get("complete_only") else [])], 600)
+            if not csv_out.is_file() or not out.is_file():
+                raise ExportError("the measurements were not written")
+            # Both are always written; the preview says which one to hand over.
+            if opts.get("format") == "xlsx":
+                return {"file": out, "name": f"{ds}_measurements.xlsx", "type": XLSX,
+                        "show": out, "how": "open"}
+            return {"file": csv_out, "name": f"{ds}_measurements.csv",
+                    "type": "text/csv; charset=utf-8", "show": csv_out, "how": "reveal"}
+
+        if kind == "tps" and (opts or {}).get("format") == "per_specimen":
+            # One CSV per specimen in ImageJ's layout, the folder a Procrustes
+            # workflow in R reads in as a series. Shown as the folder itself.
+            units = "mm" if (opts or {}).get("units") == "mm" else "cm"
+            folder = root / "landmarks_by_specimen"
+            run([str(_ROOT / "scripts/export_tps.py"), "--sidecars", str(self.out_dir),
+                 "--images", str(self.images_dir / "lateral"),
+                 "--schema-dir", str(self.images_dir), "--out", str(root / "tps"),
+                 "--per-specimen", str(folder), "--units", units], 600)
+            files = sorted(f for f in folder.iterdir() if f.is_file()) if folder.is_dir() else []
+            if not any(f.suffix == ".csv" and f.name not in ("specimens.csv", "landmark_key.csv")
+                       for f in files):
+                raise ExportError("nothing labelled yet")
+            zp = zipped(f"{ds}_landmarks_by_specimen.zip",
+                        [(f, f"{ds}_landmarks_by_specimen/{f.name}") for f in files])
+            return {"file": zp, "name": zp.name, "type": "application/zip",
+                    "show": folder, "how": "open"}
 
         if kind == "tps":
             run([str(_ROOT / "scripts/export_tps.py"), "--sidecars", str(self.out_dir),
@@ -1190,6 +1403,32 @@ class Handler(BaseHTTPRequestHandler):
 
         raise KeyError(kind)
 
+    def _export_preview(self):
+        """The measurements as they would be exported, for the export preview.
+
+        Built to a scratch workbook and read back, so the preview shows exactly
+        what the file will hold: every trait column with its count of blanks,
+        and every specimen's values. Nothing under results/ is touched.
+        """
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            js = Path(tmp) / "preview.json"
+            try:
+                r = subprocess.run(
+                    [sys.executable, str(_ROOT / "scripts/export_measurements.py"),
+                     "--dataset", self.images_dir.name,
+                     "--images", str(self.images_dir / "lateral"),
+                     "--labels", str(self.out_dir), "--out", str(Path(tmp) / "m.xlsx"),
+                     "--preview-json", str(js)],
+                    capture_output=True, text=True, timeout=600, cwd=_ROOT)
+            except subprocess.TimeoutExpired:
+                return self._send(200, {"ok": False, "error": "the preview timed out"})
+            if r.returncode != 0 or not js.is_file():
+                return self._send(200, {"ok": False,
+                                        "error": (r.stderr or r.stdout)[-800:]})
+            data = json.loads(js.read_text())
+        return self._send(200, {"ok": True, **data})
+
     def _export(self, kind: str):
         """Build an export on demand and hand it back as a download."""
         try:
@@ -1212,8 +1451,13 @@ class Handler(BaseHTTPRequestHandler):
         app, the rest selected in Finder. If nothing can open it -- no desktop --
         the page falls back to downloading.
         """
+        n = int(self.headers.get("Content-Length", 0) or 0)
         try:
-            out = self._build_export(kind)
+            opts = json.loads(self.rfile.read(n) or b"{}") if n else {}
+        except ValueError:
+            opts = {}
+        try:
+            out = self._build_export(kind, opts if isinstance(opts, dict) else {})
         except KeyError:
             return self._send(404, {"ok": False, "error": f"unknown export {kind!r}"})
         except subprocess.TimeoutExpired:
@@ -1276,6 +1520,73 @@ class Handler(BaseHTTPRequestHandler):
                                 "moved_to": str(target.relative_to(Handler.data_root.parent))
                                 if Handler.data_root.parent in target.parents else str(target),
                                 "default": Handler.default_dataset})
+
+    def _remove_specimen(self):
+        """Take photographs out of a study, with everything that belongs to them.
+
+        ``{"id": fish}`` or ``{"ids": [fish, ...]}``. Moved, never deleted: each
+        photograph (and a separate head-on crop, where the study has one), its
+        saved labels and its cached predictions go to one folder,
+        ``data/.trash/<study>--<fish or N-photos>--<time>/``, keeping their paths
+        inside the study, so restoring is moving that folder's contents back.
+        Every id is checked before anything moves: one bad id moves nothing.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            ids = body.get("ids") if body.get("ids") is not None else [body.get("id", "")]
+            ids = [str(i) for i in ids]
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        if not ids:
+            return self._send(400, {"ok": False, "error": "no specimens given"})
+        study = self.images_dir
+        plan: list[Path] = []
+        labelled = 0
+        for fid in ids:
+            # A specimen id names files, so it may never be a path.
+            if not fid or fid != Path(fid).name or fid.startswith("."):
+                return self._send(400, {"ok": False, "error": f"no such specimen “{fid}”"})
+            found: list[Path] = []
+            for view in ("lateral", "frontal"):
+                p = view_image(study, fid, view)
+                if p is not None and p.parent == study / view and p not in found:
+                    found.append(p)
+            if not found:
+                return self._send(404, {"ok": False, "error": f"no photograph for “{fid}”"})
+            sidecar = self.out_dir / f"{fid}.json"
+            if sidecar.is_file():
+                found.append(sidecar)
+                labelled += 1
+            for cache in (study / "sidecars_auto" / f"{fid}.json",
+                          study / "sidecars_auto" / "frontal" / f"{fid}.json"):
+                if cache.is_file():
+                    found.append(cache)
+            plan += found
+        trash = (Handler.data_root or study.parent) / ".trash"
+        what = ids[0] if len(ids) == 1 else f"{len(ids)}-photos"
+        target = trash / f"{study.name}--{what}--{datetime.datetime.now():%Y%m%d-%H%M%S}"
+        for f in plan:
+            try:
+                rel = f.relative_to(study)
+            except ValueError:                      # labels kept outside the study (--out)
+                rel = Path("sidecars") / f.name
+            (target / rel).parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(f), str(target / rel))
+        if len(ids) > 1:
+            (target / "REMOVED.txt").write_text(
+                f"Removed from {study.name} on {datetime.datetime.now():%Y-%m-%d %H:%M}: "
+                f"{len(ids)} photographs, {labelled} of them labelled.\n"
+                "To restore one, move its files back to the same place inside the study.\n\n"
+                + "\n".join(ids) + "\n")
+        root = Handler.data_root.parent if Handler.data_root else study.parent.parent
+        return self._send(200, {"ok": True, "ids": ids, "id": ids[0], "removed": len(ids),
+                                "labelled": labelled if len(ids) > 1 else bool(labelled),
+                                "files": len(plan),
+                                "moved_to": str(target.relative_to(root))
+                                if root in target.parents else str(target)})
 
     def _new_dataset(self):
         """Create an empty study directory so a folder of photographs has
@@ -1697,6 +2008,9 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/api/authstate":
             return self._authstate()
 
+        if route == "/api/dwc":
+            return self._dwc()
+
         if route == "/api/datasets":
             if Handler.data_root is not None:
                 found = discover_datasets(Handler.data_root)
@@ -1783,6 +2097,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, out)
             except Exception as exc:
                 return self._send(200, {"error": str(exc)})
+        if route.startswith("/api/reference/"):
+            return self._reference_file(unquote(route[len("/api/reference/"):]))
+        if route == "/api/export/preview":
+            return self._export_preview()
         if route.startswith("/api/export/"):
             return self._export(route[len("/api/export/"):])
 
@@ -1839,6 +2157,9 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/api/dataset/new":
             return self._new_dataset()
 
+        if route == "/api/specimen/remove":
+            return self._remove_specimen()
+
         if route == "/api/dataset/remove":
             return self._remove_dataset()
 
@@ -1863,6 +2184,14 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/schema/scheme":
             return self._set_scheme()
+        if route == "/api/schema/known_mm":
+            return self._set_known_mm_default()
+        if route == "/api/dwc":
+            return self._dwc_update()
+        if route == "/api/dwc/import":
+            return self._dwc_import()
+        if route == "/api/reference":
+            return self._set_reference()
         if route == "/api/schemes/new":
             return self._new_scheme()
 

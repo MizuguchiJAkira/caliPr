@@ -31,8 +31,14 @@ data/cornell_raw/**/*.jpeg
 data/cornell_raw/**/*.NEF
 data/cornell_raw/*.JPG
 data/cornell_raw/*.jpg
-data/cornell/lateral/
-data/cornell/frontal/
+# Every study's photographs, whatever the study is called: large, and the
+# collections' to publish. The sidecars beside them are the data, and are tracked.
+data/*/lateral/
+data/*/frontal/
+data/*/originals/
+# A study's own example is cut from one of those photographs, and is remade from
+# any labelled fish with "Use as example".
+data/*/reference/
 # The crops the study kept before it moved to one photograph per fish, and the
 # predictions made against them. Kept on disk so nothing is lost; not history.
 data/cornell/.crops-before-*/
@@ -52,8 +58,6 @@ exports/
 dlc/
 dlc_project/
 .venv-train/
-data/alewife/lateral/
-data/alewife/frontal/
 .tmptest/
 data/*/sidecars_auto/
 data/*/overlays_auto/
@@ -81,7 +85,7 @@ data/.trash/
 
 # Fin outline training crops and models (derived; scripts/build_fin_dataset.py)
 fin_seg/
-fin_seg_runs/
+fin_seg_runs*/
 fin_seg_pred/
 
 # Label backups taken before a bulk operation. Recovery, not history.

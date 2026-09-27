@@ -3,8 +3,11 @@
 This directory holds two different kinds of thing.
 
 **Working datasets** — one folder per study (`cornell/`, `alewife/`), each with
-a `lateral/` of photographs, a `sidecars/` of annotations, and an optional
-`schema.json` narrowing the master schema to what that study collects. The
+a `lateral/` of photographs, a `sidecars/` of annotations, an optional
+`schema.json` narrowing the master schema to what that study collects, and an
+optional `darwin_core.csv` saying which museum specimen each photograph is
+(institution, catalogue number, species, locality ...; edited from the
+labeler's Specimen records). The
 labeler discovers them by folder name. Photographs are git-ignored; **the
 sidecars are tracked**, because they are the data.
 

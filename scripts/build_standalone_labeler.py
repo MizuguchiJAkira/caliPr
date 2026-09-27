@@ -45,22 +45,38 @@ def landmarks_for(profile_dir: Path | None) -> list[dict]:
 
 
 THEMES = {
-    # The canvas ground stays dark in BOTH themes. The surround must not out-shine
+    # The canvas ground stays dark in EVERY theme. The surround must not out-shine
     # the photograph: these specimens are shot against near-black tanks, and a
     # bright panel beside a dark image forces constant eye adaptation, which costs
     # precision on exactly the faint margins that are hardest to judge.
-    "dark": ("--bg:#12151a;--panel:#1b2029;--line:#2b3340;--fg:#e6ebf2;--mut:#8a97a8;"
-             "--accent:#4aa3ff;--good:#37c871;--warn:#ffb454;--kp:#ff5d6c;"
-             "--btn:#28303c;--btnhover:#313b49;--hover:#232a35;--sel:#26303d;"
-             "--dot:#3a4553;--hintbg:#161b22;--kbd:#0e1218;--canvas:#0b0e12;"
+    #
+    # "rstudio" is the default, and the look of the server-backed labeller: a grey
+    # frame, white panes with a tab strip, flat toolbar buttons. The people this
+    # file is sent to do their analysis in RStudio.
+    "rstudio": ("--bg:#E3E6EA;--panel:#ffffff;--line:#D6DADF;--edge:#C3C9D0;--fg:#22262A;"
+                "--mut:#6B7279;--accent:#3A78B5;--good:#22864D;--goodfill:#35A263;"
+                "--warn:#AE6600;--kp:#C9323F;--btn1:#ffffff;--btn2:#EDEFF2;"
+                "--btnhover:#E3E7EB;--hover:#EEF4FB;--sel:#D8E6F5;--dot:#B5BCC4;"
+                "--hintbg:#F8FAFC;--kbd:#F7F8FA;--tab1:#F4F5F7;--tab2:#E6E9ED;"
+                "--bar1:#FDFDFE;--bar2:#F1F3F5;--canvas:#2E3236;"
+                "--dropfg:#EEF0F2;--dropmut:#AEB5BD;"),
+    "dark": ("--bg:#0d1014;--panel:#1b2029;--line:#2b3340;--edge:#333c4a;--fg:#e6ebf2;"
+             "--mut:#8a97a8;--accent:#4aa3ff;--good:#37c871;--goodfill:#37c871;"
+             "--warn:#ffb454;--kp:#ff5d6c;--btn1:#2c3440;--btn2:#262d38;"
+             "--btnhover:#313b49;--hover:#232a35;--sel:#26303d;--dot:#3a4553;"
+             "--hintbg:#161b22;--kbd:#0e1218;--tab1:#20262f;--tab2:#1b2029;"
+             "--bar1:#1f252e;--bar2:#1b2029;--canvas:#0b0e12;"
              "--dropfg:#e6ebf2;--dropmut:#8a97a8;"),
-    "light": ("--bg:#ffffff;--panel:#f7f7f7;--line:#d9d9d9;--fg:#1a1a1a;--mut:#666;"
-              "--accent:#1a6bb5;--good:#2e7d32;--warn:#b26a00;--kp:#c62828;"
-              "--btn:#ffffff;--btnhover:#eee;--hover:#f0f0f0;--sel:#e4eef7;"
-              "--dot:#c4c4c4;--hintbg:#f0f0f0;--kbd:#eee;--canvas:#3a3a3a;"
+    "light": ("--bg:#ffffff;--panel:#f7f7f7;--line:#d9d9d9;--edge:#cfcfcf;--fg:#1a1a1a;"
+              "--mut:#666;--accent:#1a6bb5;--good:#2e7d32;--goodfill:#2e7d32;"
+              "--warn:#b26a00;--kp:#c62828;--btn1:#ffffff;--btn2:#ffffff;"
+              "--btnhover:#eee;--hover:#f0f0f0;--sel:#e4eef7;--dot:#c4c4c4;"
+              "--hintbg:#f0f0f0;--kbd:#eee;--tab1:#f7f7f7;--tab2:#f0f0f0;"
+              "--bar1:#fafafa;--bar2:#f3f3f3;--canvas:#3a3a3a;"
               "--dropfg:#f0f0f0;--dropmut:#c8c8c8;"),
 }
 FONTS = {
+    "rstudio": "'Lucida Grande','Lucida Sans Unicode','Segoe UI',Helvetica,Arial,sans-serif",
     "dark": "-apple-system,Segoe UI,Roboto,sans-serif",
     "light": "'Lucida Grande',Helvetica,Arial,sans-serif",
 }
@@ -73,107 +89,153 @@ TEMPLATE = r"""<!doctype html>
  :root{__THEME__}
  *{box-sizing:border-box}
  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
-   font:13px/1.45 __FONT__;overflow:hidden}
- #app{display:grid;grid-template-columns:300px 1fr;height:100vh}
- #side{background:var(--panel);border-right:1px solid var(--line);display:flex;
-   flex-direction:column;min-height:0}
- h1{font-size:14px;margin:0;padding:12px 14px;border-bottom:1px solid var(--line)}
- h1 small{color:var(--mut);font-weight:400}
- .sec{padding:10px 14px;border-bottom:1px solid var(--line)}
- button{background:var(--btn);color:var(--fg);border:1px solid var(--line);
-   border-radius:6px;padding:6px 9px;cursor:pointer;font-size:12px}
- button:hover{background:var(--btnhover)}
- button.primary{background:var(--good);border-color:var(--good);color:#052;font-weight:600}
- .row{display:flex;gap:6px}.row button{flex:1}
- #hint{padding:9px 14px;background:var(--hintbg);color:var(--mut);font-size:12px;
-   border-bottom:1px solid var(--line);min-height:60px;max-height:150px;overflow:auto;flex:none}
+   font:12px/1.45 __FONT__;overflow:hidden}
+ /* Panes on a frame, each with a tab strip, as in RStudio. */
+ #app{display:grid;grid-template-columns:300px 1fr;gap:6px;padding:6px;height:100vh}
+ #side{display:flex;flex-direction:column;gap:6px;min-height:0}
+ .pane{display:flex;flex-direction:column;min-height:0;overflow:hidden;flex:none;
+   background:var(--panel);border:1px solid var(--edge);border-radius:4px}
+ .pane.grow{flex:1}
+ .tabs{flex:none;display:flex;align-items:flex-end;height:28px;padding:0 6px 0 4px;
+   background:linear-gradient(var(--tab1),var(--tab2));border-bottom:1px solid var(--line)}
+ .tab{display:inline-flex;align-items:center;gap:6px;height:24px;margin-bottom:-1px;padding:0 11px;
+   font-weight:bold;background:var(--panel);border:1px solid var(--line);border-bottom:0;
+   border-radius:4px 4px 0 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+ .tab small{font-weight:normal;color:var(--mut)}
+ .toolbar{flex:none;display:flex;align-items:center;gap:1px;min-height:30px;padding:2px 5px;
+   background:linear-gradient(var(--bar1),var(--bar2));border-bottom:1px solid var(--line)}
+ .toolbar.foot{border-bottom:0;border-top:1px solid var(--line)}
+ .spacer{flex:1}
+ .tsep{width:1px;height:16px;margin:0 4px;background:var(--edge);flex:none}
+ .body{padding:8px 10px}
+ #prov{padding:6px 10px;font-size:10.5px;color:var(--mut);line-height:1.5;
+   border-bottom:1px solid var(--line)}
+ button,label.file{font:12px/16px __FONT__;color:var(--fg);cursor:pointer;
+   background:linear-gradient(var(--btn1),var(--btn2));border:1px solid var(--edge);
+   border-radius:3px;padding:3px 9px}
+ button:hover,label.file:hover{background:var(--btnhover)}
+ button:disabled{opacity:.5;cursor:default}
+ button.primary,label.file.primary{background:linear-gradient(#63A0DA,#3A78B5);
+   border-color:#2E649B;color:#fff;font-weight:bold}
+ .tb{display:inline-flex;align-items:center;gap:5px;height:24px;padding:2px 6px;
+   background:transparent;border-color:transparent;white-space:nowrap}
+ .tb:hover{background:linear-gradient(var(--btn1),var(--btnhover));border-color:var(--edge)}
+ [data-ico]::before{content:'';width:14px;height:14px;flex:none;background:center/contain no-repeat}
+ [data-ico=undo]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M4.5 2.5 1.5 5.5l3 3' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M2 5.5h6.3a3.6 3.6 0 0 1 0 7.2H5.5' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E")}
+ [data-ico=fit]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M1.5 5V1.5H5M9 1.5h3.5V5M12.5 9v3.5H9M5 12.5H1.5V9' fill='none' stroke='%234A6F96' stroke-width='1.5'/%3E%3C/svg%3E")}
+ [data-ico=folder]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M1 3h4l1.3 1.4H13v7.6H1z' fill='%23F3C969' stroke='%23B8912F'/%3E%3C/svg%3E")}
+ [data-ico=sheet]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 1.5h6l3 3v8h-9z' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M4.5 6.5h5M4.5 8.5h5M4.5 10.5h3' stroke='%233A78B5'/%3E%3C/svg%3E")}
+ [data-ico=rdoc]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='6' fill='%23fff' stroke='%233A78B5'/%3E%3Ctext x='7' y='10.2' font-family='Georgia' font-size='9' font-weight='bold' text-anchor='middle' fill='%233A78B5'%3ER%3C/text%3E%3C/svg%3E")}
+ [data-ico=zip]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 1.5h6l3 3v8h-9z' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M6 2v1M7 3v1M6 4v1M7 5v1M6 6v1' stroke='%23707780'/%3E%3Crect x='5.6' y='7.4' width='1.8' height='2.2' fill='%23707780'/%3E%3C/svg%3E")}
+ [data-ico=clear]::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5.6' fill='%23D2504B'/%3E%3Cpath d='M4.8 4.8l4.4 4.4M9.2 4.8l-4.4 4.4' stroke='%23fff' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E")}
+ #imgctrl{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center;
+   font-size:11px;color:var(--mut);margin-top:8px}
+ #imgctrl input{min-width:0;accent-color:var(--accent)}
+ #hint{flex:none;padding:7px 10px;background:var(--hintbg);color:var(--mut);
+   border-bottom:1px solid var(--line);min-height:60px;max-height:150px;overflow:auto}
  #hint b{color:var(--fg)}
  #tasks{overflow:auto;flex:1;min-height:120px}
- .task{display:flex;align-items:center;gap:8px;padding:5px 14px;cursor:pointer;
-   border-left:3px solid transparent}
+ .task{display:flex;align-items:center;gap:8px;padding:2px 10px;cursor:pointer;
+   font:12px/19px Monaco,Menlo,Consolas,monospace}
  .task:hover{background:var(--hover)}
- .task.active{background:var(--sel);border-left-color:var(--accent)}
- .task .dot{width:9px;height:9px;border-radius:50%;background:var(--dot);flex:none}
- .task.set .dot{background:var(--good)}
- .task .nm{flex:1}
+ .task.active{background:var(--sel);box-shadow:inset 3px 0 0 var(--accent)}
+ .task .dot{width:9px;height:9px;border-radius:50%;background:var(--panel);
+   box-shadow:inset 0 0 0 1.5px var(--dot);flex:none}
+ .task.set .dot{background:var(--goodfill);box-shadow:none}
+ .task .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
  .task .n{color:var(--mut);font-size:10px;font-variant-numeric:tabular-nums}
- #specWrap{overflow:auto;max-height:26vh;border-top:1px solid var(--line)}
- .spec{padding:5px 14px;cursor:pointer;display:flex;justify-content:space-between;gap:6px}
- .spec:hover{background:var(--hover)}.spec.active{background:var(--sel)}
+ #specWrap{overflow:auto;max-height:26vh}
+ .spec{padding:2px 10px;cursor:pointer;display:flex;justify-content:space-between;gap:6px;
+   border-bottom:1px solid var(--line);font:12px/19px Monaco,Menlo,Consolas,monospace}
+ .spec:hover{background:var(--hover)}
+ .spec.active{background:var(--sel);box-shadow:inset 3px 0 0 var(--accent)}
  .spec .c{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums}
  .spec.done .c{color:var(--good)}
- #main{position:relative;min-width:0}
- canvas{display:block;width:100%;height:100%;cursor:crosshair;background:var(--canvas)}
- #hud{position:absolute;top:10px;left:12px;background:#0d1117cc;color:#c8d2df;padding:6px 10px;
-   border-radius:6px;color:var(--mut);font-size:11px;pointer-events:none}
+ .exp{display:flex;flex-direction:column;gap:5px;padding:8px 10px}
+ .exp button{display:flex;align-items:center;gap:6px;width:100%;text-align:left}
+ #prog{padding:0 10px 8px;color:var(--mut);font-size:11px}
+ #main{min-width:0}
+ #stage{position:relative;flex:1;min-height:0;overflow:hidden;background:var(--canvas)}
+ canvas{position:absolute;inset:0;display:block;width:100%;height:100%;cursor:crosshair;
+   background:var(--canvas)}
+ .status{flex:none;display:flex;align-items:center;height:23px;padding:0 9px;
+   background:linear-gradient(var(--bar1),var(--bar2));border-top:1px solid var(--line);
+   font:11px Monaco,Menlo,Consolas,monospace;color:var(--mut)}
+ #hud{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
  #toast{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
-   background:#0d1117ee;color:#e6ebf2;border:1px solid #2b3340;padding:8px 14px;border-radius:8px;
-   opacity:0;transition:opacity .2s;pointer-events:none}
+   background:var(--panel);color:var(--fg);border:1px solid var(--edge);padding:6px 12px;
+   border-radius:4px;box-shadow:0 4px 14px #0000002b;opacity:0;transition:opacity .2s;
+   pointer-events:none}
  #toast.show{opacity:1}
- kbd{background:var(--kbd);border:1px solid var(--line);border-radius:3px;padding:0 4px}
+ kbd{font:11px Monaco,Menlo,monospace;background:var(--kbd);border:1px solid var(--edge);
+   border-bottom-width:2px;border-radius:3px;padding:0 4px;color:var(--fg)}
  #drop{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
    flex-direction:column;gap:14px;background:var(--canvas);color:var(--dropfg);
    text-align:center;padding:40px}
  #drop.hide{display:none}
  #drop p{color:var(--dropmut);max-width:460px;line-height:1.6}
- label.file{background:var(--accent);color:#04121f;font-weight:600;padding:10px 18px;
-   border-radius:8px;cursor:pointer}
- #imgctrl{display:flex;gap:8px;align-items:center;font-size:11px;color:var(--mut);margin-top:8px}
- #imgctrl input{flex:1;min-width:0;accent-color:var(--accent)}
+ #drop label.file{padding:7px 16px}
 </style></head><body>
 <div id="app">
  <div id="side">
-  <h1>caliPr <small>— __TITLE__</small></h1>
-  <div style="padding:6px 14px;font-size:10.5px;color:var(--mut);
-       border-bottom:1px solid var(--line);line-height:1.5">
-    __PROVENANCE__<br>Runs offline · your photographs never leave this computer
-  </div>
-  <div class="sec">
-   <div class="row"><label class="file" style="flex:1;text-align:center">
-     Choose photos<input id="files" type="file" accept="image/*" multiple hidden></label></div>
-   <div id="imgctrl"><span>contrast</span><input id="ctrst" type="range" min="1" max="3.5" step=".05" value="1">
-     <span>bright</span><input id="brt" type="range" min=".6" max="1.7" step=".05" value="1"></div>
-  </div>
-  <div id="hint">Choose your photographs to begin.</div>
-  <div id="tasks"></div>
-  <div class="sec">
-   <div class="row" style="margin-bottom:6px">
-     <button id="undo" title="Undo the selected landmark (Z)">↶ Undo</button>
-     <button id="fit" title="Fit image (F)">Fit</button></div>
-   <div class="row">
-     <button id="prev">← Prev</button><button id="next">Next →</button></div>
-  </div>
-  <div class="sec">
-   <div class="row" style="margin-bottom:6px">
-     <button id="expBundle" class="primary"
+  <section class="pane">
+   <div class="tabs"><span class="tab">caliPr <small>__TITLE__</small></span></div>
+   <div id="prov">__PROVENANCE__<br>Runs offline · your photographs never leave this computer</div>
+   <div class="body">
+    <label class="file primary" style="display:inline-flex;align-items:center;gap:6px">
+      Choose photos<input id="files" type="file" accept="image/*" multiple hidden></label>
+    <div id="imgctrl"><span>contrast</span><input id="ctrst" type="range" min="1" max="3.5" step=".05" value="1">
+      <span>brightness</span><input id="brt" type="range" min=".6" max="1.7" step=".05" value="1"></div>
+   </div>
+  </section>
+  <section class="pane grow">
+   <div class="tabs"><span class="tab">Landmarks</span></div>
+   <div id="hint">Choose your photographs to begin.</div>
+   <div id="tasks"></div>
+   <div class="toolbar foot">
+     <button id="undo" class="tb" data-ico="undo" title="Undo the selected landmark (Z)">Undo</button>
+     <button id="fit" class="tb" data-ico="fit" title="Fit image (F)">Fit</button>
+     <span class="spacer"></span>
+     <button id="prev" class="tb">← Prev</button><button id="next" class="tb">Next →</button></div>
+  </section>
+  <section class="pane">
+   <div class="tabs"><span class="tab">Specimens</span></div>
+   <div id="specWrap"></div>
+  </section>
+  <section class="pane">
+   <div class="tabs"><span class="tab">Export</span></div>
+   <div class="exp">
+     <button id="expBundle" class="primary" data-ico="zip"
        title="Labels plus the original photo files, so the other end can rebuild
-the training set exactly. Large.">Export bundle (+ photos)</button></div>
-   <div class="row" style="margin-bottom:6px">
-     <button id="expJson" title="Coordinates only. Small, but only usable by
-someone who already has these exact photographs.">Export labels only</button></div>
-   <div class="row"><button id="expTps">Export .tps for R</button></div>
-   <div class="row" style="margin-top:6px"><button id="reset"
-     title="Delete all saved landmarks in this browser">Reset all labels</button></div>
-   <div id="prog" style="margin-top:8px;color:var(--mut);font-size:11px"></div>
-  </div>
-  <div id="specWrap"></div>
+the training set exactly. Large.">Export bundle (+ photos)</button>
+     <button id="expJson" data-ico="sheet" title="Coordinates only. Small, but only usable by
+someone who already has these exact photographs.">Export labels only</button>
+     <button id="expTps" data-ico="rdoc">Export .tps for R</button>
+     <button id="reset" data-ico="clear"
+       title="Delete all saved landmarks in this browser">Reset all labels</button>
+   </div>
+   <div id="prog"></div>
+  </section>
  </div>
- <div id="main">
-  <canvas id="cv"></canvas>
-  <div id="hud"></div>
-  <div id="toast"></div>
-  <div id="drop">
-   <h2 style="margin:0;font-size:18px">Landmark labeling</h2>
-   <p>Choose your specimen photographs. Nothing is uploaded anywhere — the images
-      stay on your computer and this page runs entirely in your browser.</p>
-   <p>Pick a landmark on the left, then click it on the fish. It advances to the
-      next one automatically. <kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan ·
-      <kbd>Z</kbd> undo · <kbd>F</kbd> fit</p>
-   <label class="file">Choose photos<input id="files2" type="file" accept="image/*" multiple hidden></label>
-   <p style="font-size:11px">Your work saves in this browser automatically. If you
-      close the page, reopen it and choose the same photos to carry on.</p>
+ <section id="main" class="pane">
+  <div class="tabs"><span class="tab" id="phototab">Photograph</span></div>
+  <div id="stage">
+   <canvas id="cv"></canvas>
+   <div id="toast"></div>
+   <div id="drop">
+    <h2 style="margin:0;font-size:18px">Landmark labeling</h2>
+    <p>Choose your specimen photographs. Nothing is uploaded anywhere — the images
+       stay on your computer and this page runs entirely in your browser.</p>
+    <p>Pick a landmark on the left, then click it on the fish. It advances to the
+       next one automatically. <kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan ·
+       <kbd>Z</kbd> undo · <kbd>F</kbd> fit</p>
+    <label class="file primary">Choose photos<input id="files2" type="file" accept="image/*" multiple hidden></label>
+    <p style="font-size:11px">Your work saves in this browser automatically. If you
+       close the page, reopen it and choose the same photos to carry on.</p>
+   </div>
   </div>
- </div>
+  <div class="status"><span id="hud"></span></div>
+ </section>
 </div>
 <script>
 const LANDMARKS = __LANDMARKS__;
@@ -239,7 +301,8 @@ function draw(){
   hud.textContent = (files[idx] ? files[idx].name : "—") +
     "  ·  " + done + "/" + LANDMARKS.length + "  ·  " + ((vs.scale*100)|0) + "%" +
     "  ·  ±" + perPx.toFixed(1) + " px" + (coarse ? "  — zoom in to place accurately" : "");
-  hud.style.color = coarse ? "#ffb454" : "";
+  hud.style.color = coarse ? "var(--warn)" : "";
+  $("#phototab").textContent = files[idx] ? files[idx].name : "Photograph";
 }
 
 function buildTasks(){
@@ -584,7 +647,7 @@ def main(argv=None) -> int:
     ap.add_argument("--key", default="default",
                     help="Namespaces browser storage and the export filename, so "
                          "two studies on one machine cannot overwrite each other.")
-    ap.add_argument("--theme", choices=sorted(THEMES), default="dark",
+    ap.add_argument("--theme", choices=sorted(THEMES), default="rstudio",
                     help="Chrome colour. The image canvas stays dark either way.")
     ap.add_argument("--provenance", default="Cornell University Museum of Vertebrates",
                     help="Shown under the title, so someone opening an emailed "

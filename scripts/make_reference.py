@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 import cv2
@@ -40,19 +41,30 @@ KP_COLOR = (60, 80, 255)      # BGR — matches the UI's keypoint red
 
 
 def build(specimen: str, sidecars: Path, images: Path, pad: int = 140,
-          target_w: int = 3600) -> None:
+          target_w: int = 3600, out_dir: Path = UI_DIR, image_path: Path | None = None,
+          skip_keypoints=(), skip_polygons=()) -> dict:
+    """Write the three reference files for ``specimen`` into ``out_dir``.
+
+    ``image_path`` names the photograph when it is not ``<specimen>_L.JPEG`` in
+    ``images`` -- a study's own example can be any labelled fish. Landmarks and
+    outlines the study does not collect (``skip_*``) are left off, so the example
+    shows only what the annotator is asked for. Raises ValueError if the fish has
+    no landmarks to show.
+    """
     sc_path = sidecars / f"{specimen}.json"
     sidecar = json.loads(sc_path.read_text())
     lateral = sidecar.get("lateral") or {}
-    polygons = lateral.get("polygons") or {}
-    keypoints = lateral.get("keypoints") or {}
-    if not polygons or not keypoints:
-        raise SystemExit(f"{specimen}: sidecar has no lateral polygons/keypoints")
+    polygons = {k: v for k, v in (lateral.get("polygons") or {}).items()
+                if v and len(v) >= 3 and k not in set(skip_polygons)}
+    keypoints = {k: v for k, v in (lateral.get("keypoints") or {}).items()
+                 if v and k not in set(skip_keypoints)}
+    if not keypoints:
+        raise ValueError(f"{specimen} has no landmarks saved on its side view")
 
-    img_path = images / f"{specimen}_L.JPEG"
+    img_path = image_path or images / f"{specimen}_L.JPEG"
     im = cv2.imread(str(img_path))
     if im is None:
-        raise SystemExit(f"Could not read {img_path}")
+        raise ValueError(f"could not read {img_path}")
     H, W = im.shape[:2]
 
     # Crop tightly around everything the annotator needs to see.
@@ -64,15 +76,16 @@ def build(specimen: str, sidecars: Path, images: Path, pad: int = 140,
     y0 = max(0, int(min(ys)) - pad)
     y1 = min(H, int(max(ys)) + pad)
 
-    scale = target_w / (x1 - x0)
+    # Never enlarged past the photograph's own resolution: that adds no detail.
+    scale = min(target_w, x1 - x0) / (x1 - x0)
     def T(p):
         return [round((p[0] - x0) * scale, 1), round((p[1] - y0) * scale, 1)]
 
     base = cv2.resize(im[y0:y1, x0:x1], None, fx=scale, fy=scale,
                       interpolation=cv2.INTER_AREA)
     bh, bw = base.shape[:2]
-    UI_DIR.mkdir(parents=True, exist_ok=True)
-    cv2.imwrite(str(UI_DIR / "reference_base.jpg"), base,
+    out_dir.mkdir(parents=True, exist_ok=True)
+    cv2.imwrite(str(out_dir / "reference_base.jpg"), base,
                 [cv2.IMWRITE_JPEG_QUALITY, 86])
 
     annot = base.copy()
@@ -83,19 +96,21 @@ def build(specimen: str, sidecars: Path, images: Path, pad: int = 140,
         x, y = (int(v) for v in T(xy))
         cv2.circle(annot, (x, y), 5, KP_COLOR, -1, cv2.LINE_AA)
         cv2.circle(annot, (x, y), 5, (0, 0, 0), 1, cv2.LINE_AA)
-    cv2.imwrite(str(UI_DIR / "reference_annot.jpg"), annot,
+    cv2.imwrite(str(out_dir / "reference_annot.jpg"), annot,
                 [cv2.IMWRITE_JPEG_QUALITY, 86])
 
-    (UI_DIR / "reference.json").write_text(json.dumps({
+    ref = {
         "w": bw, "h": bh,
         "specimen": specimen,
         "keypoints": {k: T(v) for k, v in keypoints.items()},
         "polygons": {k: [T(v) for v in verts] for k, verts in polygons.items()},
         "note": f"Hand-labeled reference: {specimen}",
-    }, indent=1))
+    }
+    (out_dir / "reference.json").write_text(json.dumps(ref, indent=1))
 
     print(f"reference built from {specimen}: {bw}x{bh}, "
           f"{len(keypoints)} keypoints, {len(polygons)} polygons")
+    return ref
 
 
 def main(argv=None) -> int:
@@ -106,8 +121,23 @@ def main(argv=None) -> int:
                     default=_ROOT / "data" / "cornell" / "sidecars")
     ap.add_argument("--images", type=Path,
                     default=_ROOT / "data" / "cornell" / "lateral")
+    ap.add_argument("--image", type=Path, default=None,
+                    help="The photograph itself, when it is not <specimen>_L.JPEG.")
+    ap.add_argument("--out", type=Path, default=UI_DIR,
+                    help="Where to write the three files (default: the labeler's own).")
+    ap.add_argument("--skip-keypoints", default="",
+                    help="Comma-separated landmarks the study does not collect.")
+    ap.add_argument("--skip-polygons", default="",
+                    help="Comma-separated outlines the study does not collect.")
     args = ap.parse_args(argv)
-    build(args.specimen, args.sidecars, args.images)
+    split = lambda v: tuple(x for x in v.split(",") if x)
+    try:
+        build(args.specimen, args.sidecars, args.images, out_dir=args.out,
+              image_path=args.image, skip_keypoints=split(args.skip_keypoints),
+              skip_polygons=split(args.skip_polygons))
+    except ValueError as exc:
+        print(exc, file=sys.stderr)
+        return 1
     return 0
 
 

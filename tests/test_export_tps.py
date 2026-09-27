@@ -143,3 +143,67 @@ def test_the_workbook_does_not_also_carry_the_coordinates(tmp_path):
 
     assert "landmarks" not in inspect.signature(export.export_to_xlsx).parameters
     assert not hasattr(export, "_write_landmarks_sheet")
+
+
+def test_the_r_loader_does_not_scale_a_scaled_file_twice():
+    # When every specimen has a scale the .tps carries SCALE lines and
+    # readland.tps returns millimetres; dividing centroid size by px/mm again
+    # made it 20-25x too small, by a different factor for every fish.
+    r = (Path(__file__).resolve().parent.parent / "scripts" / "r" / "load_landmarks.R").read_text()
+    assert 'grepl("^SCALE=", readLines("landmarks.tps"))' in r
+    assert "size <- if (scaled) gpa$Csize else gpa$Csize / ppm" in r
+
+
+@pytest.fixture
+def per_specimen(tmp_path):
+    """The same two fish, written as one ImageJ-layout file each, in centimetres."""
+    study = tmp_path / "study"
+    images, sidecars = study / "lateral", study / "sidecars"
+    images.mkdir(parents=True)
+    sidecars.mkdir()
+    for fid, calib in (("F1", {"mode": "ticks", "px_per_mm": 10.0}), ("F2", None)):
+        Image.new("RGB", (800, 600), (40, 40, 40)).save(images / f"{fid}_L.JPEG")
+        block = {"keypoints": {"premaxilla_tip": [100.0, 500.0], "eye_anterior": [250.0, 400.0]}}
+        if fid == "F1":
+            block["keypoints"]["caudal_base"] = [700.0, 450.0]
+        if calib:
+            block["calibration"] = calib
+        (sidecars / f"{fid}.json").write_text(json.dumps({"fish_id": fid, "lateral": block}))
+    folder = tmp_path / "by_specimen"
+    r = subprocess.run([sys.executable, str(ROOT / "scripts/export_tps.py"),
+                        "--sidecars", str(sidecars), "--images", str(images),
+                        "--schema-dir", str(study), "--out", str(tmp_path / "tps"),
+                        "--per-specimen", str(folder), "--units", "cm"],
+                       capture_output=True, text=True, cwd=str(ROOT))
+    assert r.returncode == 0, r.stderr
+    return folder
+
+
+def _rows(path):
+    with path.open() as f:
+        return list(csv.reader(f))
+
+
+def test_one_file_per_specimen_in_imagejs_layout(per_specimen):
+    names = sorted(p.name for p in per_specimen.glob("*.csv"))
+    assert names == ["F1.csv", "F2.csv", "landmark_key.csv", "specimens.csv"]
+    rows = _rows(per_specimen / "F1.csv")
+    assert rows[0] == [" ", "Label", "X", "Y"]
+    key = _rows(per_specimen / "landmark_key.csv")[1:]
+    assert [r[0] for r in rows[1:]] == [k[0] for k in key]           # row n is landmark n
+    snout = rows[1 + [k[1] for k in key].index("premaxilla_tip")]
+    assert snout[1] == "F1_L.JPEG" and snout[2:] == ["1.000", "5.000"]  # 100 px / 10 px/mm = 1 cm; y down
+
+
+def test_a_missing_landmark_keeps_its_row(per_specimen):
+    key = [k[1] for k in _rows(per_specimen / "landmark_key.csv")[1:]]
+    rows = _rows(per_specimen / "F2.csv")
+    assert len(rows) - 1 == len(key)
+    assert rows[1 + key.index("caudal_base")][2:] == ["NA", "NA"]
+
+
+def test_the_specimen_table_says_which_file_is_in_pixels(per_specimen):
+    sp = {r["ID"]: r for r in csv.DictReader((per_specimen / "specimens.csv").open())}
+    assert sp["F1"]["units"] == "cm" and sp["F2"]["units"] == "px"
+    assert sp["F1"]["file"] == "F1.csv" and sp["F2"]["landmarks_missing"] == "1"
+    assert (per_specimen / "read_specimens.R").is_file()
