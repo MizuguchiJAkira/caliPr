@@ -2545,6 +2545,7 @@ function rExportDialog(){
 // the rows; leaving it out here keeps them. The choice is remembered per study,
 // and the workbook's About sheet records it.
 async function exportPreview(){
+  if(document.getElementById('xp')) return;
   const btn=$('#expBtn');
   btn.disabled=true; $('#expstate').textContent=' — measuring…';
   let d;
@@ -2731,6 +2732,10 @@ function toBase64(buf){
 }
 async function recordsDialog(focusId){
   if(!DWC) return;
+  // One at a time. A second copy took the first one's buttons -- every lookup
+  // below found the first copy's -- so Close removed the wrong one and the
+  // visible table could not be closed. Lookups are scoped to this copy too.
+  if(document.getElementById('dwc')) return;
   const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const terms=DWC.terms, ids=DWC.ids;
   let edits={}, show='all', find='', plan=null, upload=null;
@@ -2748,6 +2753,7 @@ async function recordsDialog(focusId){
     .filter(t=>!val(f,t)).length,0);
 
   const root=document.createElement('div'); root.id='dwc';
+  const q=sel=>root.querySelector(sel);
   root.innerHTML=`<div class="win" role="dialog" aria-label="Specimen records">
     <div class="xhead">Specimen records <span>${esc(dataset)} · Darwin Core · ${esc(DWC.file)}</span></div>
     <div class="xbar">
@@ -2771,17 +2777,17 @@ async function recordsDialog(focusId){
       <button id="dwcSave" type="button" class="primary">Save</button></div>
   </div>`;
   document.body.appendChild(root);
-  $('#dwcFind').value=find;
+  q('#dwcFind').value=find;
 
   const foot=()=>{
     const n=nEdits();
-    $('#dwcDirty').textContent = n ? `${n} unsaved change${n>1?'s':''}` : '';
-    $('#dwcSave').disabled=!n;
+    q('#dwcDirty').textContent = n ? `${n} unsaved change${n>1?'s':''}` : '';
+    q('#dwcSave').disabled=!n;
     const k=sugCells();
-    $('#dwcAccept').textContent=`Accept filename suggestions (${k})`;
-    $('#dwcAccept').disabled=!k;
+    q('#dwcAccept').textContent=`Accept filename suggestions (${k})`;
+    q('#dwcAccept').disabled=!k;
     const withRec=ids.filter(f=>terms.some(t=>val(f,t.term))).length;
-    $('#dwcSum').innerHTML=`<b>${withRec}</b> of ${ids.length} photographs have a record`;
+    q('#dwcSum').innerHTML=`<b>${withRec}</b> of ${ids.length} photographs have a record`;
   };
   const render=()=>{
     const rows=shown();
@@ -2796,29 +2802,29 @@ async function recordsDialog(focusId){
               + ` value="${esc(val(f,t.term))}" placeholder="${esc(val(f,t.term)?'':(sug[t.term]||''))}"`
               + ` spellcheck="false"></td>`; }).join('') + '</tr>';
     }).join('');
-    $('#dwcGrid').innerHTML=`<table><thead><tr><th class="sp">specimen</th>${th}</tr></thead><tbody>`
+    q('#dwcGrid').innerHTML=`<table><thead><tr><th class="sp">specimen</th>${th}</tr></thead><tbody>`
       + (body || `<tr><td colspan="${terms.length+1}" class="empty">none</td></tr>`) + '</tbody></table>';
-    $('#dwcGrid').querySelectorAll('tbody input').forEach(inp=>inp.oninput=()=>{
+    q('#dwcGrid').querySelectorAll('tbody input').forEach(inp=>inp.oninput=()=>{
       const f=inp.closest('tr').dataset.id;
       setEdit(f, inp.dataset.t, inp.value.trim());
       inp.parentElement.classList.toggle('ch', !!(edits[f] && inp.dataset.t in edits[f]));
       foot(); });
-    $('#dwcGrid').querySelectorAll('td.sp a').forEach(a=>a.onclick=async()=>{
+    q('#dwcGrid').querySelectorAll('td.sp a').forEach(a=>a.onclick=async()=>{
       const s=SPECS.find(x=>x.id===a.closest('tr').dataset.id); if(!s) return;
       if(await close()) selectSpec(s); });
-    $('#dwcGrid').querySelectorAll('th .all').forEach(b=>b.onclick=async()=>{
+    q('#dwcGrid').querySelectorAll('th .all').forEach(b=>b.onclick=async()=>{
       const t=b.dataset.term, rs=shown();
       const v=await askText(`Set ${t} for the ${rs.length} photograph${rs.length>1?'s':''} shown.\n\n`
         + (terms.find(x=>x.term===t)||{}).help + '\n\nLeave it empty to clear them.', '');
       if(v===null) return;
       rs.forEach(f=>setEdit(f,t,v.trim())); render(); });
     foot();
-    if(focusId){ const tr=$('#dwcGrid').querySelector('tr.focus');
+    if(focusId){ const tr=q('#dwcGrid').querySelector('tr.focus');
       if(tr){ tr.scrollIntoView({block:'center'}); const i=tr.querySelector('input'); if(i) i.focus(); }
       focusId=null; }
   };
   const showPlan=()=>{
-    const el=$('#dwcPlan');
+    const el=q('#dwcPlan');
     if(!plan){ el.hidden=true; el.innerHTML=''; return; }
     const cols=Object.entries(plan.columns);
     el.innerHTML=`<b>${esc(upload.name)}</b>: ${plan.rows} rows. `
@@ -2836,8 +2842,8 @@ async function recordsDialog(focusId){
       + `<div class="btns"><button id="dwcPlanGo" class="primary" type="button" ${plan.matched?'':'disabled'}>`
       + `Import ${plan.matched} record${plan.matched===1?'':'s'}</button><button id="dwcPlanNo" type="button">Cancel</button></div>`;
     el.hidden=false;
-    $('#dwcPlanNo').onclick=()=>{ plan=null; upload=null; showPlan(); };
-    $('#dwcPlanGo').onclick=async()=>{
+    q('#dwcPlanNo').onclick=()=>{ plan=null; upload=null; showPlan(); };
+    q('#dwcPlanGo').onclick=async()=>{
       const r=await dwcPost('/api/dwc/import', {...upload, apply:true});
       if(r && r.applied){ toast(`Imported records for ${r.plan.matched} photograph${r.plan.matched===1?'':'s'}`);
         plan=null; upload=null; showPlan(); render(); }
@@ -2850,26 +2856,26 @@ async function recordsDialog(focusId){
   };
   const keys=e=>{ if(e.key==='Escape' && !$('#dlg.on')){ e.preventDefault(); e.stopPropagation(); close(); } };
   document.addEventListener('keydown',keys,true);
-  $('#dwcClose').onclick=close;
+  q('#dwcClose').onclick=close;
   root.onclick=e=>{ if(e.target===root) close(); };
-  $('#dwcShow').onchange=e=>{ show=e.target.value; render(); };
-  $('#dwcFind').oninput=e=>{ find=e.target.value.trim(); render(); };
-  $('#dwcAccept').onclick=()=>{
+  q('#dwcShow').onchange=e=>{ show=e.target.value; render(); };
+  q('#dwcFind').oninput=e=>{ find=e.target.value.trim(); render(); };
+  q('#dwcAccept').onclick=()=>{
     for(const f of ids) for(const [t,v] of Object.entries(DWC.suggestions[f]||{}))
       if(!val(f,t)) setEdit(f,t,v);
     render(); toast('Filled from the filenames — check them, then Save');
   };
-  $('#dwcSave').onclick=async()=>{
+  q('#dwcSave').onclick=async()=>{
     const n=Object.keys(edits).length;
     const r=await dwcPost('/api/dwc', {changes:edits});
     if(r){ edits={}; render(); toast(`Saved records for ${n} photograph${n===1?'':'s'}`); }
   };
-  $('#dwcImport').onclick=async()=>{
+  q('#dwcImport').onclick=async()=>{
     if(nEdits() && !(await ask('Save or discard your changes before importing. Discard them?'))) return;
-    edits={}; render(); $('#dwcFile').value=''; $('#dwcFile').click();
+    edits={}; render(); q('#dwcFile').value=''; q('#dwcFile').click();
   };
-  $('#dwcFile').onchange=async()=>{
-    const f=$('#dwcFile').files[0]; if(!f) return;
+  q('#dwcFile').onchange=async()=>{
+    const f=q('#dwcFile').files[0]; if(!f) return;
     upload={name:f.name, data:toBase64(await f.arrayBuffer())};
     const r=await dwcPost('/api/dwc/import', upload);
     plan = r && r.plan ? r.plan : null;
