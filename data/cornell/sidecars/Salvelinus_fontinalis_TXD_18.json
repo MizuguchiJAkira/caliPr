@@ -72,6 +72,11 @@
         "width": 6000,
         "height": 4000,
         "sha256": "9643f394a89cb202c67f8895244bd52122052c11894379588c380b896d9c8b55"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "9643f394a89cb202c67f8895244bd52122052c11894379588c380b896d9c8b55"
       }
     },
     "coordinate_history": [
@@ -362,6 +367,30 @@
         895
       ],
       "known_mm": 50
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        253,
+        2211
+      ],
+      "mouth_right": [
+        460,
+        2209
+      ]
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1072,
+        1140
+      ],
+      "point_b": [
+        1092,
+        1368
+      ],
+      "known_mm": 10
     }
   }
 }

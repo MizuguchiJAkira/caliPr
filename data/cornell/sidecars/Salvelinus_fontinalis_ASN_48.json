@@ -110,30 +110,39 @@
           ],
           "px": 26,
           "conf": 0.473
+        },
+        "dorsal_base_center": {
+          "from": [
+            1040,
+            97
+          ],
+          "to": [
+            2889,
+            1585
+          ],
+          "px": 2373.4,
+          "conf": 0.191
         }
       },
-      "unreviewed": [
-        "dorsal_base_center"
-      ],
-      "unreviewed_confidence": {
-        "dorsal_base_center": 0.191
-      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-17T16:23:09.188Z"
+      "predicted_at": "2026-09-24T01:26:22.002Z"
     },
-    "unreviewed_predictions": [
-      "dorsal_base_center"
-    ],
+    "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47"
+    },
     "assisted_by": "snapshot-best-170.pt",
-    "coordinate_history": [
-      {
-        "at": "2026-09-21T15:18:20",
-        "view": "lateral",
-        "dx": 998,
-        "points": 35,
-        "reason": "one photograph per fish: the lateral crop's start column"
-      }
-    ],
     "images": {
       "lateral": {
         "width": 6000,
@@ -146,174 +155,175 @@
         "sha256": "075b11072dc231a4914a52adb7978a4e6aa5cebbb5a456f97fd3b9436c4728cc"
       }
     },
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.759,
-        "mouth_right": 0.473
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:20",
+        "view": "lateral",
+        "dx": 998,
+        "points": 35,
+        "reason": "one photograph per fish: the lateral crop's start column"
       }
-    }
+    ],
+    "data_note": "lateral known_mm corrected 50->10 (207px between the ruler points is one centimetre: 50 gave 4.1 px/mm against 20.6 for the ASN lot)"
   },
   "lateral": {
     "polygons": {
       "anal": [
         [
-          3162.0,
-          1861.0
+          3162,
+          1861
         ],
         [
-          3199.0,
-          1856.0
+          3199,
+          1856
         ],
         [
-          3246.0,
-          1838.0
+          3246,
+          1838
         ],
         [
-          3305.0,
-          1808.0
+          3305,
+          1808
         ],
         [
-          3360.0,
-          1773.0
+          3360,
+          1773
         ],
         [
-          3399.0,
-          1744.0
+          3399,
+          1744
         ],
         [
-          3418.0,
-          1719.0
+          3418,
+          1719
         ],
         [
-          3405.0,
-          1722.0
+          3405,
+          1722
         ],
         [
-          3410.0,
-          1711.0
+          3410,
+          1711
         ],
         [
-          3399.0,
-          1704.0
+          3399,
+          1704
         ],
         [
-          3384.0,
-          1709.0
+          3384,
+          1709
         ],
         [
-          3369.0,
-          1704.0
+          3369,
+          1704
         ],
         [
-          3368.0,
-          1687.0
+          3368,
+          1687
         ],
         [
-          3271.0,
-          1764.0
+          3271,
+          1764
         ],
         [
-          3211.0,
-          1815.0
+          3211,
+          1815
         ]
       ]
     },
     "keypoints": {
       "eye_anterior": [
-        1895.0,
-        1634.0
+        1895,
+        1634
       ],
       "eye_posterior": [
-        2017.0,
-        1647.0
+        2017,
+        1647
       ],
       "eye_dorsal": [
-        1966.0,
-        1591.0
+        1966,
+        1591
       ],
       "eye_ventral": [
-        1961.0,
-        1679.0
+        1961,
+        1679
       ],
       "premaxilla_tip": [
-        1809.0,
-        1668.0
+        1809,
+        1668
       ],
       "maxilla_mandible_intersection": [
-        1894.0,
-        1729.0
+        1894,
+        1729
       ],
       "lower_jaw_tip": [
-        1816.0,
-        1687.0
+        1816,
+        1687
       ],
       "operculum_posterior": [
-        2211.0,
-        1769.0
+        2211,
+        1769
       ],
       "pectoral_insertion_upper": [
-        2186.0,
-        1850.0
+        2186,
+        1850
       ],
       "peduncle_narrowest_dorsal": [
-        3427.0,
-        1431.0
+        3427,
+        1431
       ],
       "peduncle_narrowest_ventral": [
-        3534.0,
-        1504.0
+        3534,
+        1504
       ],
       "caudal_base": [
-        3495.0,
-        1451.0
+        3495,
+        1451
       ],
       "dorsal_base_center": [
-        1040.0,
-        97.0
+        2889,
+        1585
       ],
       "pelvic_base_center": [
-        2825.0,
-        1986.0
+        2825,
+        1986
       ],
       "pelvic_tip": [
-        2911.0,
-        1975.0
+        2911,
+        1975
       ],
       "anal_base_center": [
-        3271.0,
-        1764.0
+        3271,
+        1764
       ],
       "pectoral_ray_tip": [
-        2474.0,
-        1783.0
+        2474,
+        1783
       ],
       "anal_tip": [
-        3415.0,
-        1721.0
+        3415,
+        1721
       ],
       "anal_base_anterior": [
-        3160.0,
-        1858.0
+        3160,
+        1858
       ],
       "anal_base_posterior": [
-        3369.0,
-        1689.0
+        3369,
+        1689
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1802,
+        896
+      ],
+      "point_b": [
+        2009,
+        892
+      ],
+      "known_mm": 10.0
     }
   },
   "frontal": {
@@ -330,7 +340,6 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 19.4909,
-      "placed_by": "ruler-ticks",
       "notes": "mirror ruler detected on the head-on view turned a quarter turn (18.98 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
     }
   }

@@ -109,9 +109,21 @@
         "anal",
         "pectoral"
       ],
-      "predicted_at": "2026-09-23T01:49:51.370Z"
+      "predicted_at": "2026-09-24T01:50:36.804Z"
     },
     "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47"
+    },
     "assisted_by": "snapshot-best-170.pt",
     "images": {
       "lateral": {
@@ -134,23 +146,10 @@
         "reason": "one photograph per fish: the lateral crop's start column"
       }
     ],
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.749,
-        "mouth_right": 0.582
-      }
-    }
+    "exclude_traits": [
+      "PlFl"
+    ],
+    "data_note": "outlier, excluded: PlFl (2.72x of its strain's typical, size-corrected \u2014 no pelvic fin visible between the two points)"
   },
   "lateral": {
     "polygons": {
@@ -405,8 +404,8 @@
         1646
       ],
       "dorsal_base_center": [
-        1079,
-        97
+        2713,
+        1651
       ],
       "pelvic_base_center": [
         2691,
@@ -419,6 +418,14 @@
       "anal_tip": [
         3347,
         1811
+      ],
+      "dorsal_tip": [
+        2726,
+        1614
+      ],
+      "pelvic_tip": [
+        2907,
+        1945
       ]
     },
     "calibration": {
@@ -448,7 +455,6 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 19.2728,
-      "placed_by": "ruler-ticks",
       "notes": "mirror ruler detected on the head-on view turned a quarter turn (18.77 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
     }
   }

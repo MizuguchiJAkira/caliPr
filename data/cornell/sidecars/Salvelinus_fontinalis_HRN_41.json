@@ -62,9 +62,21 @@
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-23T00:53:33.598Z"
+      "predicted_at": "2026-09-24T01:51:43.013Z"
     },
     "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47"
+    },
     "assisted_by": "snapshot-best-170.pt",
     "images": {
       "lateral": {
@@ -87,23 +99,7 @@
         "reason": "one photograph per fish: the lateral crop's start column"
       }
     ],
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.274,
-        "mouth_right": 0.84
-      }
-    }
+    "data_note": "lateral known_mm corrected 50->10 (234px between the ruler points is one centimetre: 50 gave 4.7 px/mm against 25.1 for the HRN lot)"
   },
   "lateral": {
     "keypoints": {
@@ -185,8 +181,16 @@
       ]
     },
     "calibration": {
-      "mode": "none",
-      "notes": "no scale reference placed"
+      "mode": "manual",
+      "point_a": [
+        1046,
+        943
+      ],
+      "point_b": [
+        1046,
+        1177
+      ],
+      "known_mm": 10.0
     }
   },
   "frontal": {
@@ -203,7 +207,6 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 23.1141,
-      "placed_by": "ruler-ticks",
       "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.51 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
     }
   }
