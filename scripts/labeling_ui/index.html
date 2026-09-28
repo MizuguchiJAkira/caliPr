@@ -24,8 +24,10 @@
   body { display:flex; flex-direction:column; }
 
   /* ---- application toolbar ------------------------------------------------ */
-  #topbar { flex:none; height:34px; display:flex; align-items:center; gap:2px;
-    padding:0 8px; background:linear-gradient(#FCFCFD,#ECEEF1);
+  /* Wraps to a second row rather than pushing the study picker off the edge of
+     a narrow window; the panes below take whatever height is left. */
+  #topbar { flex:none; min-height:34px; display:flex; flex-wrap:wrap; align-items:center;
+    gap:2px; padding:0 8px; background:linear-gradient(#FCFCFD,#ECEEF1);
     border-bottom:1px solid var(--edge); position:relative; z-index:50; }
   .brand { display:flex; align-items:center; gap:7px; padding:0 8px 0 2px;
     font-weight:bold; font-size:13px; color:#23384F; white-space:nowrap; }
@@ -77,6 +79,7 @@
   [data-ico=newfolder]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M.8 2.8h4l1.3 1.4h5.4v6.4H.8z' fill='%23F3C969' stroke='%23B8912F'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
   [data-ico=addphotos]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='.8' y='1.8' width='10.4' height='8.4' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M1.3 9.7l3.1-3.2 2.1 2 1.5-1.3 2.6 2.5z' fill='%2398C379'/%3E%3Ccircle cx='8.3' cy='4.6' r='1' fill='%23F0B12B'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
   [data-ico=trash]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 3.5h9M5.5 3.5V2h3v1.5' fill='none' stroke='%23707780' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M3.5 3.5l.7 9h5.6l.7-9' fill='%23fff' stroke='%23707780' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M5.8 5.5v5M8.2 5.5v5' stroke='%23C9323F' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E"); }
+  [data-ico=repeat]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.2 6.2A4.8 4.8 0 0 1 11 4.3M11.8 7.8A4.8 4.8 0 0 1 3 9.7' fill='none' stroke='%233A78B5' stroke-width='1.4'/%3E%3Cpath d='M11.6 1.8v2.9H8.7M2.4 12.2V9.3h2.9' fill='none' stroke='%233A78B5' stroke-width='1.4'/%3E%3C/svg%3E"); }
   [data-ico=records]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1' y='2.5' width='12' height='9' rx='1' fill='%23fff' stroke='%23B8912F'/%3E%3Ccircle cx='4.3' cy='6' r='1.5' fill='%23F3C969' stroke='%23B8912F' stroke-width='.7'/%3E%3Cpath d='M2.4 9.6c.4-1.3 3.4-1.3 3.8 0M7.4 5.2h4M7.4 7.2h4M7.4 9.2h2.6' stroke='%23B8912F' stroke-width='.9'/%3E%3C/svg%3E"); }
   [data-ico=star]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M7 1.2l1.75 3.6 3.95.55-2.87 2.77.7 3.93L7 10.18l-3.53 1.87.7-3.93L1.3 5.35l3.95-.55z' fill='%23F2C94C' stroke='%23B8912F' stroke-linejoin='round'/%3E%3C/svg%3E"); }
   [data-ico=doc]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 1.5h6l3 3v8h-9z' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M4.5 6.5h5M4.5 8.5h5M4.5 10.5h3' stroke='%233A78B5'/%3E%3C/svg%3E"); }
@@ -356,7 +359,7 @@
   #dsBtn { display:flex; align-items:center; gap:6px; max-width:320px; height:25px;
     padding:2px 8px; font-weight:bold; }
   #dsBtn:hover, #dsWrap.open #dsBtn { border-color:#8DB2D8; }
-  #dsWrap .dslab { font-size:11px; color:var(--mut); margin-right:6px; }
+  #dsWrap .dslab, #opWrap .dslab { font-size:11px; color:var(--mut); margin-right:6px; }
   #dsBtn::before { content:''; width:15px; height:15px; flex:none;
     background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 15 15'%3E%3Cpath d='M7.5 1l6 3.3v6.4l-6 3.3-6-3.3V4.3z' fill='%234F8FCB' stroke='%232F5F90' stroke-linejoin='round'/%3E%3Cpath d='M7.5 1l6 3.3-6 3.3-6-3.3z' fill='%23A9CDEE' stroke='%232F5F90' stroke-linejoin='round'/%3E%3Cpath d='M7.5 7.6V14' stroke='%232F5F90'/%3E%3C/svg%3E") center/contain no-repeat; }
   #dsWrap { display:flex; align-items:center; }
@@ -417,6 +420,42 @@
     background:var(--warnsoft); border:1px solid #EFC878; color:#5A3800;
     font-weight:bold; font-size:11px; }
   #demobar.on { display:block; }
+  #blindbar { display:none; margin-right:10px; padding:2px 8px; border-radius:3px;
+    background:#E8F1FB; border:1px solid #9CC0E4; color:#1C4E80; font-weight:bold; font-size:11px; }
+  #blindbar.on { display:block; }
+  body.blind #autolabel, body.blind #autoall, body.blind #useExample,
+  body.blind #tbRecords, body.blind #recsec { display:none; }
+  .dsrow .rl { font:10px var(--mono); color:#1C4E80; background:#E8F1FB; border-radius:3px;
+    padding:0 4px; margin-left:6px; }
+  /* ---- measurement error ------------------------------------------------- */
+  #me { position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
+    justify-content:center; background:#1E28324D; }
+  #me .win { width:min(900px,95vw); max-height:92vh; display:flex; flex-direction:column;
+    background:#fff; border:1px solid #A9B1BA; border-radius:5px; overflow:hidden;
+    box-shadow:0 14px 44px #00000050; }
+  #me .xhead { flex:none; display:flex; align-items:baseline; gap:10px; height:32px; padding:0 14px;
+    line-height:32px; font-weight:bold; font-size:13px; color:#23384F;
+    background:linear-gradient(var(--tab1),var(--tab2)); border-bottom:1px solid var(--line); }
+  #me .xhead span { font:normal 11px var(--mono); color:var(--mut); }
+  #me .body { flex:1; min-height:0; overflow:auto; padding:12px 14px; line-height:1.5; }
+  #me h4 { margin:14px 0 6px; font-size:12px; color:#33383D; }
+  #me p { margin:0 0 8px; color:#454B51; }
+  #me table { border-collapse:collapse; font:12px var(--mono); width:100%; }
+  #me th, #me td { padding:3px 8px; border-bottom:1px solid var(--line2); text-align:left; white-space:nowrap; }
+  #me th { font:bold 11.5px var(--ui); color:#33383D; background:#F3F4F6; }
+  #me td.num, #me th.num { text-align:right; }
+  #me .form { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:8px 10px;
+    background:var(--panel2); border:1px solid var(--line); border-radius:4px; }
+  #me .form input[type=number] { width:56px; } #me .form input[type=text] { width:70px; }
+  #me .v-excellent { color:var(--good); font-weight:bold; } #me .v-good { color:var(--good); }
+  #me .v-moderate { color:var(--warn); } #me .v-poor { color:var(--kp); font-weight:bold; }
+  #me .mut { color:var(--mut); }
+  #me .xfoot { flex:none; display:flex; align-items:center; gap:8px; padding:9px 14px;
+    border-top:1px solid var(--line); background:var(--panel2); }
+  #me .xfoot button { min-width:80px; }
+  #opWrap { display:flex; align-items:center; gap:6px; margin-right:12px; }
+  #operator { width:64px; font:12px var(--mono); padding:2px 5px; }
+  #operator.need { border-color:var(--warnfill); background:var(--warnsoft); }
   /* ---- export preview: a data viewer, as View() opens one in RStudio ------ */
   #xp { position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
     justify-content:center; background:#1E28324D; }
@@ -504,6 +543,24 @@
     white-space:nowrap; }
   #xp .xfoot .xnote { flex:0 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis;
     white-space:nowrap; }
+  /* ---- a fish straightened along its midline ------------------------------ */
+  #stp { position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
+    justify-content:center; background:#1E28324D; }
+  #stp .win { width:min(1280px,96vw); max-height:92vh; display:flex; flex-direction:column;
+    background:#fff; border:1px solid #A9B1BA; border-radius:5px; overflow:hidden;
+    box-shadow:0 14px 44px #00000050; }
+  #stp .xhead { flex:none; display:flex; align-items:baseline; gap:10px; height:32px; padding:0 14px;
+    line-height:32px; font-weight:bold; font-size:13px; color:#23384F;
+    background:linear-gradient(var(--tab1),var(--tab2)); border-bottom:1px solid var(--line); }
+  #stp .xhead span { font:normal 11px var(--mono); color:var(--mut); }
+  #stp .body { flex:1; min-height:0; overflow:auto; background:var(--viewer); padding:10px; }
+  #stp .body img { display:block; width:100%; height:auto; }
+  #stp .xfoot { flex:none; display:flex; align-items:center; gap:8px; padding:9px 14px;
+    border-top:1px solid var(--line); background:var(--panel2); }
+  #stp .xnote { font-size:11px; color:#454B51; }
+  #stp .xfoot button { min-width:80px; }
+  #hint a { color:var(--accent); cursor:pointer; }
+  #hint a:hover { text-decoration:underline; }
   /* ---- specimen records: Darwin Core, edited as a data grid ---------------- */
   #dwc { position:fixed; inset:0; z-index:9000; display:flex; align-items:center;
     justify-content:center; background:#1E28324D; }
@@ -593,11 +650,17 @@ instant. Nothing is saved as a label.">Auto-label all unlabelled</button>
     title="Darwin Core records for this study's specimens: institution, catalogue number,
 species, sex, where and when collected. Typed, imported from a spreadsheet or iDigBio,
 or read from the filenames; carried into every export.">Specimen records</button>
+  <button id="tbME" class="tb" data-ico="repeat" type="button"
+    title="Measurement error: re-label a subset of fish blind, and get each trait's ICC and %ME">Measurement error</button>
   <span class="spacer"></span>
+  <div id="blindbar"></div>
   <div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
   <!-- Not a <label>: a click anywhere inside one is forwarded to the control it
        labels, so picking a study from the menu re-triggered the button and the
        menu never closed. -->
+  <div id="opWrap" title="Who is labelling. Written beside every landmark you place, move or accept, so a repeatability study can tell operators apart. Kept in this browser.">
+    <span class="dslab">Operator</span><input id="operator" type="text" maxlength="12"
+      placeholder="initials" spellcheck="false" autocomplete="off"></div>
   <div id="dsWrap"><span class="dslab">Study</span>
     <button id="dsBtn" type="button" title="Switch study, add photographs to one, or add a new one"><span id="dsLabel"></span><i>▾</i></button>
     <div id="dsMenu" class="menu"></div>
@@ -890,7 +953,7 @@ function clearAll(){
   if(!cur||!model) return;
   const m=model[view];
   const n=Object.keys(m.keypoints).length+Object.keys(m.polygons).length
-          +(m.ruler.a?1:0)+(m.ruler.b?1:0);
+          +(m.ruler.a?1:0)+(m.ruler.b?1:0)+((m.midline||[]).length?1:0);
   if(!n){ toast('Nothing placed on this view'); return; }
   model[view]=emptyView();
   clearPred(view);
@@ -904,7 +967,32 @@ function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
 
 function blankModel(){return {lateral:emptyView(),frontal:emptyView(),data_note:'',exclude:[]};}
-function emptyView(){return {keypoints:{},polygons:{},ruler:{},known_mm:null,auto_ppm:null,auto_notes:null};}
+// ---- operator ------------------------------------------------------------------
+// Who is labelling, kept in this browser and written beside every point placed,
+// moved or accepted (lateral.operators in the sidecar). A repeatability study
+// needs it to tell one operator's error from another's.
+let OPERATOR='', askedOperator=false;
+try{ OPERATOR=(localStorage.getItem('calipr_operator')||'').trim(); }catch(e){}
+function setOperator(v){
+  OPERATOR=String(v||'').trim().slice(0,12);
+  try{ localStorage.setItem('calipr_operator', OPERATOR); }catch(e){}
+  const el=$('#operator'); if(el){ el.value=OPERATOR; el.classList.toggle('need', !OPERATOR); }
+}
+async function ensureOperator(){
+  if(OPERATOR || askedOperator) return;
+  askedOperator=true;
+  const v=await askText('Who is labelling? Your initials, or a short ID.\n\nIt is written beside every '
+    + 'landmark you place, move or accept, so a repeatability study can tell one operator from '
+    + 'another. Change it any time in the top bar.', '');
+  if(v && v.trim()){ setOperator(v); toast(`Labelling as ${OPERATOR} — click again to place`); }
+  else { const el=$('#operator'); if(el) el.classList.add('need'); }
+}
+function stamp(name){
+  if(!model || !name) return;
+  const m=model[view]; m.operators=m.operators||{};
+  if(OPERATOR) m.operators[name]=OPERATOR; else delete m.operators[name];
+}
+function emptyView(){return {keypoints:{},polygons:{},ruler:{},midline:[],operators:{},known_mm:null,auto_ppm:null,auto_notes:null};}
 
 // One-click compromise flags. Each disables the traits that genuinely can't be
 // trusted when that part of the specimen is missing from the photo.
@@ -1065,7 +1153,7 @@ function renderDsMenu(){
   $('#dsMenu').innerHTML =
     DATASETS.map(d=>`<div class="dsrow" data-ds="${d.name}">`
       + `<span class="tick">${d.name===dataset?'✓':''}</span>`
-      + `<span class="nm">${d.name}</span><span class="ct">${d.images}</span>`
+      + `<span class="nm">${d.name}${d.relabel?`<span class="rl" title="Blind re-label round ${d.relabel.round} of ${d.relabel.study}">blind ${d.relabel.done}/${d.relabel.n}</span>`:''}</span><span class="ct">${d.images}</span>`
       + `<button class="add" data-add="${d.name}" title="Add photographs to ${d.name}"`
       + `>+ photos</button>`
       + `<button class="add rm" data-rm="${d.name}" title="Remove ${d.name} from the list"`
@@ -1097,6 +1185,18 @@ function renderDsMenu(){
     e.stopPropagation(); closeDsMenu();
     openFolderPicker({mode:'new'});
   };
+  applyBlindMode();
+}
+// A blind re-label round: no original landmarks exist here to be seen, and the
+// model's help is off, so the error measured is the labeller's alone. Said at the
+// top the whole time.
+function applyBlindMode(){
+  const d=DATASETS.find(x=>x.name===dataset), r=d && d.relabel;
+  document.body.classList.toggle('blind', !!r);
+  const bar=$('#blindbar'); if(!bar) return;
+  bar.classList.toggle('on', !!r);
+  bar.textContent = r ? `BLIND RE-LABEL — round ${r.round} of ${r.study} · ${r.done}/${r.n} done · `
+    + `label every fish from scratch, ruler included; no Auto-label` : '';
 }
 
 // Remove a study from the list. The server moves its folder into data/.trash/ --
@@ -1418,6 +1518,8 @@ function ingest(sc){
     const b=sc[v]; if(!b) continue;
     model[v].keypoints=Object.assign({},b.keypoints||{});
     model[v].polygons=Object.assign({},b.polygons||{});
+    model[v].midline=(b.midline||[]).map(p=>[p[0],p[1]]);
+    model[v].operators=Object.assign({},b.operators||{});
     if(b.calibration){
       if(b.calibration.mode==='ticks'){ model[v].auto_ppm=b.calibration.px_per_mm;
         model[v].auto_notes=b.calibration.notes; }
@@ -1561,8 +1663,25 @@ function buildTasks(){
   add.onclick=addLandmark;
   box.appendChild(add);
 
+  // The midline, for a fish that is bent or not level. Optional, so it is kept
+  // out of the count and out of the walk from one landmark to the next.
+  if(view==='lateral' && cur){
+    const ml=m.midline||[], done=ml.length>=2;
+    const h=document.createElement('div');
+    h.className='grouphdr'+(done?' done':'');
+    h.innerHTML=`<span class="gn">straighten — optional</span><span class="gc">${done?'on':''}</span>`;
+    box.appendChild(h);
+    const el=document.createElement('div');
+    el.className='task opt'+(done?' set':'')+(activeTask&&activeTask.kind==='midline'?' active':'');
+    el.title='Only for a fish that is bent or not level: measured along this line, as MorFishJ straightens it';
+    el.innerHTML=`<span class="dot"></span><span class="nm">Midline, snout to caudal base</span>`
+      + `<span class="cnt">${ml.length?ml.length+' pts':''}</span><span class="kind">m</span>`;
+    el.onclick=()=>{ activeTask={kind:'midline',name:'midline'}; showHint(); buildTasks(); draw(); };
+    box.appendChild(el);
+  }
+
   const tc=$('#taskcount');
-  if(tc){ const all=[...box.querySelectorAll('.task')];
+  if(tc){ const all=[...box.querySelectorAll('.task:not(.opt)')];
     tc.textContent = all.length ? `${all.filter(e=>e.classList.contains('set')).length}/${all.length}` : ''; }
 }
 // Which fin a task belongs to (null if it is not a fin annotation).
@@ -1755,6 +1874,16 @@ function showHint(){
   if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
     '<kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan';return;}
   const t=activeTask;
+  if(t.kind==='midline'){
+    const k=((model[view].midline)||[]).length;
+    $('#hint').innerHTML=`<b>Midline</b>` + (k>=2 ? ` · <a id="mlShow">show it straightened</a>` : '')
+      + ` — for a bent or tilted fish only. Click down the middle of the body, snout to caudal base, a point `
+      + `wherever it bends (two level a straight fish that is tilted). Traits are then measured along `
+      + `it, as MorFishJ straightens a fish; the photo and landmarks stay as clicked. `
+      + `<kbd>Enter</kbd> finish · click the line to insert · drag to move · <b>Clear point</b> removes it.`;
+    if($('#mlShow')) $('#mlShow').onclick=showStraightened;
+    drawRef(); return;
+  }
   const n=(model[view].polygons[t.name]||[]).length;
   const dens = (t.kind==='polygon' && t.target)
     ? ` &nbsp;<b style="color:${n>=t.target?'var(--good)':'var(--warn)'}">${n}/${t.target} vertices</b>` +
@@ -1930,6 +2059,7 @@ function draw(){
       ctx.strokeStyle='#c07bff';ctx.lineWidth=1.5;ctx.stroke(); }
     if(m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
     if(m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
+    if(view==='lateral') drawMidline(m.midline||[], activeTask&&activeTask.kind==='midline');
   }
   // One screen pixel covers 1/scale image pixels, and that is the floor on
   // placement precision however steady the hand. Fitted to a 4400px crop it is
@@ -1942,6 +2072,104 @@ function draw(){
   hud.textContent=`${cur?cur.id.replace('Salvelinus_fontinalis_',''):'—'} · ${view} · `+
     `${(vs.scale*100|0)}% · ±${perPx.toFixed(1)}px`+(coarse?' — zoom in to place accurately':'');
   hud.style.color = coarse ? 'var(--warn)' : '';
+}
+// ---- midline: straightening a bent fish ------------------------------------
+// The curve the fish is measured along: a natural cubic spline through the
+// clicks, each coordinate a function of the running sum of the square roots of
+// the segment lengths -- the curve ImageJ's Straighten fits, and the one
+// straighten.py measures along. Drawn here so what is on screen is that curve.
+function splineSecond(u,v){
+  const n=u.length, m2=new Array(n).fill(0); if(n<3) return m2;
+  const k=n-2, cp=new Array(k), dp=new Array(k);
+  for(let i=0;i<k;i++){
+    const h0=u[i+1]-u[i], h1=u[i+2]-u[i+1];
+    const diag=2*(h0+h1), rhs=6*((v[i+2]-v[i+1])/h1-(v[i+1]-v[i])/h0);
+    const den = i ? diag-h0*cp[i-1] : diag;
+    cp[i]=h1/den; dp[i]=(rhs-(i?h0*dp[i-1]:0))/den;
+  }
+  const x=new Array(k); x[k-1]=dp[k-1];
+  for(let i=k-2;i>=0;i--) x[i]=dp[i]-cp[i]*x[i+1];
+  for(let i=0;i<k;i++) m2[i+1]=x[i];
+  return m2;
+}
+function midlineCurve(nodes, samples=240){
+  if(!nodes || nodes.length<2) return [];
+  const u=[0];
+  for(let i=1;i<nodes.length;i++)
+    u.push(u[i-1]+Math.max(Math.sqrt(Math.hypot(nodes[i][0]-nodes[i-1][0], nodes[i][1]-nodes[i-1][1])),0.001));
+  const xs=nodes.map(p=>p[0]), ys=nodes.map(p=>p[1]);
+  const mx=splineSecond(u,xs), my=splineSecond(u,ys), out=[];
+  for(let q=0;q<samples;q++){
+    const t=u[u.length-1]*q/(samples-1);
+    let j=0; while(j<u.length-2 && t>u[j+1]) j++;
+    const h=u[j+1]-u[j], a=(u[j+1]-t)/h, b=(t-u[j])/h;
+    const f=(v,m)=>a*v[j]+b*v[j+1]+((a*a*a-a)*m[j]+(b*b*b-b)*m[j+1])*h*h/6;
+    out.push([f(xs,mx), f(ys,my)]);
+  }
+  return out;
+}
+const MIDLINE_COLOUR='#d6558a';
+function drawMidline(nodes, active){
+  if(!nodes.length) return;
+  ctx.save();
+  if(nodes.length>=2){
+    const c=midlineCurve(nodes);
+    ctx.beginPath(); c.forEach((p,i)=>{ const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.strokeStyle = active ? MIDLINE_COLOUR : MIDLINE_COLOUR+'99';
+    ctx.lineWidth = active ? 2 : 1.5; ctx.stroke();
+    // Rungs square to the curve: the strips the straightening lays side by side.
+    if(active){
+      let L=0; for(let i=1;i<c.length;i++) L+=Math.hypot(c[i][0]-c[i-1][0], c[i][1]-c[i-1][1]);
+      const half=0.07*L*vs.scale;
+      ctx.strokeStyle=MIDLINE_COLOUR+'80'; ctx.lineWidth=1;
+      for(let i=10;i<c.length-5;i+=20){
+        const [x,y]=toScr(c[i][0],c[i][1]), dx=c[i+1][0]-c[i-1][0], dy=c[i+1][1]-c[i-1][1];
+        const d=Math.hypot(dx,dy)||1, nx=-dy/d, ny=dx/d;
+        ctx.beginPath(); ctx.moveTo(x-nx*half,y-ny*half); ctx.lineTo(x+nx*half,y+ny*half); ctx.stroke();
+      }
+    }
+  }
+  if(active || nodes.length<2){
+    ctx.setLineDash([4,4]); ctx.beginPath();
+    nodes.forEach((p,i)=>{ const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.strokeStyle=MIDLINE_COLOUR+'80'; ctx.lineWidth=1; ctx.stroke(); ctx.setLineDash([]);
+    nodes.forEach(p=>dot(p, MIDLINE_COLOUR, 3.5));
+    label(nodes[0], nodes.length>=2 ? 'midline' : 'midline — keep clicking toward the caudal base');
+  }
+  ctx.restore();
+}
+// The fish as its midline straightens it, drawn by the server from the midline
+// and landmarks as they stand, saved or not: what MorFishJ keeps as
+// <photo>_straightened.jpg, looked at here instead of written.
+async function showStraightened(){
+  if(!cur || !model) return;
+  const m=model.lateral;
+  if(!m.midline || m.midline.length<2){ toast('Draw a midline of two points or more first'); return; }
+  if(document.getElementById('stp')) return;
+  toast('Straightening…');
+  let r;
+  try{ r=await api('/api/straighten/preview'+dsq(), {method:'POST', headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({id:cur.id, block:{midline:m.midline, keypoints:m.keypoints, polygons:m.polygons}})}); }
+  catch(e){ r={ok:false, error:e.message}; }
+  if(r.ok===undefined && /unknown route/.test(r.error||''))
+    r.error='The labeler server was started before straightening existed. Restart it, then reload this page.';
+  if(!r.ok){ await tell(r.error||'Could not straighten this fish.'); return; }
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const i=r.info, root=document.createElement('div'); root.id='stp';
+  root.innerHTML=`<div class="win" role="dialog" aria-label="Straightened">
+    <div class="xhead">Straightened <span>${esc(shortId(cur.id))} · midline ${Math.round(i.length_px)} px,
+      turning ${Math.round(i.turn_deg)}°</span></div>
+    <div class="body"><img alt="the fish straightened along its midline" src="data:image/jpeg;base64,${r.jpeg}"></div>
+    <div class="xfoot"><span class="xnote">${i.folded.length
+      ? `<b>Check:</b> the midline bends more tightly than ${esc(i.folded.join(', '))} sit${i.folded.length>1?'':'s'} from it (shown orange) — add a point to the midline there.`
+      : 'The measurements use the landmarks where they sit here. The photograph is unchanged.'}</span>
+      <span class="spacer"></span><button type="button" class="primary">Close</button></div></div>`;
+  document.body.appendChild(root);
+  const close=()=>{ root.remove(); document.removeEventListener('keydown',keys,true); };
+  const keys=e=>{ if(e.key==='Escape'||e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown',keys,true);
+  root.querySelector('button').onclick=close;
+  root.onclick=e=>{ if(e.target===root) close(); };
 }
 function dot(p,color,rr){const [x,y]=toScr(p[0],p[1]);ctx.beginPath();ctx.arc(x,y,rr,0,7);
   ctx.fillStyle=color;ctx.fill();ctx.lineWidth=1;ctx.strokeStyle='#000a';ctx.stroke();}
@@ -1957,7 +2185,11 @@ function place(ix,iy){
     toast(`Zoomed out — each click lands within ~${(1/vs.scale).toFixed(0)} image px. `+
           `Scroll to zoom in for accurate placement.`);
   }
+  // Who is labelling, asked once before the first point, since every point is
+  // written down against a name.
+  if(!OPERATOR && !askedOperator){ ensureOperator(); return; }
   const m=model[view], t=activeTask, pt=[Math.round(ix),Math.round(iy)];
+  stamp(t.kind==='midline' ? 'midline' : t.name);
   if(t.kind==='keypoint'){ m.keypoints[t.name]=pt; reviewed(t.name);
     warnOverlap(t.name,pt); advance(); }
   else if(t.kind==='ruler'){ const key=t.name==='ruler_point_a'?'a':'b'; m.ruler[key]=pt;
@@ -1967,6 +2199,11 @@ function place(ix,iy){
     const e = arr.length>=3 ? findEdgeAt(ix,iy,t.name) : null;
     if(e){ arr.splice(e.index,0,pt); toast('Inserted vertex — drag to adjust'); }  // click on outline
     else arr.push(pt); }                                                            // extend the trace
+  else if(t.kind==='midline'){
+    const arr=m.midline||(m.midline=[]);
+    const e=findMidlineEdgeAt(ix,iy);
+    if(e){ arr.splice(e.index,0,pt); toast('Inserted a midline point — drag to adjust'); }
+    else arr.push(pt); }
   persistDraft(); buildTasks(); showHint(); draw(); updateCalRead();
 }
 function warnOverlap(name,pt){
@@ -1991,6 +2228,8 @@ function undo(){
     else toast(t.name+' isn’t placed'); }
   else if(t.kind==='ruler'){ const k=t.name==='ruler_point_a'?'a':'b';
     if(m.ruler[k]){ m.ruler[k]=undefined; toast('Cleared '+t.name); } else toast(t.name+' isn’t placed'); }
+  else if(t.kind==='midline'){ if(m.midline&&m.midline.length){ m.midline.pop(); toast('Removed a midline point'); }
+    else toast('No midline to undo'); }
   hoverName=null; persistDraft(); buildTasks(); renderAutoStat(); showHint(); draw();
 }
 function pickByName(kind,name){const it=(SCHEMA[view][kind==='ruler'?'ruler':kind+'s']||[]).find(x=>x.name===name);
@@ -2066,14 +2305,18 @@ function findPointAt(mx,my,thresh=12){
   for(const [nm,verts] of Object.entries(m.polygons)){
     verts.forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1]);
     const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'polyvtx',name:nm,index:i};} }); }
+  if(best) return best;
+  (m.midline||[]).forEach((p,i)=>{ const [sx,sy]=toScr(p[0],p[1]);
+    const d=Math.hypot(sx-mx,sy-my); if(d<bd){bd=d;best={kind:'midvtx',index:i};} });
   return best;
 }
 function moveDrag(t,ix,iy){ const m=model[view], pt=[Math.round(ix),Math.round(iy)];
   if(t.kind==='keypoint') m.keypoints[t.name]=pt;
   else if(t.kind==='ruler') m.ruler[t.key]=pt;
-  else if(t.kind==='polyvtx') m.polygons[t.name][t.index]=pt; }
+  else if(t.kind==='polyvtx') m.polygons[t.name][t.index]=pt;
+  else if(t.kind==='midvtx') m.midline[t.index]=pt; }
 function dragName(t){ return t.kind==='ruler'?('ruler_point_'+t.key)
-  : t.kind==='polyvtx'?(t.name+' vertex') : t.name; }
+  : t.kind==='polyvtx'?(t.name+' vertex') : t.kind==='midvtx'?'a midline point' : t.name; }
 // distance (image space) from point p to segment a-b
 function distToSeg(p,a,b){ const vx=b[0]-a[0],vy=b[1]-a[1], wx=p[0]-a[0],wy=p[1]-a[1];
   const c1=vx*wx+vy*wy; if(c1<=0) return Math.hypot(wx,wy);
@@ -2085,6 +2328,15 @@ function findEdgeAt(ix,iy,polyName){
   const verts=model[view].polygons[polyName]; if(!verts||verts.length<3) return null;
   const threshImg=8/Math.max(vs.scale,1e-6); let best=null, bd=threshImg;
   for(let i=0;i<verts.length;i++){ const d=distToSeg([ix,iy],verts[i],verts[(i+1)%verts.length]);
+    if(d<bd){ bd=d; best={index:i+1}; } }
+  return best;
+}
+
+// The midline is open: its last point does not join its first.
+function findMidlineEdgeAt(ix,iy){
+  const v=model[view].midline||[]; if(v.length<2) return null;
+  const threshImg=8/Math.max(vs.scale,1e-6); let best=null, bd=threshImg;
+  for(let i=0;i<v.length-1;i++){ const d=distToSeg([ix,iy],v[i],v[i+1]);
     if(d<bd){ bd=d; best={index:i+1}; } }
   return best;
 }
@@ -2117,6 +2369,8 @@ window.addEventListener('mouseup',e=>{
     // Same for a ruler point the detector placed: once it is moved it is yours,
     // and the sidecar should stop saying the detector put it there.
     if(dragTarget.kind==='ruler') model[view].ruler_from_ticks=false;
+    stamp(dragTarget.kind==='ruler' ? 'ruler_point_'+dragTarget.key
+          : dragTarget.kind==='midvtx' ? 'midline' : dragTarget.name);
     persistDraft(); buildTasks(); draw(); toast('Moved '+dragName(dragTarget)); }
   else if(down&&moved<5){ const r=cv.getBoundingClientRect();      // plain click → place
     const [ix,iy]=toImg(e.clientX-r.left,e.clientY-r.top);
@@ -2134,7 +2388,10 @@ cv.addEventListener('wheel',e=>{e.preventDefault(); const r=cv.getBoundingClient
   vs.scale=ns; vs.ox=mx-ix*ns; vs.oy=my-iy*ns; draw();},{passive:false});
 window.addEventListener('keydown',e=>{
   if(e.target.tagName==='INPUT')return;
-  if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}}
+  if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}
+    else if(activeTask&&activeTask.kind==='midline'){ activeTask=null; showHint(); buildTasks(); draw();
+      const k=(model&&model[view].midline||[]).length;
+      toast(k>=2 ? 'Midline set — this fish is measured along it' : 'A midline needs two points or more'); }}
   if((e.key==='z'||e.key==='Z') && e.shiftKey && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
   else if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undoAction(); }
   if((e.key==='y'||e.key==='Y') && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
@@ -2165,6 +2422,7 @@ $('#clear').onclick=()=>{ if(!activeTask)return; const m=model[view];
     forgetPrediction(activeTask.name); }
   else if(activeTask.kind==='polygon'){ delete m.polygons[activeTask.name];
     forgetPrediction(activeTask.name); }
+  else if(activeTask.kind==='midline') m.midline=[];
   else m.ruler[activeTask.name==='ruler_point_a'?'a':'b']=undefined;
   persistDraft();buildTasks();renderAutoStat();draw();};
 $('#useauto').onclick=applyAutoCal;
@@ -2261,6 +2519,7 @@ async function applyAutoCal(){
   m.ruler.a=at(0); m.ruler.b=at(tk.length-1);
   m.known_mm=T.span_mm;
   m.ruler_from_ticks=true;          // provenance: nobody clicked these two
+  stamp('ruler_point_a'); stamp('ruler_point_b');   // but somebody asked for and kept them
   m.auto_ppm=null; m.auto_notes='';
   $('#knownmm').value=T.span_mm;
   persistDraft(); updateCalRead(); buildTasks(); draw();
@@ -2506,6 +2765,7 @@ function rExportDialog(){
   const key='calipr_rexport_'+dataset;
   let saved={}; try{ saved=JSON.parse(localStorage.getItem(key)||'{}'); }catch(e){}
   const fmt=saved.format==='geomorph'?'geomorph':'per_specimen', units=saved.units==='mm'?'mm':'cm';
+  const straight=saved.straighten!==false;
   let root=document.getElementById('dlg');
   if(!root){ root=document.createElement('div'); root.id='dlg'; document.body.appendChild(root); }
   root.innerHTML=`<div class="box">
@@ -2521,6 +2781,9 @@ function rExportDialog(){
       <option value="cm" ${units==='cm'?'selected':''}>cm (as ImageJ is usually set)</option>
       <option value="mm" ${units==='mm'?'selected':''}>mm</option></select>
       <small>per-specimen files only</small></label>
+    <label class="chk"><input type="checkbox" id="rStraight" ${straight?'checked':''}>
+      <span>Straighten fish that have a midline<br><small>their landmarks as MorFishJ would
+      measure them on the straightened fish; the others as clicked. specimens.csv says which.</small></span></label>
     <div class="btns"><button class="cancel" type="button">Cancel</button>
       <button class="ok" type="button">Export</button></div></div>`;
   root.classList.add('on');
@@ -2528,7 +2791,8 @@ function rExportDialog(){
   root.querySelectorAll('input[name=rfmt]').forEach(r=>r.onchange=sync); sync();
   const close=()=>{ root.classList.remove('on'); root.innerHTML='';
     document.removeEventListener('keydown',keys,true); };
-  const go=()=>{ const opts={format:root.querySelector('input[name=rfmt]:checked').value, units:$('#rUnits').value};
+  const go=()=>{ const opts={format:root.querySelector('input[name=rfmt]:checked').value, units:$('#rUnits').value,
+                             straighten:$('#rStraight').checked};
     try{ localStorage.setItem(key, JSON.stringify(opts)); }catch(e){}
     close(); runExport('tps', opts); };
   const keys=e=>{ if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); close(); }
@@ -2887,6 +3151,98 @@ async function recordsDialog(focusId){
 }
 // Always shown, like the other toolbar commands: a button that is there but does
 // nothing reads as broken, so when the records cannot be had it says why.
+$('#operator').value=OPERATOR;
+$('#operator').classList.toggle('need', !OPERATOR);
+$('#operator').onchange=()=>setOperator($('#operator').value);
+$('#operator').onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); e.target.blur(); } };
+
+// ---- measurement error ---------------------------------------------------------
+// Re-label a subset blind, compare with the originals: ICC and %ME per trait,
+// the same table the workbook's Measurement error sheet carries.
+async function measurementErrorDialog(){
+  if(document.getElementById('me')) return;
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  let info;
+  try{ info=await api('/api/relabel'+dsq()); }catch(e){ info={error:e.message}; }
+  if(!info || info.error){
+    await tell(/unknown route/.test((info&&info.error)||'')
+      ? 'The labeler server was started before measurement error existed. Restart it, then reload this page.'
+      : 'Could not read this study’s re-label rounds: '+((info&&info.error)||'?'));
+    return;
+  }
+  const root=document.createElement('div'); root.id='me';
+  const inRound=info.in_round;
+  const f3=v=>v==null?'—':(+v).toFixed(3), f1=v=>v==null?'—':(+v).toFixed(1);
+  const roundsTable = info.rounds.length ? `<table><tr><th>round</th><th>study folder</th><th>operator</th>
+      <th class="num">fish</th><th class="num">done</th><th>started</th><th></th></tr>`
+    + info.rounds.map(r=>`<tr><td>${r.round}${r.same_as?` <span class="mut">(repeats ${r.same_as})</span>`:''}</td>
+      <td>${esc(r.name)}</td><td>${esc(r.operator||'—')}</td><td class="num">${r.n}</td>
+      <td class="num">${r.done}</td><td>${esc((r.created||'').slice(0,10))}</td>
+      <td>${r.name===dataset?'<span class="mut">open</span>':`<button type="button" data-open="${esc(r.name)}">Open</button>`}</td></tr>`).join('')
+    + '</table>' : '<p class="mut">No rounds yet.</p>';
+  const repeatOpts = info.rounds.filter(r=>!r.same_as).map(r=>`<option value="${r.round}">the fish of round ${r.round}</option>`).join('');
+  root.innerHTML=`<div class="win" role="dialog" aria-label="Measurement error">
+    <div class="xhead">Measurement error <span>${esc(info.study)}${inRound?` · you are in blind round ${inRound.round}`:''}</span></div>
+    <div class="body">
+      <p>Label some fish a second time, <b>blind</b>: a new study folder holds them under codes in
+      random order, with none of the original landmarks and Auto-label switched off. Comparing the
+      two labellings gives each trait's repeatability (ICC) and the share of its variance that is
+      measurement error (%ME). The measurements workbook then carries the full table on its
+      <b>Measurement error</b> sheet.</p>
+      <h4>Rounds</h4>${roundsTable}
+      ${inRound ? `<p style="margin-top:10px"><button type="button" id="meBack">Back to ${esc(info.study)}</button></p>`
+      : `<h4>New round</h4><div class="form">
+        <label>Fish <input type="number" id="meN" min="3" max="${info.labelled}" value="${Math.min(20, info.labelled)}"></label>
+        <label>of <select id="meSame"><option value="">labelled fish, drawn across groups</option>${repeatOpts}</select></label>
+        <label>Operator <input type="text" id="meOp" maxlength="12" value="${esc(OPERATOR)}"></label>
+        <button type="button" class="primary" id="meNew">Start a blind round</button>
+        <span class="mut">${info.labelled} labelled. 20–30 fish is usual; use the fish of an earlier
+        round again for a second operator, or the same one weeks later.</span></div>`}
+      <h4>Results so far</h4><div id="meStats" class="mut">Computing…</div>
+    </div>
+    <div class="xfoot"><span class="mut" style="font-size:11px">ICC(1) with its 95% interval; %ME = 100·(1 − ICC(1));
+      verdicts after Koo &amp; Li (2016) on the lower limit.</span><span class="spacer"></span>
+      <button type="button" id="meClose">Close</button></div></div>`;
+  document.body.appendChild(root);
+  const q=sel=>root.querySelector(sel);
+  const close=()=>{ root.remove(); document.removeEventListener('keydown',keys,true); };
+  const keys=e=>{ if(e.key==='Escape' && !$('#dlg.on')){ e.preventDefault(); e.stopPropagation(); close(); } };
+  document.addEventListener('keydown',keys,true);
+  q('#meClose').onclick=close;
+  root.onclick=e=>{ if(e.target===root) close(); };
+  root.querySelectorAll('[data-open]').forEach(b=>b.onclick=async()=>{ close(); await refreshDatasets(); pickDataset(b.dataset.open); });
+  if(q('#meBack')) q('#meBack').onclick=async()=>{ close(); pickDataset(info.study); };
+  if(q('#meSame')) q('#meSame').onchange=()=>{ q('#meN').disabled=!!q('#meSame').value; };
+  if(q('#meNew')) q('#meNew').onclick=async()=>{
+    const op=q('#meOp').value.trim();
+    if(!op){ toast('Say who will re-label the round'); q('#meOp').focus(); return; }
+    const body={n:+q('#meN').value, operator:op, same_as:q('#meSame').value||null};
+    let r; try{ r=await api('/api/relabel/new'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)}); }catch(e){ r={ok:false,error:e.message}; }
+    if(!r.ok){ await tell(r.error||'Could not start a round.'); return; }
+    close(); if(op!==OPERATOR) setOperator(op);
+    await refreshDatasets();
+    await tell(`Round ${r.round}: ${r.n} fish, in the study “${r.name}”. It opens now. Label every fish `
+      + `from scratch, ruler included — none of the original landmarks are there to see, and Auto-label `
+      + `is off. When they are all done, the measurements workbook of ${info.study} reports the error.`);
+    pickDataset(r.name);
+  };
+  let st;
+  try{ st=await api('/api/relabel/stats'+dsq()); }catch(e){ st={ok:false,error:e.message}; }
+  const box=q('#meStats'); if(!box) return;
+  if(!st.ok){ box.textContent='Could not compute: '+(st.error||'?'); return; }
+  if(!st.designs.length){ box.textContent='Nothing yet — a round counts once three of its fish are re-labelled.'; return; }
+  box.classList.remove('mut');
+  box.innerHTML=st.designs.map(d=>`<p><b>${d.fish} fish</b>, ${d.sessions.length} sessions: ${d.sessions.map(esc).join(' · ')}</p>`
+    + `<table><tr><th>trait</th><th>name</th><th class="num">n</th><th class="num">ICC(1)</th><th class="num">95% CI</th>`
+    + `<th class="num">%ME</th><th class="num" title="Sets aside a constant shift between sessions: well above ICC(1) means the sessions differ systematically">ICC(3,1)</th><th class="num">bias</th><th>verdict</th></tr>`
+    + d.traits.map(t=>`<tr><td>${esc(t.code)}</td><td>${esc(t.label)}</td><td class="num">${t.n}</td>`
+      + `<td class="num">${f3(t.icc1)}</td><td class="num">${t.icc1_lo==null?'—':f3(t.icc1_lo)+' – '+f3(t.icc1_hi)}</td>`
+      + `<td class="num">${f1(t.pct_me)}</td><td class="num">${f3(t.icc31)}</td><td class="num">${f3(t.bias)}</td>`
+      + `<td class="v-${t.verdict}">${esc(t.verdict)}</td></tr>`).join('') + '</table>').join('');
+}
+$('#tbME').onclick=measurementErrorDialog;
+
 $('#tbRecords').onclick=async()=>{
   if(!DWC) await loadDwc();
   if(!DWC){ await tell(DWC_ERR); return; }
@@ -3085,6 +3441,7 @@ function acceptPoint(name){       // the human LOOKED and agrees
   if(!name || pred.conf[name]===undefined) return false;
   pred.accepted.add(name);
   delete pred.conf[name]; pred.low.delete(name);
+  stamp(name);                      // reviewed: now it is the operator's
   // Accepting changes no coordinate, so nothing else here would write the
   // draft — and the confirmation would be lost on leaving the specimen.
   persistDraft();
@@ -3208,6 +3565,7 @@ function applyPrediction(r, v='lateral', fill=false){
     if(there && there.length>=3 && !predBy[v].polys.has(nm)){ kept.push(nm); continue; }
     model[v].polygons[nm]=poly.map(q=>[Math.round(q[0]),Math.round(q[1])]);
     p.polys.add(nm);
+    (model[v].operators=model[v].operators||{})[nm]='model';
   }
   if(kept.length) toast('Kept your outline of '+kept.join(', '));
   let filled=0;
@@ -3215,6 +3573,7 @@ function applyPrediction(r, v='lateral', fill=false){
     if(fill && model[v].keypoints[nm]!==undefined) continue;   // yours stays
     const q=[Math.round(pt[0]),Math.round(pt[1])];
     model[v].keypoints[nm]=q;
+    (model[v].operators=model[v].operators||{})[nm]='model';
     p.orig[nm]=[q[0],q[1]];           // frozen: the correction is measured from here
     filled++;
   }
@@ -3780,6 +4139,16 @@ $('#save').onclick=async()=>{
     if(!has) continue;
     const blk={}; if(Object.keys(m.polygons).length)blk.polygons=m.polygons;
     blk.keypoints=m.keypoints;
+    // The line a bent fish is measured along. Kept beside the landmarks, which
+    // stay as clicked on the photograph; see straighten.py.
+    if(v==='lateral' && m.midline && m.midline.length>=2) blk.midline=m.midline;
+    // Who placed each of them: the operator, or "model" for a guess nobody has
+    // reviewed. Only for what is saved, so a cleared point takes its name with it.
+    const here=new Set([...Object.keys(m.keypoints), ...Object.keys(m.polygons),
+      ...(blk.calibration&&blk.calibration.mode==='manual' ? ['ruler_point_a','ruler_point_b'] : []),
+      ...(blk.midline ? ['midline'] : [])]);
+    const ops=Object.fromEntries(Object.entries(m.operators||{}).filter(([n,o])=>o && here.has(n)));
+    if(Object.keys(ops).length) blk.operators=ops;
     if(m.auto_ppm)
       blk.calibration={mode:'ticks',px_per_mm:m.auto_ppm,notes:m.auto_notes||'ruler mm-tick autocalibration'};
     else if(m.ruler.a&&m.ruler.b&&m.known_mm)
@@ -3824,6 +4193,7 @@ $('#save').onclick=async()=>{
       ? `Saved ${res.saved} — still short: `+short.map(x=>`${x.g.fin} ${x.st.n}/${x.g.target}`).join(', ')
       : 'Saved '+res.saved+' — all four fins at target');
     loadSpecs();
+    if(document.body.classList.contains('blind')) refreshDatasets();   // the round's count
   } else if(res.demo){
     toast('Demo mode — nothing was saved. Your labels on disk are untouched.');
   } else if(res.misaligned || res.conflict){

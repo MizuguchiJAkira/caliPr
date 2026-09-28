@@ -363,6 +363,18 @@ def _write_about_sheet(sheet: Worksheet, records, drop_traits, issues,
              "than a column of blanks."
          if out_of_scope else ""),
     ]
+    straight = [r.measurements.fish_id for r in records
+                if r.measurements.metadata.get("straightened")]
+    if straight:
+        rows += [
+            ("", ""),
+            ("STRAIGHTENED", f"{len(straight)} specimen(s) measured along a midline"),
+            ("", "A bent or tilted fish, measured as MorFishJ measures ImageJ's "
+                 "straightened image: each landmark placed by its distance along "
+                 "the midline drawn on the photograph and its distance off it. "
+                 "The photograph and the landmarks as clicked are unchanged. "
+                 "The QC sheet says which specimens and how far each midline turns."),
+        ]
     # What the person exporting chose to leave out of this particular file, kept
     # apart from the study's scope: a column dropped for its blanks was measured.
     if left_out or incomplete is not None:
@@ -531,6 +543,8 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
         "confidence",
         "calibration_notes",
         "missing_landmarks",
+        "operators",
+        "straightened",
         "data_note",
     ]
     sheet.append(header)
@@ -551,6 +565,9 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
         )
         missing_str = ", ".join(missing) if missing else ""
         data_note = str(rec.measurements.metadata.get("data_note", "") or "")
+        # Only the side view is ever straightened.
+        straight = str(rec.measurements.metadata.get("straightened", "") or "")
+        who = str(rec.measurements.metadata.get("operators", "") or "")
         for view_name, calib in rec.calibrations.items():
             sheet.append(
                 [
@@ -562,6 +579,8 @@ def _write_qc_sheet(sheet: Worksheet, records: Sequence[ExportRecord]) -> None:
                     round(calib.confidence, 3),
                     calib.notes,
                     missing_str,
+                    who,
+                    straight if view_name == "lateral" else "",
                     data_note,
                 ]
             )
