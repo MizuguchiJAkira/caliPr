@@ -11,6 +11,12 @@ coordinates, and every trait, ratio and figure is derived from them. Changing a
 trait definition is a re-run rather than a re-digitisation, and the same
 coordinates train a model to place them automatically.
 
+Every landmark records who placed it. A bent or tilted specimen is measured along
+a midline, as MorFishJ straightens one. The measurement error of every trait
+comes from re-labelling a subset blind, reported as ICC and %ME. Each specimen
+carries Darwin Core records, so a measurement can be joined back to the
+collection's own record.
+
 Standard length agrees with physical caliper measurements to a median of 1.12%
 across 35 specimens (see [Accuracy](#accuracy)).
 
@@ -65,6 +71,7 @@ python scripts/export_measurements.py --dataset cornell
 python scripts/export_tps.py --sidecars data/cornell/sidecars \
     --images data/cornell/lateral --out results/cornell/tps
 python scripts/render_overlays.py --dataset cornell
+python scripts/measurement_error.py --dataset cornell
 ```
 
 A dataset is a directory under `data/` containing `lateral/`, optionally
@@ -72,8 +79,9 @@ A dataset is a directory under `data/` containing `lateral/`, optionally
 collects: which of the master landmarks it leaves out, any it adds for itself,
 what it calls them, and — for a study following another protocol — which landmark
 scheme it collects instead (`src/fish_morpho/schemes.py`). A study on another
-scheme exports coordinates to TPS rather than traits: every trait is defined in
-code against caliPr's own landmarks.
+scheme exports coordinates rather than traits: every trait is defined in code
+against caliPr's own landmarks. An optional `darwin_core.csv` holds the
+specimens' collection records.
 
 ## Measurements
 
@@ -89,9 +97,40 @@ Three columns of the reference spreadsheet are out of scope: `weight(g)` is a
 mass, and `body_width` and `caudal_peduncle_width` are measured across the
 specimen, which a lateral photograph cannot show.
 
+### Bent and tilted specimens
+
+MorFishJ measures lengths along the horizontal, so it has the user straighten a
+bent fish first. The user traces a line down its midline, and ImageJ's
+**Straighten** resamples the photograph across a spline through it. caliPr does
+the same geometry to the coordinates instead of the pixels:
+
+- **The same curve.** It fits the natural cubic spline ImageJ fits,
+  parameterised by the square root of each segment's length.
+- **The same positions.** Each landmark goes where the straightened image would
+  put it: its distance along the curve becomes x, and its distance off the
+  curve, measured square to it, becomes y.
+
+The photograph and the clicked landmarks are unchanged, and deleting the
+midline undoes it. Two points level a straight fish that is only tilted.
+
+Tests check the result against specimens of known shape:
+
+- A tilted fish with a midline measures identically to the level fish on every
+  trait.
+- A fish bent through 40° recovers its standard length and total length to
+  within 1%.
+
+A landmark on the inside of a bend, farther from the curve than the bend's
+radius, has no single place on the straightened fish. Such landmarks are reported
+rather than placed. The QC sheet records which specimens were straightened and
+how far each midline turns (`src/fish_morpho/straighten.py`).
+
 ## Outputs
 
-**Workbook** (`.xlsx`), six sheets:
+**Workbook** (`.xlsx`), or the Measurements sheet alone as CSV for R. Before
+export, a preview shows each trait's missing values, so a column most specimens
+lack can be left out, or only complete rows kept, before a PCA drops every row
+with an NA.
 
 | sheet | contents |
 |---|---|
@@ -99,13 +138,24 @@ specimen, which a lateral photograph cannot show.
 | Measurements | one row per specimen, one column per trait, with a per-row `units` column |
 | Ratios | lengths over standard length, areas over SL²; dimensionless |
 | Shape | Mosimann log-shape variables; the size correction for between-group comparison |
-| QC | calibration method and confidence per view, missing landmarks, data compromises |
+| QC | calibration method and confidence per view, missing landmarks, who placed them, straightening, data compromises |
 | Validation | automated checks, most severe first |
+| Specimens | Darwin Core record of each specimen, when the study keeps them |
+| MeasurementOrFact | the measurements in Darwin Core's long form: value, unit, who determined it, and the trait's definition |
+| Measurement error | ICC and %ME per trait, when a blind re-label round exists |
 
-**TPS** for geomorph, with a landmark-name file and a loader snippet. Two format
-conventions are handled explicitly: TPS y is Cartesian from the bottom left, and
-missing landmarks are written as negative coordinates for `readland.tps(...,
-negNA = TRUE)`.
+**Coordinates for R.** Two formats are available:
+
+- **One CSV per specimen**, in ImageJ's Multi-Measure layout (landmark, Label,
+  X, Y, in cm or mm), with a landmark key and a script that reads the folder into
+  geomorph.
+- **A single TPS file**, with a landmark-name file and a loader snippet. Two
+  TPS conventions are handled explicitly: y is Cartesian from the bottom left,
+  and missing landmarks are written as negative coordinates for
+  `readland.tps(..., negNA = TRUE)`.
+
+Either way, `specimens.csv` gives each specimen's group, scale, operators,
+straightening and collection records. Straightened coordinates are an option.
 
 ```r
 library(geomorph)
@@ -116,7 +166,9 @@ plot(gm.prcomp(gpa$coords))
 ```
 
 **Annotations** are stored as one JSON sidecar per specimen, keyed by landmark
-name. These are the durable artefact; all exports are derived from them.
+name. Each sidecar records who placed each point, and which points the model
+suggested and a person corrected or accepted. These are the durable artefact;
+all exports are derived from them.
 
 **Overlays**: each photograph with its annotation drawn on.
 
@@ -154,12 +206,33 @@ Tick detection locates a ruler in 180 of 181 alewife photographs, but only 9 of
 27 collection lots are internally consistent to within 25%. Detection rate and
 accuracy are separate quantities.
 
+### Measurement error
+
+A subset of labelled specimens is labelled again blind. The subset is drawn
+across the study's groups, and each fish gets a code, in random order, in a
+separate study folder. None of the original landmarks are there to see, and
+automated landmarking is refused. Both labellings go through the same pipeline,
+and for each trait the workbook reports:
+
+- **%ME**, the share of variance that is measurement error: 100 × s²within /
+  (s²within + s²among), from a one-way ANOVA with specimen as the factor (Bailey
+  & Byrnes 1990; Yezerinac et al. 1992).
+- **ICC(1)** with an F-based 95% interval. It equals 1 − %ME/100.
+- **ICC(3,1)**, which sets aside a constant shift between the two labellings
+  (Shrout & Fleiss 1979).
+- **The bias** between labellings.
+- **The technical error of measurement**, in the trait's units.
+
+Repeat rounds on the same specimens, by a second operator or later by the same
+one, are analysed together. The statistics reproduce Shrout & Fleiss's worked
+example exactly (`src/fish_morpho/repeatability.py`).
+
 ### Validation
 
 Eight checks run before the workbook is written: `orientation`,
-`landmark_in_frame`, `duplicate_id`, `mixed_units`, `calibration_outlier`,
-`shape_outlier`, `sparse_outline`, `incomplete`. Each targets a failure mode that
-produces plausible values rather than an error.
+`landmark_in_frame`, `landmark_off_body`, `duplicate_id`, `mixed_units`,
+`calibration_outlier`, `shape_outlier`, `incomplete`. Each targets a failure mode
+that produces plausible values rather than an error.
 
 Thresholds are conventional rather than fitted: robust z of 3.5 on a median/MAD
 scale, and 25% calibration drift. Across the 60 sidecars in both datasets the
@@ -172,9 +245,9 @@ notes consistent with labelling in progress.
 |---|---|---|
 | species | *Salvelinus fontinalis* | *Alosa pseudoharengus* |
 | question | body-shape differences among three hatchery strains | proportional differences between landlocked and migratory populations |
-| photographs | 131 | 181, across 27 CUMV lots, 1932–1987 |
-| labelled | 46 lateral, 35 frontal | 5 |
-| collects | 5 polygons, 19 keypoints | 3 polygons, 23 keypoints |
+| photographs | 131 | 30, from four CUMV lots, 1947–1953 |
+| labelled | 131 lateral, 130 frontal | not yet |
+| collects | caliPr landmarks: 5 polygons, 19 keypoints | BGNN 2D landmarks |
 | scale reference | ruler on the tray | ruler on the tank glass |
 
 Photographs are not included in the repository. Sidecars are.
@@ -198,9 +271,10 @@ re-tracing one specimen at 46–86 vertices per fin changed areas by +27.1%, +1.
 −3.1% and −7.8% across the four fins. `FIN_POLYGON_TARGET_VERTICES` is 16 because
 errors of that size in either direction cannot be corrected afterwards.
 
-**Measurement repeatability has not been quantified.** No specimen has been
-labelled twice blind, so the contribution of the operator to any between-group
-difference is unknown.
+**Measurement repeatability has not yet been measured for these datasets.** The
+tool for it is built (see [Measurement error](#measurement-error)), but no blind
+re-label round has been run, so the operator's contribution to any between-group
+difference is not yet known.
 
 **Declared compromises.** A clipped fin or snout is flagged in the labeler,
 which records the affected traits; the pipeline sets those to NaN with the reason
@@ -250,7 +324,7 @@ src/fish_morpho/     schema, measurement engine, calibration, validation, export
 scripts/             labeler, exporters, preprocessing, model training and evaluation
 data/<dataset>/      lateral/, frontal/, sidecars/, schema.json
 docs/                tutorial, automation reference, methods ledger
-tests/               174 tests
+tests/               401 tests
 ```
 
 `docs/what-we-tried.md` records approaches that were tested and rejected, with
@@ -261,15 +335,21 @@ the measurements that rejected them.
 The manual pipeline is in use. Sidecar JSON in, validated workbook and TPS out,
 33 traits covering all 22 photo-measurable columns of the reference spreadsheet.
 
-Fin outlines are being re-traced at the 16-vertex target; 7 of 46 are complete.
-Until a specimen is redone its twelve fin-derived traits export as blank with the
-reason attached.
+Fin outlines are being re-traced at the 16-vertex target; 74 of 131 brook trout
+are complete. Until a specimen is redone its fin-derived traits export as blank
+with the reason attached.
 
-Automated landmarking is not ready for use.
+Automated landmarking is used on the brook trout as a starting point: each
+sidecar records which predicted points a person corrected, accepted or left
+unreviewed (19 of 131 fish still have some unreviewed). It does not transfer to
+other taxa.
 
-Priorities, in order: quantify measurement repeatability; assign the alewife lots
-to populations; complete the fin re-tracing; label the four fin-base endpoints
-and retrain.
+Priorities, in order:
+
+1. Run a blind re-label round on the brook trout.
+2. Assign the alewife lots to populations.
+3. Complete the fin re-tracing.
+4. Label the four fin-base endpoints and retrain.
 
 ## Citation
 
@@ -279,16 +359,17 @@ sheet of the workbook.
 
 Please also cite the trait schema:
 
-> Ghilardi, M. (2022). *MorFishJ: an ImageJ plugin for morphometric analysis of
-> fish.* Leibniz Centre for Tropical Marine Research.
-> doi:[10.5281/zenodo.7275017](https://doi.org/10.5281/zenodo.7275017)
+> Ghilardi, M. (2022). *MorFishJ: A software package for fish traditional
+> morphometrics.* Zenodo.
+> doi:[10.5281/zenodo.6969273](https://doi.org/10.5281/zenodo.6969273)
 
 ## License
 
 MIT; see [LICENSE](LICENSE). The licence covers the code and the annotation
 schema. The specimens and photographs belong to the Cornell University Museum of
 Vertebrates. No MorFishJ source is included; the trait definitions are
-reimplemented from its published documentation.
+reimplemented from its published documentation. The straightening reimplements
+the geometry of ImageJ's Straighten command, which is in the public domain.
 
 ## Acknowledgements
 
