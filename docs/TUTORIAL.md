@@ -105,6 +105,25 @@ labelled carefully, save it, and click **Use as example** above the photograph.
 landmarks shows a built-in brook trout until it has one of its own; a study on
 another scheme shows nothing until you choose one.
 
+**Operator**, in the top bar, is who is labelling: your initials, or a short
+ID. You are asked once before your first point, and this browser remembers it.
+It is written beside every landmark, outline, ruler point and midline you place,
+move or accept. A model's point nobody has reviewed is marked `model` instead.
+The QC sheet, the R export's `specimens.csv` and the Darwin Core
+`measurementDeterminedBy` column all say who placed what. That is what lets a
+repeatability study tell one operator's error from another's (see
+[Measurement error](#5-measurement-error)).
+
+Labels saved before operator IDs existed carry none. If one person placed them
+all, you can credit them in one step:
+
+```bash
+python scripts/attribute_operator.py --dataset cornell --operator JC --write
+```
+
+Without `--write` it only reports what it would change. With it, the files are
+backed up first, and unreviewed model points are marked `model`.
+
 ---
 
 ## 3. Auto-label, then check what it flags
@@ -186,6 +205,35 @@ closer to a minute on a fresh install; after that it is about a second. **Auto-l
 backlog in one pass. Each fish then opens with its points already placed and
 the first one selected, so `A` works from the first press; a **P** badge marks
 the ones still to review.
+
+### A bent or tilted fish
+
+Lengths such as SL, TL, head length and snout length are measured along the
+horizontal, as MorFishJ measures them. That assumes the fish lies straight and
+level in the photograph. A preserved fish is often bent, and then those lengths
+come out short.
+
+**Midline, snout to caudal base**, at the bottom of the landmark list, fixes that. Click
+down the middle of the body from just in front of the snout to just past the
+caudal base, adding a point wherever the fish bends. Two points are enough for a
+straight fish that is only tilted. Press `Enter` to finish. You can click the line
+to insert a point, or drag any point to move it.
+
+Every trait is then measured along the midline, the way MorFishJ measures a fish
+after ImageJ's **Straighten**:
+
+- A landmark's distance along the midline becomes its x.
+- Its distance off the midline, measured square to it, becomes its y.
+
+Your photograph and your clicks are not changed, and **Clear point** removes the
+midline again. **Show it straightened**, in the hint above the list, draws the
+fish as the measurements see it, with your landmarks on it.
+
+The QC sheet notes which fish were straightened and how far each midline turns.
+If a landmark sits so far inside a tight bend that it has no single place on the
+straightened fish, that is noted too; add a point to the midline there. In
+**Annotations for R**, **Straighten fish that have a midline** writes those fish's
+coordinates straightened as well, and `specimens.csv` says which ones.
 
 ### A different landmark scheme
 
@@ -335,6 +383,52 @@ Once a study has records, they go into the exports:
 
 Nothing else is added to the measurements CSV, so an R script that treats every
 other column as a trait keeps working.
+
+---
+
+## 5. Measurement error
+
+A difference between groups means little until you know how precisely the
+traits were measured. The standard test is to label some fish a second time,
+blind, and see how much of each trait's variation is the labelling. **Measurement
+error** in the top bar sets this up.
+
+**Start a blind round.** Choose how many fish (20–30 is usual) and who will
+re-label them. caliPr then:
+
+- draws that many labelled fish across the study's groups, so a small round
+  still covers every strain;
+- puts them in a new study, `<study>.relabel-1`, under codes (`R1-01`,
+  `R1-02` …) in random order;
+- opens that study.
+
+Nothing from the first labelling is there. The original landmarks stay only in
+the original study, and Auto-label is off, so every point is yours. A bar across
+the top says you are in a blind round. Label every fish from scratch, ruler
+included, then go back to the original study.
+
+To re-label the same fish again, choose **the fish of round 1** when you start
+the next round. Use this for a second operator (inter-observer error), or for
+the same operator some weeks later (intra-observer error).
+
+**Read the result.** Once three fish of a round are done, the dialog shows each
+trait's:
+
+- **ICC(1)**: repeatability, with its 95% confidence interval.
+- **%ME**: the share of the trait's variance that is measurement error, equal to
+  100 × (1 − ICC(1)) (Bailey & Byrnes 1990; Yezerinac et al. 1992).
+- **ICC(3,1)**: the same, but ignoring any constant shift between the two
+  labellings. When it is well above ICC(1), one session placed points
+  systematically differently from the other, and the **bias** column says by how
+  much.
+- **A verdict**: excellent, good, moderate or poor, after Koo & Li (2016), judged
+  on the lower confidence limit.
+
+Export Measurements to get the same table on the workbook's **Measurement
+error** sheet, with the method and references written out.
+
+The photographs themselves can give fish away. The trout photos include a tag
+with the strain written on it, and codes cannot hide what is in the picture.
 
 ---
 

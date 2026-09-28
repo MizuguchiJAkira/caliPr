@@ -87,7 +87,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from . import darwin_core, grouping, schemes
+from . import darwin_core, grouping, operators, schemes, straighten
 from .export import ExportRecord, export_to_xlsx
 from .validation import summarise, validate
 from .landmark_config import (
@@ -396,7 +396,18 @@ def process_specimen(spec: SpecimenInput,
             f"{spec.sidecar_path}: sidecar has neither a 'lateral' nor a "
             "'frontal' block"
         )
+    # A bent or tilted fish is measured along its midline, where one was drawn:
+    # its landmarks and outlines are put in the straightened frame, exactly as
+    # MorFishJ measures on ImageJ's straightened image (see straighten.py). The
+    # checks against the photograph keep the coordinates as clicked.
+    as_clicked = Annotation()
+    straightened: dict = {}
     if lateral_block:
+        _load_view_annotation(lateral_block, as_clicked, "lateral")
+        try:
+            lateral_block, straightened = straighten.straighten_block(lateral_block)
+        except ValueError as exc:
+            raise ValueError(f"{spec.sidecar_path}: lateral.midline: {exc}") from exc
         _load_view_annotation(lateral_block, annotation, "lateral")
 
     # A frontal-only sidecar is legitimate — mouth width is collected from the
@@ -431,6 +442,7 @@ def process_specimen(spec: SpecimenInput,
         (frontal_block.get("keypoints") or frontal_block.get("polygons")))
     if frontal_block and not frontal_uncalibrated:
         _load_view_annotation(frontal_block, annotation, "frontal")
+        _load_view_annotation(frontal_block, as_clicked, "frontal")
 
     calibrations: dict[View, CalibrationResult] = {}
     if lateral_calib is not None:
@@ -448,6 +460,23 @@ def process_specimen(spec: SpecimenInput,
     note = _model_outline_note(spec)
     if note:
         metadata["data_note"] = "; ".join(filter(None, [metadata.get("data_note"), note]))
+
+    # Who placed this fish's landmarks, for the QC sheet.
+    who = operators.summary(spec.sidecar)
+    if who:
+        metadata["operators"] = who
+
+    if straightened:
+        metadata["straightened"] = (
+            f"along a {straightened['points']}-point midline, "
+            f"{straightened['length_px']:.0f} px, turning {straightened['turn_deg']:.0f}°")
+        if straightened["folded"]:
+            note = ("midline bends more tightly than "
+                    + ", ".join(straightened["folded"][:4])
+                    + " sit from it — they have no single place on the straightened fish;"
+                      " add points to the midline there or check them")
+            metadata["data_note"] = "; ".join(filter(None, [metadata.get("data_note"), note]))
+            log.warning("%s: %s", spec.fish_id, note)
 
     if frontal_uncalibrated:
         note = "frontal landmarks have no frontal ruler calibration — frontal traits left blank"
@@ -508,8 +537,8 @@ def process_specimen(spec: SpecimenInput,
         measurements=ms,
         calibrations=calibs_for_export,
         image_filename=spec.image_path.name,
-        keypoints=dict(annotation.keypoints),
-        polygons={k: list(v) for k, v in annotation.polygons.items()},
+        keypoints=dict(as_clicked.keypoints),
+        polygons={k: list(v) for k, v in as_clicked.polygons.items()},
         image_size=size,
     )
 

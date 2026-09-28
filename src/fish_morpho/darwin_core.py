@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 from pathlib import Path
 
@@ -396,7 +397,8 @@ def used_terms(records: dict[str, dict[str, str]], fish_ids=None) -> list[str]:
 _UNIT = {"mm": "mm", "mm^2": "mm2", "deg": "degrees"}
 
 
-def add_sheets(workbook: Path, study_dir: Path, *, measurements: bool = True) -> dict:
+def add_sheets(workbook: Path, study_dir: Path, *, measurements: bool = True,
+               labels_dir: Path | None = None) -> dict:
     """Add the Specimens sheet (and, for a trait workbook, MeasurementOrFact).
 
     Read back from the workbook's own first data sheet, so the records are the
@@ -440,9 +442,17 @@ def add_sheets(workbook: Path, study_dir: Path, *, measurements: bool = True) ->
         from .landmark_config import TRAITS
         by_code = {t.code: t for t in TRAITS}
         u = hdr.index("units")
+        from .operators import determined_by
+        labels = Path(labels_dir) if labels_dir else Path(study_dir) / "sidecars"
+        sidecars: dict[str, dict] = {}
+        for f in ids:
+            try:
+                sidecars[f] = json.loads((labels / f"{f}.json").read_text())
+            except Exception:
+                sidecars[f] = {}
         ws = wb.create_sheet("MeasurementOrFact")
         ws.append([KEY, "measurementType", "measurementValue", "measurementUnit",
-                   "measurementMethod", "measurementRemarks"])
+                   "measurementDeterminedBy", "measurementMethod", "measurementRemarks"])
         for r, f in zip(rows, ids):
             unit_row = r[u] or ""
             for h, v in zip(hdr[u + 1:], r[u + 1:]):
@@ -456,11 +466,13 @@ def add_sheets(workbook: Path, study_dir: Path, *, measurements: bool = True) ->
                     unit = "px" if unit == "mm" else "px2"
                 method = (f"caliPr, from landmarks on a photograph: {t.description}"
                           if t else "caliPr")
-                ws.append([f, name, v, unit, method,
+                who = determined_by(sidecars.get(f) or {}, (*t.required_keypoints,
+                                                           *t.required_polygons)) if t else ""
+                ws.append([f, name, v, unit, who, method,
                            "no scale in the photograph; pixels" if unit_row == "px" else ""])
                 mof += 1
         style(ws)
-        for col, w in zip("ABCDEF", (34, 34, 16, 16, 60, 30)):
+        for col, w in zip("ABCDEFG", (34, 34, 16, 16, 18, 60, 30)):
             ws.column_dimensions[col].width = w
 
     if "About" in wb.sheetnames:

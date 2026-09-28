@@ -153,8 +153,9 @@ default), in {units} -- except a specimen with no scale, which is in pixels
 kept, so row n is always landmark n.
 
 specimens.csv   one row per file: the specimen, its strain, units, scale, and
-                how many landmarks it lacks; then any Darwin Core records the
-                study keeps (catalogNumber, scientificName, locality ...)
+                how many landmarks it lacks; who placed them, where recorded;
+                then any Darwin Core records the study keeps (catalogNumber,
+                scientificName, locality ...)
 landmark_key.csv
 read_specimens.R  reads the folder into a geomorph array and runs a Procrustes
                   superimposition and PCA on the complete specimens
@@ -195,7 +196,7 @@ legend("topright", legend = levels(factor(sp$group)), col = seq_along(levels(fac
 
 
 def write_per_specimen(folder: Path, specimens, order, labels, metas, units: str,
-                       ds_dir: Path) -> Path:
+                       ds_dir: Path, straightened=frozenset()) -> Path:
     """One CSV per specimen in ImageJ's Multi-Measure layout, with a key beside it.
 
     The layout a folder-per-series workflow in R expects: every file the same
@@ -214,6 +215,7 @@ def write_per_specimen(folder: Path, specimens, order, labels, metas, units: str
     g_pattern = grouping.filename_pattern(ds_dir)
     dwc = darwin_core.load(ds_dir)
     terms = darwin_core.used_terms(dwc, [s[0] for s in specimens])
+    with_ops = any((metas.get(s[0]) or {}).get("_operators") for s in specimens)
     rows = []
     for fid, kps, img, h, ppm in specimens:
         name = f"{fid}.csv"
@@ -232,11 +234,14 @@ def write_per_specimen(folder: Path, specimens, order, labels, metas, units: str
                      units if ppm else "px", f"{ppm:.4f}" if ppm else "",
                      sum(1 for n in order if n not in kps),
                      (meta.get("data_note") or "").replace("\n", " "),
+                     *([meta.get("_operators", "")] if with_ops else []),
+                     *(["yes" if fid in straightened else ""] if straightened else []),
                      *((dwc.get(fid) or {}).get(t, "") for t in terms)])
     with (folder / "specimens.csv").open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["file", "ID", "group", "units", "px_per_mm", "landmarks_missing", "data_note",
-                    *terms])
+                    *(["operators"] if with_ops else []),
+                    *(["straightened"] if straightened else []), *terms])
         w.writerows(rows)
     with (folder / "landmark_key.csv").open("w", newline="") as f:
         w = csv.writer(f)
@@ -269,6 +274,11 @@ def main(argv=None) -> int:
     ap.add_argument("--units", choices=("cm", "mm"), default="cm",
                     help="Units of the per-specimen files (default cm, as ImageJ "
                          "is usually set). A specimen with no scale is in pixels.")
+    ap.add_argument("--straighten", action="store_true",
+                    help="Write a fish that has a midline straightened along it, as "
+                         "MorFishJ straightens a bent specimen (see fish_morpho."
+                         "straighten). A fish without one is written as clicked. "
+                         "specimens.csv says which were straightened.")
     ap.add_argument("--require-complete", action="store_true",
                     help="Skip specimens missing any landmark instead of writing "
                          "negatives. geomorph can estimate missing landmarks, but "
@@ -288,6 +298,7 @@ def main(argv=None) -> int:
     # from the whole series rather than per specimen.
     specimens: list[tuple[str, dict, Path, int, float | None]] = []
     metas: dict[str, dict] = {}
+    straightened: set[str] = set()
     skipped = 0
     for path in sorted(args.sidecars.glob("*.json")):
         sc = json.loads(path.read_text())
@@ -296,6 +307,16 @@ def main(argv=None) -> int:
         if not kps:
             skipped += 1
             continue
+        if args.straighten:
+            from fish_morpho import straighten
+            try:
+                block, done = straighten.straighten_block(sc.get("lateral") or {})
+            except ValueError as exc:
+                print(f"  ! {fid}: midline unusable ({exc}) — written as clicked")
+                block, done = {}, {}
+            if done:
+                kps = block["keypoints"]
+                straightened.add(fid)
 
         img = find_image(args.images, fid)
         h = image_height(img) if img else None
@@ -305,7 +326,10 @@ def main(argv=None) -> int:
             continue
 
         specimens.append((fid, kps, img, h, px_per_mm(sc)))
-        metas[fid] = sc.get("metadata") or {}
+        metas[fid] = dict(sc.get("metadata") or {})
+        from fish_morpho import operators
+        if operators.summary(sc):
+            metas[fid]["_operators"] = operators.summary(sc)
 
     if not specimens:
         print("No labelled specimens found.")
@@ -393,13 +417,18 @@ def main(argv=None) -> int:
     spec_path = args.out / "specimens.csv"
     with spec_path.open("w", newline="") as f:
         w = csv.writer(f)
-        w.writerow(["ID", "group", "px_per_mm", "landmarks_missing", "data_note", *terms])
+        with_ops = any((metas.get(s[0]) or {}).get("_operators") for s in specimens)
+        w.writerow(["ID", "group", "px_per_mm", "landmarks_missing", "data_note",
+                    *(["operators"] if with_ops else []),
+                    *(["straightened"] if straightened else []), *terms])
         for fid, kps, img, h, ppm in specimens:
             meta = metas.get(fid) or {}
             w.writerow([fid, grouping.resolve(fid, meta, g_table, g_pattern),
                         f"{ppm:.4f}" if ppm else "",
                         sum(1 for n in order if n not in kps),
                         (meta.get("data_note") or "").replace("\n", " "),
+                        *([meta.get("_operators", "")] if with_ops else []),
+                        *(["yes" if fid in straightened else ""] if straightened else []),
                         *((dwc.get(fid) or {}).get(t, "") for t in terms)])
 
     names_path = args.out / "landmark_names.csv"
@@ -411,7 +440,10 @@ def main(argv=None) -> int:
 
     if args.per_specimen:
         write_per_specimen(args.per_specimen, specimens, LANDMARK_ORDER, LANDMARK_LABELS,
-                           metas, args.units, args.schema_dir or args.sidecars.parent)
+                           metas, args.units, args.schema_dir or args.sidecars.parent,
+                           straightened)
+    if straightened:
+        print(f"  {len(straightened)} specimen(s) straightened along their midline")
 
     # The study this came from, so the snippet does not title a brook trout
     # plot "Alewife" -- which it did, in live code sitting under a block of
