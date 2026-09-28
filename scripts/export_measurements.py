@@ -32,7 +32,12 @@ and, when the study has Darwin Core records (darwin_core.csv in its folder):
   Specimens          each specimen's institution, catalogue number, scientific
                      name, locality ... under their Darwin Core term names
   MeasurementOrFact  the Measurements sheet in Darwin Core's long form, one row
-                     per value with its unit and the definition it was measured by
+                     per value with its unit, who placed its landmarks, and the
+                     definition it was measured by
+
+and, when the study has a blind re-label round (see fish_morpho.repeatability):
+
+  Measurement error  ICC and %ME per trait, from the fish labelled twice
 
 Specimens that cannot be processed are named and skipped rather than aborting the
 batch.
@@ -66,7 +71,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
-from fish_morpho import darwin_core  # noqa: E402
+from fish_morpho import darwin_core, repeatability  # noqa: E402
 from fish_morpho.landmark_config import traits_requiring  # noqa: E402
 from fish_morpho.pipeline import run  # noqa: E402
 
@@ -215,7 +220,8 @@ def main(argv=None) -> int:
     except Exception as exc:
         log.error("%s", exc)
         return 1
-    dwc = darwin_core.add_sheets(written, images.parent)
+    dwc = darwin_core.add_sheets(written, images.parent, labels_dir=labels)
+    me = repeatability.add_sheet(written, images.parent, labels)
     if args.preview_json:
         args.preview_json.write_text(json.dumps(preview(written)))
     if args.csv:
@@ -239,6 +245,9 @@ def main(argv=None) -> int:
     if dwc["with_record"]:
         print(f"  Darwin Core records for {dwc['with_record']} of {dwc['specimens']} "
               f"specimens; {dwc['measurement_rows']} MeasurementOrFact rows")
+    if me.get("designs"):
+        print(f"  measurement error: {me['fish']} fish re-labelled blind, ICC and %ME "
+              f"for {me['traits']} traits (Measurement error sheet)")
     print(f"  {ws.max_row - 1} specimens x {len(hdr)} columns, "
           f"sheets: {', '.join(wb.sheetnames)}")
     if units:

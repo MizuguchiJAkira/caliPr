@@ -48,6 +48,7 @@ sys.path.insert(0, str(_ROOT / "scripts"))
 from fish_morpho import auth, schemes  # noqa: E402
 from fish_morpho import image_identity  # noqa: E402
 from fish_morpho import darwin_core  # noqa: E402
+from fish_morpho import repeatability  # noqa: E402
 from fish_morpho.landmark_config import (  # noqa: E402
     CALIBRATION_KEYPOINTS,
     FIN_KEYPOINTS,
@@ -1013,6 +1014,101 @@ class Handler(BaseHTTPRequestHandler):
         records = darwin_core.update(self.images_dir, plan["changes"])
         return self._send(200, {"ok": True, "plan": plan, "applied": True, "records": records})
 
+    @staticmethod
+    def _round_brief(folder: Path) -> dict | None:
+        """What the page may know about a blind round: never which fish is which."""
+        r = repeatability.read_round(folder)
+        if not r:
+            return None
+        return {"study": r["study"], "round": r.get("round"), "n": len(r["fish"]),
+                "done": len(repeatability.done_codes(folder)), "operator": r.get("operator", ""),
+                "created": r.get("created", ""), "same_as": r.get("same_as")}
+
+    def _relabel_rounds(self):
+        """The open study's blind re-label rounds and how far each has got."""
+        here = repeatability.read_round(self.images_dir)
+        study = (self.images_dir.parent / here["study"]) if here else self.images_dir
+        rounds = []
+        for r in repeatability.rounds_of(study):
+            rounds.append({**self._round_brief(r["folder"]), "name": r["folder"].name})
+        labelled = sum(1 for f in (study / "sidecars").glob("*.json")) \
+            if (study / "sidecars").is_dir() else 0
+        return self._send(200, {"study": study.name, "in_round": self._round_brief(self.images_dir),
+                                "rounds": rounds, "labelled": labelled})
+
+    def _relabel_new(self):
+        """Set up a blind re-label round: ``{"n", "operator", "same_as"}``."""
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            count = int(body.get("n") or 0)
+            same = body.get("same_as")
+            same = int(same) if same not in (None, "") else None
+            operator = str(body.get("operator") or "")[:40]
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        try:
+            r = repeatability.create_round(self.images_dir, count, operator, same_as=same)
+        except (ValueError, OSError) as exc:
+            return self._send(400, {"ok": False, "error": str(exc)})
+        if Handler.data_root is not None:
+            Handler.datasets = discover_datasets(Handler.data_root) or Handler.datasets
+        name = Path(r["folder"]).name
+        Handler.datasets.setdefault(name, Path(r["folder"]))
+        return self._send(200, {"ok": True, "name": name, "round": r["round"], "n": r["n"]})
+
+    def _relabel_stats(self):
+        """ICC and %ME per trait so far, computed in a subprocess like every export."""
+        import tempfile
+        here = repeatability.read_round(self.images_dir)
+        study = (self.images_dir.parent / here["study"]) if here else self.images_dir
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "me.json"
+            r = subprocess.run(
+                [sys.executable, str(_ROOT / "scripts/measurement_error.py"), "--dataset",
+                 study.name, "--data-root", str(study.parent), "--json", str(out)],
+                capture_output=True, text=True, timeout=300, cwd=_ROOT)
+            if r.returncode != 0 or not out.is_file():
+                return self._send(500, {"ok": False, "error": (r.stderr.strip().splitlines()
+                                                               or ["could not compute"])[-1]})
+            return self._send(200, {"ok": True, **json.loads(out.read_text())})
+
+    def _straighten_preview(self):
+        """The fish as its midline straightens it: ``{"id", "block"}`` -> a JPEG.
+
+        ``block`` is the lateral view as it stands in the labeler, saved or not --
+        its midline, landmarks and outlines. Drawn in a subprocess, as every
+        image operation here is, and nothing is written to the study.
+        """
+        import base64
+        import tempfile
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            fid, block = str(body.get("id") or ""), body.get("block") or {}
+            assert isinstance(block, dict)
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        if not fid or fid != Path(fid).name or fid.startswith("."):
+            return self._send(400, {"ok": False, "error": f"no such specimen “{fid}”"})
+        photo = view_image(self.images_dir, fid, "lateral")
+        if photo is None:
+            return self._send(404, {"ok": False, "error": f"no photograph for “{fid}”"})
+        with tempfile.TemporaryDirectory() as tmp:
+            lab, out, info = Path(tmp) / "labels.json", Path(tmp) / "s.jpg", Path(tmp) / "i.json"
+            lab.write_text(json.dumps(block))
+            r = subprocess.run(
+                [sys.executable, str(_ROOT / "scripts/straighten_preview.py"), "--image",
+                 str(photo), "--labels", str(lab), "--out", str(out), "--info", str(info)],
+                capture_output=True, text=True, timeout=120, cwd=_ROOT)
+            if r.returncode != 0 or not out.is_file():
+                return self._send(400, {"ok": False, "error": (r.stderr.strip().splitlines()
+                                                               or ["could not straighten"])[-1]})
+            return self._send(200, {"ok": True, "info": json.loads(info.read_text()),
+                                    "jpeg": base64.b64encode(out.read_bytes()).decode()})
+
     def _set_scheme(self):
         """Switch this study to another landmark scheme, or back to caliPr's.
 
@@ -1349,6 +1445,8 @@ class Handler(BaseHTTPRequestHandler):
             return {"file": csv_out, "name": f"{ds}_measurements.csv",
                     "type": "text/csv; charset=utf-8", "show": csv_out, "how": "reveal"}
 
+        # A fish with a midline goes out straightened unless the export says not.
+        straight = [] if (opts or {}).get("straighten") is False else ["--straighten"]
         if kind == "tps" and (opts or {}).get("format") == "per_specimen":
             # One CSV per specimen in ImageJ's layout, the folder a Procrustes
             # workflow in R reads in as a series. Shown as the folder itself.
@@ -1357,7 +1455,7 @@ class Handler(BaseHTTPRequestHandler):
             run([str(_ROOT / "scripts/export_tps.py"), "--sidecars", str(self.out_dir),
                  "--images", str(self.images_dir / "lateral"),
                  "--schema-dir", str(self.images_dir), "--out", str(root / "tps"),
-                 "--per-specimen", str(folder), "--units", units], 600)
+                 "--per-specimen", str(folder), "--units", units, *straight], 600)
             files = sorted(f for f in folder.iterdir() if f.is_file()) if folder.is_dir() else []
             if not any(f.suffix == ".csv" and f.name not in ("specimens.csv", "landmark_key.csv")
                        for f in files):
@@ -1370,7 +1468,8 @@ class Handler(BaseHTTPRequestHandler):
         if kind == "tps":
             run([str(_ROOT / "scripts/export_tps.py"), "--sidecars", str(self.out_dir),
                  "--images", str(self.images_dir / "lateral"),
-                 "--schema-dir", str(self.images_dir), "--out", str(root / "tps")], 600)
+                 "--schema-dir", str(self.images_dir), "--out", str(root / "tps"),
+                 *straight], 600)
             files = [f for f in sorted((root / "tps").iterdir()) if f.is_file()]
             zp = zipped(f"{ds}_tps.zip", [(f, f.name) for f in files])
             tps = root / "tps" / "landmarks.tps"
@@ -1837,6 +1936,11 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(401, {
                 "ok": False, "locked": True,
                 "error": "automated landmarking is locked on this machine"})
+        if repeatability.read_round(self.images_dir):
+            return self._send(403, {
+                "ok": False, "error": ("This is a blind re-label round: every landmark is placed "
+                                       "by hand, so the model's guesses cannot shape the "
+                                       "measurement error it is here to find.")})
         scheme = load_profile(self.images_dir).get("scheme")
         if schemes.get(scheme):
             return self._send(400, {
@@ -2034,6 +2138,7 @@ class Handler(BaseHTTPRequestHandler):
                                   if (Handler.datasets[n] / f).is_file()],
                      # A dataset whose profile drops every fin polygon can never
                      # satisfy the fin-density badge, so the UI should not show it.
+                     "relabel": self._round_brief(Handler.datasets[n]),
                      "has_fin_polygons": bool(
                          not schemes.get(load_profile(Handler.datasets[n]).get("scheme"))
                          and set(FIN_POLYGONS)
@@ -2049,7 +2154,12 @@ class Handler(BaseHTTPRequestHandler):
             html = (UI_DIR / "index.html").read_text()
             return self._send(200, html, "text/html; charset=utf-8")
         if route == "/api/schema":
-            return self._send(200, build_schema(load_profile(self.images_dir)))
+            return self._send(200, {**build_schema(load_profile(self.images_dir)),
+                                    "relabel": self._round_brief(self.images_dir)})
+        if route == "/api/relabel":
+            return self._relabel_rounds()
+        if route == "/api/relabel/stats":
+            return self._relabel_stats()
         if route == "/api/specimens":
             return self._send(200, self._specimens())
         if route == "/api/calibstats":
@@ -2190,6 +2300,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._dwc_update()
         if route == "/api/dwc/import":
             return self._dwc_import()
+        if route == "/api/straighten/preview":
+            return self._straighten_preview()
+        if route == "/api/relabel/new":
+            return self._relabel_new()
         if route == "/api/reference":
             return self._set_reference()
         if route == "/api/schemes/new":

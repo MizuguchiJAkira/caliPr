@@ -105,8 +105,9 @@ def describe(status: str, recorded: dict | None, current: dict | None) -> str:
 def shift_view(doc: dict, view: str, dx: float, dy: float = 0.0) -> int:
     """Move every coordinate stored for ``view`` by ``(dx, dy)``, in place.
 
-    Covers the three places a sidecar keeps image coordinates: landmarks, outline
-    vertices, and the two points of a manual ruler calibration. Returns how many
+    Covers every place a sidecar keeps image coordinates: landmarks, outline
+    vertices, the two points of a manual ruler calibration, and the midline a
+    bent fish is straightened along. Returns how many
     points moved. A uniform shift changes no distance, area or angle, so every
     measured trait is unaffected -- what it repairs is the pairing of each
     coordinate with the pixels under it, which is what the labeler draws and what
@@ -130,6 +131,9 @@ def shift_view(doc: dict, view: str, dx: float, dy: float = 0.0) -> int:
     for key in ("point_a", "point_b"):
         if cal.get(key):
             cal[key] = mv(cal[key])
+    # The midline a bent fish is straightened along names pixels too.
+    if block.get("midline"):
+        block["midline"] = [mv(q) for q in block["midline"]]
     # Where the model first put each point it was corrected on. Not a label, so
     # not counted, but it names a pixel like one: left behind by the 2026-09-21
     # un-split, the labeller drew every correction line from ~1000 px off.

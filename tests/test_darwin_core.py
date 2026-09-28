@@ -198,7 +198,8 @@ def test_the_workbook_carries_the_records(study, tmp_path):
     sl = next(r for r in mof if r[0] == "BKT-0001" and r[1].endswith("(SL)"))
     row = next(r for r in meas if r[0] == "BKT-0001")
     sl_col = next(i for i, h in enumerate(hdr) if str(h).startswith("SL "))
-    assert sl[2] == row[sl_col] and sl[3] == "mm" and "premaxilla" in sl[4]
+    assert sl[2] == row[sl_col] and sl[3] == "mm" and "premaxilla" in sl[5]
+    assert sl[4] is None                    # no operator recorded on these labels
 
     # where and when, in the columns the workbook already had for them
     assert row[hdr.index("locality")] == "Cayuga Inlet"
