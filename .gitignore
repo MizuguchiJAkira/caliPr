@@ -36,6 +36,7 @@ data/cornell_raw/*.jpg
 data/*/lateral/
 data/*/frontal/
 data/*/originals/
+data/*/omitted/
 # A study's own example is cut from one of those photographs, and is remade from
 # any labelled fish with "Use as example".
 data/*/reference/

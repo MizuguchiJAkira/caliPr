@@ -289,6 +289,11 @@ def load_profile(images_dir: Path) -> dict:
         # The built-in 50 mm lateral default was right for the rigs it came from
         # and wrong where people mark a centimetre -- which scaled three fish 5x.
         "known_mm_default": _span_defaults(prof.get("known_mm_default")),
+        # The specimens to label first, when the study has chosen them itself --
+        # by species, collection and size, say -- rather than leaving it to the
+        # rotation over lot numbers, which a study without lot numbers in its
+        # filenames cannot use.
+        "label_first": [f for f in (prof.get("label_first") or []) if isinstance(f, str)],
         "note": prof.get("note", ""),
     }
 
@@ -738,7 +743,8 @@ class Handler(BaseHTTPRequestHandler):
         for name, path in sorted(lat.items()):
             m0 = _ID_RE.match(Path(name).stem)
             all_ids.append(m0.group(1) if m0 else Path(name).stem)
-        suggested = suggested_subset(all_ids)
+        suggested = (set(profile["label_first"]) & set(all_ids) if profile.get("label_first")
+                     else suggested_subset(all_ids))
 
         out = []
         for name, path in sorted(lat.items()):
