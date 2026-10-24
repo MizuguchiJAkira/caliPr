@@ -97,6 +97,12 @@ below the controls. Click a specimen to open it.
 takes words like `todo`, `labelled`, `heldout`. Terms combine, so `todo txd`
 gives the TXD specimens still to do.
 
+`subset` shows the specimens to label first, which sit at the top of the list
+until they are done. caliPr picks them in rotation across the lot numbers in the
+filenames; a study whose filenames have none, or that has chosen its own (by
+species, collection and size, say), lists them in its `schema.json` as
+`"label_first": ["Genus_species_1", ...]`.
+
 The **Reference** panel in the corner of the photograph shows an example fish,
 zoomed and centred on whichever landmark is selected, so you can see where the
 point goes before you click. Each study has its own example: open a fish you have
