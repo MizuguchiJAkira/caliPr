@@ -126,10 +126,9 @@ The filter script is still kept in the repo because (a) `standardized_species`
 coverage may improve in future Fish-Vista releases, and (b) the metadata
 join is useful for cross-referencing annotation formats.
 
-## Source 3 — FishPhenoKey (pending, pretraining only)
+## Source 3 — FishPhenoKey (not obtained; pretraining only)
 
-Even if
-FishPhenoKey doesn't include *Salvelinus fontinalis*, we want it for
+Even if FishPhenoKey doesn't include *Salvelinus fontinalis*, we want it for
 **pretraining** before fine-tuning on our own brook trout labels — the
 landmark topology for teleost fins and body outline transfers well across
 species, which should materially improve DLC accuracy given our small
@@ -289,10 +288,7 @@ how we catch regressions when the engine changes.
 1. Stand up the CVAT project from `scripts/export_cvat_config.py` and
    walk the 41 iDigBio images in it, producing polygons + keypoints
    for every usable specimen.
-2. Send the FishPhenoKey access request
- — pretraining for the DLC keypoint
-   half of the hybrid stack.
-3. Plan the in-house photo session to top up the training pool to
+2. Plan the in-house photo session to top up the training pool to
    ~150 labeled images, using the same lateral + frontal mirror
    protocol already documented in `examples/sample_sidecar.json`.
 4. Run ~5 specimens through both MorFishJ (GUI) and the Python port
