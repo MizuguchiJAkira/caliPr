@@ -18,7 +18,7 @@
       "polygons_from_model": [
         "pectoral"
       ],
-      "predicted_at": "2026-09-24T01:28:35.639Z"
+      "predicted_at": "2026-10-01T01:45:21.578Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -417,14 +417,6 @@
         2557,
         2132
       ],
-      "peduncle_narrowest_dorsal": [
-        4579,
-        1928
-      ],
-      "peduncle_narrowest_ventral": [
-        4604,
-        2056
-      ],
       "caudal_base": [
         4612,
         1985
@@ -452,7 +444,19 @@
       "anal_base_center": [
         4078,
         2263
+      ],
+      "dorsal_base_anterior": [
+        3164,
+        1814
+      ],
+      "dorsal_base_posterior": [
+        3549,
+        1883
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

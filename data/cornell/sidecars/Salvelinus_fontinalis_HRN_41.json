@@ -16,7 +16,6 @@
         "lower_jaw_tip",
         "maxilla_mandible_intersection",
         "pectoral_insertion_upper",
-        "peduncle_narrowest_dorsal",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -45,24 +44,12 @@
           ],
           "px": 30.1,
           "conf": 0.534
-        },
-        "peduncle_narrowest_ventral": {
-          "from": [
-            3052,
-            1880
-          ],
-          "to": [
-            3038,
-            1916
-          ],
-          "px": 38.6,
-          "conf": 0.396
         }
       },
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-24T01:51:43.013Z"
+      "predicted_at": "2026-10-01T01:43:40.294Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -78,6 +65,7 @@
       "predicted_at": "2026-09-23T09:39:47"
     },
     "assisted_by": "snapshot-best-170.pt",
+    "data_note": "lateral known_mm corrected 50->10 (234px between the ruler points is one centimetre: 50 gave 4.7 px/mm against 25.1 for the HRN lot)",
     "images": {
       "lateral": {
         "width": 6000,
@@ -98,8 +86,7 @@
         "points": 18,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ],
-    "data_note": "lateral known_mm corrected 50->10 (234px between the ruler points is one centimetre: 50 gave 4.7 px/mm against 25.1 for the HRN lot)"
+    ]
   },
   "lateral": {
     "keypoints": {
@@ -139,14 +126,6 @@
         1759,
         1822
       ],
-      "peduncle_narrowest_dorsal": [
-        3798,
-        1755
-      ],
-      "peduncle_narrowest_ventral": [
-        3791,
-        1916
-      ],
       "caudal_base": [
         3830,
         1831
@@ -178,7 +157,19 @@
       "pectoral_ray_tip": [
         2099,
         1786
+      ],
+      "dorsal_base_anterior": [
+        2375,
+        1186
+      ],
+      "dorsal_base_posterior": [
+        2785,
+        1266
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -190,7 +181,7 @@
         1046,
         1177
       ],
-      "known_mm": 10.0
+      "known_mm": 10
     }
   },
   "frontal": {

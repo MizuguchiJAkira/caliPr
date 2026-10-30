@@ -21,7 +21,7 @@
         "anal",
         "pectoral"
       ],
-      "predicted_at": "2026-09-24T01:28:19.675Z"
+      "predicted_at": "2026-10-01T01:45:10.062Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -538,14 +538,6 @@
         2469,
         2238
       ],
-      "peduncle_narrowest_dorsal": [
-        4786,
-        2167
-      ],
-      "peduncle_narrowest_ventral": [
-        4807,
-        2322
-      ],
       "caudal_base": [
         4835,
         2240
@@ -581,7 +573,19 @@
       "dorsal_tip": [
         3611,
         1844
+      ],
+      "dorsal_base_anterior": [
+        3273,
+        1985
+      ],
+      "dorsal_base_posterior": [
+        3726,
+        2026
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

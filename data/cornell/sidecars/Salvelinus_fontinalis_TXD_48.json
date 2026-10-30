@@ -555,17 +555,9 @@
         2203,
         1684
       ],
-      "peduncle_narrowest_dorsal": [
-        4971,
-        1556
-      ],
       "caudal_base": [
         5024,
         1666
-      ],
-      "peduncle_narrowest_ventral": [
-        4951,
-        1754
       ],
       "pectoral_insertion_upper": [
         2105,
@@ -598,7 +590,19 @@
       "anal_tip": [
         4612,
         1893
+      ],
+      "dorsal_base_anterior": [
+        3144,
+        1300
+      ],
+      "dorsal_base_posterior": [
+        3608,
+        1367
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

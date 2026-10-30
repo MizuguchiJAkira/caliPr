@@ -17,8 +17,7 @@
         "lower_jaw_tip",
         "maxilla_mandible_intersection",
         "operculum_posterior",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
+        "pectoral_insertion_upper",
         "premaxilla_tip"
       ],
       "corrected": {
@@ -36,20 +35,34 @@
         }
       },
       "unreviewed": [
-        "pectoral_insertion_upper",
         "pectoral_ray_tip"
       ],
       "unreviewed_confidence": {
-        "pectoral_insertion_upper": 0.844,
         "pectoral_ray_tip": 0.719
       },
       "polygons_from_model": [],
       "predicted_at": "2026-09-17T14:56:34.404Z"
     },
     "unreviewed_predictions": [
-      "pectoral_insertion_upper",
       "pectoral_ray_tip"
     ],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 1.0,
+        "mouth_right": 0.91
+      }
+    },
     "assisted_by": "snapshot-best-170.pt",
     "data_note": "pelvic fin invisible",
     "images": {
@@ -72,24 +85,7 @@
         "points": 101,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ],
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 1.0,
-        "mouth_right": 0.91
-      }
-    }
+    ]
   },
   "lateral": {
     "polygons": {
@@ -461,14 +457,6 @@
         2524,
         2317
       ],
-      "peduncle_narrowest_dorsal": [
-        4639,
-        1901
-      ],
-      "peduncle_narrowest_ventral": [
-        4634,
-        2088
-      ],
       "caudal_base": [
         4672,
         2000
@@ -504,7 +492,15 @@
       "anal_base_posterior": [
         4253,
         2168
+      ],
+      "pelvic_base_center": [
+        3133,
+        2398
       ]
+    },
+    "operators": {
+      "pelvic_base_center": "JC",
+      "pectoral_insertion_upper": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -533,8 +529,8 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 23.0526,
-      "placed_by": "ruler-ticks",
-      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.45 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
+      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.45 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations",
+      "placed_by": "ruler-ticks"
     }
   }
 }

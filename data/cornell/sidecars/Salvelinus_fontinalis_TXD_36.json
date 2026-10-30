@@ -19,8 +19,6 @@
         "maxilla_mandible_intersection",
         "operculum_posterior",
         "pectoral_insertion_upper",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -400,14 +398,6 @@
         2096,
         1828
       ],
-      "peduncle_narrowest_dorsal": [
-        4914,
-        1467
-      ],
-      "peduncle_narrowest_ventral": [
-        4960,
-        1658
-      ],
       "caudal_base": [
         4969,
         1557
@@ -439,7 +429,19 @@
       "pectoral_ray_tip": [
         2425,
         2049
+      ],
+      "dorsal_base_anterior": [
+        3149,
+        1270
+      ],
+      "dorsal_base_posterior": [
+        3565,
+        1362
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

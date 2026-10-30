@@ -16,8 +16,6 @@
         "lower_jaw_tip",
         "maxilla_mandible_intersection",
         "operculum_posterior",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -120,14 +118,6 @@
       "pectoral_ray_tip": [
         2773.0,
         2081.0
-      ],
-      "peduncle_narrowest_dorsal": [
-        5130.0,
-        1646.0
-      ],
-      "peduncle_narrowest_ventral": [
-        5133.0,
-        1893.0
       ],
       "caudal_base": [
         5163.0,

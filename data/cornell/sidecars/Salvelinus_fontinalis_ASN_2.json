@@ -22,7 +22,7 @@
         "anal",
         "pectoral"
       ],
-      "predicted_at": "2026-09-23T00:48:02.142Z"
+      "predicted_at": "2026-09-30T17:33:47.838Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
@@ -418,14 +418,6 @@
         2512,
         1584
       ],
-      "peduncle_narrowest_dorsal": [
-        5226,
-        1276
-      ],
-      "peduncle_narrowest_ventral": [
-        5311,
-        1521
-      ],
       "caudal_base": [
         5323,
         1365
@@ -461,7 +453,30 @@
       "anal_tip": [
         4940,
         1717
+      ],
+      "dorsal_base_anterior": [
+        3431,
+        1162
+      ],
+      "dorsal_base_posterior": [
+        3871,
+        1245
+      ],
+      "anal_base_anterior": [
+        4391,
+        1876
+      ],
+      "anal_base_posterior": [
+        4883,
+        1682
       ]
+    },
+    "operators": {
+      "pectoral": "model",
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC",
+      "anal_base_anterior": "JC",
+      "anal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

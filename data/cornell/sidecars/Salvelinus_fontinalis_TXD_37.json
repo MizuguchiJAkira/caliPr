@@ -19,8 +19,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -33,15 +31,6 @@
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
-    "coordinate_history": [
-      {
-        "at": "2026-09-21T15:18:47",
-        "view": "lateral",
-        "dx": 1358,
-        "points": 19,
-        "reason": "one photograph per fish: the lateral crop's start column"
-      }
-    ],
     "images": {
       "lateral": {
         "width": 6000,
@@ -53,86 +42,99 @@
         "height": 4000,
         "sha256": "fe0927a8f933434554fcdd0d01732ba1900ea69ac9be10fce794a92c807733ea"
       }
-    }
+    },
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:47",
+        "view": "lateral",
+        "dx": 1358,
+        "points": 19,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ]
   },
   "lateral": {
     "keypoints": {
       "eye_anterior": [
-        1669.0,
-        1773.0
+        1669,
+        1773
       ],
       "eye_posterior": [
-        1822.0,
-        1755.0
+        1822,
+        1755
       ],
       "eye_dorsal": [
-        1739.0,
-        1702.0
+        1739,
+        1702
       ],
       "eye_ventral": [
-        1749.0,
-        1813.0
+        1749,
+        1813
       ],
       "premaxilla_tip": [
-        1556.0,
-        1828.0
+        1556,
+        1828
       ],
       "maxilla_mandible_intersection": [
-        1682.0,
-        1912.0
+        1682,
+        1912
       ],
       "lower_jaw_tip": [
-        1548.0,
-        1859.0
+        1548,
+        1859
       ],
       "operculum_posterior": [
-        2135.0,
-        1903.0
+        2135,
+        1903
       ],
       "pectoral_insertion_upper": [
-        2055.0,
-        2042.0
+        2055,
+        2042
       ],
       "pectoral_ray_tip": [
-        2517.0,
-        2210.0
-      ],
-      "peduncle_narrowest_dorsal": [
-        4441.0,
-        1645.0
-      ],
-      "peduncle_narrowest_ventral": [
-        4474.0,
-        1812.0
+        2517,
+        2210
       ],
       "caudal_base": [
-        4471.0,
-        1711.0
+        4471,
+        1711
       ],
       "dorsal_base_center": [
-        3081.0,
-        1637.0
+        3081,
+        1637
       ],
       "pelvic_base_center": [
-        3074.0,
-        2283.0
+        3074,
+        2283
       ],
       "pelvic_tip": [
-        3160.0,
-        2129.0
+        3160,
+        2129
       ],
       "anal_base_center": [
-        3935.0,
-        2055.0
+        3935,
+        2055
       ],
       "anal_tip": [
-        4190.0,
-        2010.0
+        4190,
+        2010
       ],
       "dorsal_tip": [
-        3119.0,
-        1534.0
+        3119,
+        1534
+      ],
+      "dorsal_base_anterior": [
+        2933,
+        1595
+      ],
+      "dorsal_base_posterior": [
+        3297,
+        1621
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

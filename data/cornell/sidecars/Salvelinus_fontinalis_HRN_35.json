@@ -18,8 +18,6 @@
         "lower_jaw_tip",
         "maxilla_mandible_intersection",
         "pectoral_insertion_upper",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -43,7 +41,7 @@
       "polygons_from_model": [
         "anal"
       ],
-      "predicted_at": "2026-09-24T01:29:41.449Z"
+      "predicted_at": "2026-10-01T01:42:59.536Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -311,14 +309,6 @@
         2203,
         2018
       ],
-      "peduncle_narrowest_dorsal": [
-        3932,
-        1710
-      ],
-      "peduncle_narrowest_ventral": [
-        3935,
-        1861
-      ],
       "caudal_base": [
         3967,
         1793
@@ -350,7 +340,19 @@
       "pectoral_ray_tip": [
         2303,
         1857
+      ],
+      "dorsal_base_anterior": [
+        2679,
+        1483
+      ],
+      "dorsal_base_posterior": [
+        3034,
+        1496
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

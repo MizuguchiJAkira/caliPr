@@ -20,7 +20,7 @@
       "polygons_from_model": [
         "anal"
       ],
-      "predicted_at": "2026-09-23T00:54:23.250Z"
+      "predicted_at": "2026-10-01T01:44:10.287Z"
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
@@ -334,14 +334,6 @@
         2695,
         1848
       ],
-      "peduncle_narrowest_dorsal": [
-        4378,
-        1784
-      ],
-      "peduncle_narrowest_ventral": [
-        4391,
-        1931
-      ],
       "caudal_base": [
         4441,
         1837
@@ -377,7 +369,19 @@
       "pectoral_ray_tip": [
         2975,
         2089
+      ],
+      "dorsal_base_anterior": [
+        3231,
+        1621
+      ],
+      "dorsal_base_posterior": [
+        3535,
+        1654
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

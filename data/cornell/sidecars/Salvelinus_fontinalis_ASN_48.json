@@ -39,18 +39,6 @@
           "px": 87,
           "conf": 0.35
         },
-        "peduncle_narrowest_dorsal": {
-          "from": [
-            2477,
-            1435
-          ],
-          "to": [
-            2429,
-            1431
-          ],
-          "px": 48.2,
-          "conf": 0.233
-        },
         "caudal_base": {
           "from": [
             2519,
@@ -87,18 +75,6 @@
           "px": 711.1,
           "conf": 0.229
         },
-        "peduncle_narrowest_ventral": {
-          "from": [
-            2185,
-            1757
-          ],
-          "to": [
-            2538,
-            1518
-          ],
-          "px": 426.3,
-          "conf": 0.224
-        },
         "anal_base_center": {
           "from": [
             2297,
@@ -127,7 +103,7 @@
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-24T01:26:22.002Z"
+      "predicted_at": "2026-09-30T17:36:01.687Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -143,6 +119,7 @@
       "predicted_at": "2026-09-23T09:39:47"
     },
     "assisted_by": "snapshot-best-170.pt",
+    "data_note": "lateral known_mm corrected 50->10 (207px between the ruler points is one centimetre: 50 gave 4.1 px/mm against 20.6 for the ASN lot)",
     "images": {
       "lateral": {
         "width": 6000,
@@ -163,8 +140,7 @@
         "points": 35,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ],
-    "data_note": "lateral known_mm corrected 50->10 (207px between the ruler points is one centimetre: 50 gave 4.1 px/mm against 20.6 for the ASN lot)"
+    ]
   },
   "lateral": {
     "polygons": {
@@ -268,14 +244,6 @@
         2186,
         1850
       ],
-      "peduncle_narrowest_dorsal": [
-        3427,
-        1431
-      ],
-      "peduncle_narrowest_ventral": [
-        3534,
-        1504
-      ],
       "caudal_base": [
         3495,
         1451
@@ -311,7 +279,19 @@
       "anal_base_posterior": [
         3369,
         1689
+      ],
+      "dorsal_base_anterior": [
+        2747,
+        1634
+      ],
+      "dorsal_base_posterior": [
+        3014,
+        1603
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -323,7 +303,7 @@
         2009,
         892
       ],
-      "known_mm": 10.0
+      "known_mm": 10
     }
   },
   "frontal": {

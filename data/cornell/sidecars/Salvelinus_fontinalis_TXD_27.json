@@ -16,8 +16,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -435,14 +433,6 @@
         2933,
         2139
       ],
-      "peduncle_narrowest_dorsal": [
-        5291,
-        1526
-      ],
-      "peduncle_narrowest_ventral": [
-        5287,
-        1769
-      ],
       "caudal_base": [
         5323,
         1650
@@ -478,7 +468,19 @@
       "dorsal_tip": [
         3753,
         1180
+      ],
+      "dorsal_base_anterior": [
+        3373,
+        1208
+      ],
+      "dorsal_base_posterior": [
+        3932,
+        1278
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

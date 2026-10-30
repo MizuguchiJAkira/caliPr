@@ -54,6 +54,29 @@ To get automatic landmarking on alewife the model needs alewife training data.
 For scale: brook trout went 3.88 mm held-out error at 28 labeled images to
 0.92 mm at 37.
 
+## Labels from the ImageJ landmark files
+
+113 of the specimens were landmarked earlier in ImageJ, all 23 BGNN points, and
+saved one CSV per photograph (`analysis/cumv_landmarks_pca/landmarks/`) in units
+set per photograph — cm, mm or pixels. In every file the pixel position is that
+unit times one factor with no offset, so the hand labels survive exactly once the
+factor is known. It was recovered per photograph by fitting the cross-species
+model's predictions (`dlc_project_union`, 2026-10-04) to the labels by least
+squares, on the landmarks the model was sure of, refitted after dropping strays.
+
+Imported only where the fit pins the factor down: at least 7 landmarks, and the
+factor's standard error moving the farthest landmark by under 0.5% of the fish's
+length (a hand click's precision; typically 5-10 px). Nine photographs failed and
+were not imported. Six whose factor differed from the rest of their lot (a
+different zoom, or a file already in pixels) were checked on an overlay and kept.
+`imagej_import.csv` lists each import's file, factor, how many landmarks fitted it
+and its standard error. Two files label `1960_CUMV_36980_07` (one in cm, one in
+mm); the closer fit was kept.
+
+The coordinates are the hand labels, not the model's: the model only supplied the
+one number per photograph that turns ImageJ's units back into pixels. Calibration
+is `none`, as for the rest of this study.
+
 ## Running it
 
     .venv/bin/python scripts/label_server.py \

@@ -20,8 +20,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "premaxilla_tip"
       ],
@@ -49,6 +47,7 @@
     },
     "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
+    "data_note": "outlier, excluded: DFh (3.23x of its strain's typical, size-corrected \u2014 the fin is folded flat, so base to tip is its folded length)",
     "images": {
       "lateral": {
         "width": 6000,
@@ -72,8 +71,7 @@
     ],
     "exclude_traits": [
       "DFh"
-    ],
-    "data_note": "outlier, excluded: DFh (3.23x of its strain's typical, size-corrected \u2014 the fin is folded flat, so base to tip is its folded length)"
+    ]
   },
   "lateral": {
     "polygons": {
@@ -383,14 +381,6 @@
         2286,
         1999
       ],
-      "peduncle_narrowest_dorsal": [
-        3647,
-        1693
-      ],
-      "peduncle_narrowest_ventral": [
-        3664,
-        1833
-      ],
       "caudal_base": [
         3692,
         1752
@@ -418,7 +408,19 @@
       "pelvic_base_center": [
         2537,
         2031
+      ],
+      "dorsal_base_anterior": [
+        2518,
+        1587
+      ],
+      "dorsal_base_posterior": [
+        2880,
+        1656
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

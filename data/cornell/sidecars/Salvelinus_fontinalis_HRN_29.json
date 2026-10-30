@@ -17,8 +17,6 @@
         "eye_ventral",
         "operculum_posterior",
         "pectoral_insertion_upper",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -586,14 +584,6 @@
       "pectoral_insertion_upper": [
         2706,
         1892
-      ],
-      "peduncle_narrowest_dorsal": [
-        5346,
-        1636
-      ],
-      "peduncle_narrowest_ventral": [
-        5339,
-        1862
       ],
       "caudal_base": [
         5389,

@@ -1,0 +1,204 @@
+{
+  "fish_id": "Salvelinus_fontinalis_TEM_11",
+  "metadata": {
+    "strain": "TEM",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "lower_jaw_tip"
+      ],
+      "corrected": {
+        "premaxilla_tip": {
+          "from": [
+            1234,
+            1521
+          ],
+          "to": [
+            1242,
+            1514
+          ],
+          "px": 10.6,
+          "conf": 0.858
+        },
+        "maxilla_mandible_intersection": {
+          "from": [
+            1338,
+            1537
+          ],
+          "to": [
+            1343,
+            1552
+          ],
+          "px": 15.8,
+          "conf": 0.892
+        },
+        "eye_ventral": {
+          "from": [
+            1369,
+            1465
+          ],
+          "to": [
+            1379,
+            1473
+          ],
+          "px": 12.8,
+          "conf": 0.837
+        },
+        "pectoral_insertion_upper": {
+          "from": [
+            1612,
+            1536
+          ],
+          "to": [
+            1640,
+            1548
+          ],
+          "px": 30.5,
+          "conf": 0.439
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-10-03T19:03:23.001Z"
+    },
+    "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left"
+      ],
+      "corrected": {
+        "mouth_right": {
+          "from": [
+            975,
+            1627
+          ],
+          "to": [
+            976,
+            1619
+          ],
+          "px": 8.1,
+          "conf": 0.808
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-10-03T19:53:30.897Z"
+    },
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "97d9a9b8b0d505cbc67c7c8b5058122d39047ad8ce4abbc6207ec6c76b28c748"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "97d9a9b8b0d505cbc67c7c8b5058122d39047ad8ce4abbc6207ec6c76b28c748"
+      }
+    }
+  },
+  "lateral": {
+    "keypoints": {
+      "eye_anterior": [
+        1312,
+        1459
+      ],
+      "eye_posterior": [
+        1409,
+        1412
+      ],
+      "eye_dorsal": [
+        1338,
+        1396
+      ],
+      "eye_ventral": [
+        1379,
+        1473
+      ],
+      "premaxilla_tip": [
+        1242,
+        1514
+      ],
+      "maxilla_mandible_intersection": [
+        1343,
+        1552
+      ],
+      "lower_jaw_tip": [
+        1244,
+        1561
+      ],
+      "caudal_base": [
+        3283,
+        1334
+      ],
+      "pectoral_insertion_upper": [
+        1640,
+        1548
+      ],
+      "operculum_posterior": [
+        1668,
+        1460
+      ]
+    },
+    "operators": {
+      "eye_anterior": "JC",
+      "eye_posterior": "JC",
+      "eye_dorsal": "JC",
+      "eye_ventral": "JC",
+      "premaxilla_tip": "JC",
+      "maxilla_mandible_intersection": "JC",
+      "lower_jaw_tip": "JC",
+      "caudal_base": "JC",
+      "pectoral_insertion_upper": "JC",
+      "operculum_posterior": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1143,
+        2330
+      ],
+      "point_b": [
+        1326,
+        2319
+      ],
+      "known_mm": 10
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        826,
+        1618
+      ],
+      "mouth_right": [
+        976,
+        1619
+      ]
+    },
+    "operators": {
+      "mouth_left": "JC",
+      "mouth_right": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1048,
+        1465
+      ],
+      "point_b": [
+        1071,
+        1647
+      ],
+      "known_mm": 10
+    }
+  }
+}

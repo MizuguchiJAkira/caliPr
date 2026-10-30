@@ -14,8 +14,7 @@
         "eye_posterior",
         "eye_ventral",
         "lower_jaw_tip",
-        "maxilla_mandible_intersection",
-        "peduncle_narrowest_dorsal"
+        "maxilla_mandible_intersection"
       ],
       "corrected": {
         "eye_anterior": {
@@ -89,18 +88,6 @@
           ],
           "px": 52.5,
           "conf": 0.371
-        },
-        "peduncle_narrowest_ventral": {
-          "from": [
-            2046,
-            1781
-          ],
-          "to": [
-            2454,
-            1718
-          ],
-          "px": 412.8,
-          "conf": 0.301
         }
       },
       "unreviewed": [],
@@ -109,7 +96,7 @@
         "anal",
         "pectoral"
       ],
-      "predicted_at": "2026-09-24T01:50:36.804Z"
+      "predicted_at": "2026-09-30T17:36:27.840Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -125,6 +112,7 @@
       "predicted_at": "2026-09-23T09:39:47"
     },
     "assisted_by": "snapshot-best-170.pt",
+    "data_note": "outlier, excluded: PlFl (2.72x of its strain's typical, size-corrected \u2014 no pelvic fin visible between the two points)",
     "images": {
       "lateral": {
         "width": 6000,
@@ -148,8 +136,7 @@
     ],
     "exclude_traits": [
       "PlFl"
-    ],
-    "data_note": "outlier, excluded: PlFl (2.72x of its strain's typical, size-corrected \u2014 no pelvic fin visible between the two points)"
+    ]
   },
   "lateral": {
     "polygons": {
@@ -391,14 +378,6 @@
         2414,
         1893
       ],
-      "peduncle_narrowest_dorsal": [
-        3454,
-        1612
-      ],
-      "peduncle_narrowest_ventral": [
-        3492,
-        1718
-      ],
       "caudal_base": [
         3496,
         1646
@@ -426,7 +405,20 @@
       "pelvic_tip": [
         2907,
         1945
+      ],
+      "dorsal_base_anterior": [
+        2618,
+        1638
+      ],
+      "dorsal_base_posterior": [
+        2812,
+        1656
       ]
+    },
+    "operators": {
+      "pectoral": "model",
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

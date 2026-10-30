@@ -17,9 +17,7 @@
         "maxilla_mandible_intersection",
         "operculum_posterior",
         "pectoral_insertion_upper",
-        "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral"
+        "pectoral_ray_tip"
       ],
       "corrected": {
         "premaxilla_tip": {
@@ -211,14 +209,6 @@
       "pectoral_ray_tip": [
         2991.0,
         1739.0
-      ],
-      "peduncle_narrowest_dorsal": [
-        5339.0,
-        1432.0
-      ],
-      "peduncle_narrowest_ventral": [
-        5325.0,
-        1632.0
       ],
       "caudal_base": [
         5363.0,

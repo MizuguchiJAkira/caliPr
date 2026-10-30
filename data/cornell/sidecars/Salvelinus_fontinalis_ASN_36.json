@@ -18,8 +18,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "premaxilla_tip"
       ],
@@ -66,9 +64,21 @@
       "polygons_from_model": [
         "pectoral"
       ],
-      "predicted_at": "2026-09-23T01:48:16.508Z"
+      "predicted_at": "2026-09-30T17:34:45.231Z"
     },
     "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47"
+    },
     "assisted_by": "snapshot-best-170.pt",
     "images": {
       "lateral": {
@@ -80,23 +90,6 @@
         "width": 6000,
         "height": 4000,
         "sha256": "7216b4e29fc66c9790ebdb3f4dfa43d31f40cc12e2e666dbc0bb64f86a5ae0c9"
-      }
-    },
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.981,
-        "mouth_right": 0.938
       }
     }
   },
@@ -304,14 +297,6 @@
         2451,
         2082
       ],
-      "peduncle_narrowest_dorsal": [
-        4152,
-        1735
-      ],
-      "peduncle_narrowest_ventral": [
-        4150,
-        1892
-      ],
       "caudal_base": [
         4177,
         1815
@@ -347,7 +332,20 @@
       "dorsal_tip": [
         2967,
         1573
+      ],
+      "dorsal_base_anterior": [
+        2752,
+        1583
+      ],
+      "dorsal_base_posterior": [
+        3104,
+        1591
       ]
+    },
+    "operators": {
+      "pectoral": "model",
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -376,7 +374,6 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 19.3601,
-      "placed_by": "ruler-ticks",
       "notes": "mirror ruler detected on the head-on view turned a quarter turn (18.86 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
     }
   }

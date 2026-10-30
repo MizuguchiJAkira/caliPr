@@ -1,0 +1,162 @@
+{
+ "fish_id": "Salvelinus_fontinalis_LT_14",
+ "metadata": {
+  "strain": "LT",
+  "source": "hand-labeled",
+  "assist_frontal": {
+   "model": "snapshot-200.pt",
+   "accepted": [
+    "mouth_left",
+    "mouth_right"
+   ],
+   "corrected": {},
+   "unreviewed": [],
+   "unreviewed_confidence": {},
+   "polygons_from_model": [],
+   "predicted_at": "2026-09-30T17:24:47.912Z"
+  },
+  "assisted_by": "snapshot-200.pt",
+  "images": {
+   "frontal": {
+    "width": 6000,
+    "height": 4000,
+    "sha256": "a5add60283c996ec8b36990a2aa508ac47c054e9b60bd315a28883572fb55119"
+   }
+  },
+  "assist": {
+   "model": "snapshot-best-170.pt",
+   "accepted": [
+    "eye_anterior",
+    "eye_dorsal",
+    "eye_posterior",
+    "eye_ventral",
+    "lower_jaw_tip",
+    "maxilla_mandible_intersection",
+    "operculum_posterior",
+    "pectoral_insertion_upper",
+    "pectoral_ray_tip",
+    "pelvic_base_center",
+    "premaxilla_tip"
+   ],
+   "corrected": {},
+   "unreviewed": [],
+   "unreviewed_confidence": {},
+   "polygons_from_model": [
+    "pectoral"
+   ],
+   "predicted_at": "2026-10-01T01:45:48.076Z"
+  },
+  "unreviewed_predictions": [],
+  "restored": {
+   "lateral_from": "R analysis/procrustes/landmarks.tps (export 2026-10-03) and sidecars_auto (points accepted unmoved)",
+   "on": "2026-10-20",
+   "why": "the lateral view was cleared by accident on 2026-10-13 13:36",
+   "not_recovered": [
+    "dorsal_base_anterior",
+    "dorsal_base_posterior",
+    "ruler points (scale kept as px/mm)",
+    "pectoral outline"
+   ]
+  }
+ },
+ "frontal": {
+  "keypoints": {
+   "mouth_left": [
+    375,
+    2170
+   ],
+   "mouth_right": [
+    616,
+    2167
+   ]
+  },
+  "operators": {
+   "mouth_left": "JC",
+   "mouth_right": "JC"
+  },
+  "calibration": {
+   "mode": "manual",
+   "point_a": [
+    602,
+    2666
+   ],
+   "point_b": [
+    617,
+    2861
+   ],
+   "known_mm": 10
+  }
+ },
+ "lateral": {
+  "keypoints": {
+   "eye_anterior": [
+    1543.5,
+    2026.2
+   ],
+   "eye_dorsal": [
+    1621.7,
+    1932.9
+   ],
+   "eye_posterior": [
+    1736.2,
+    1988.6
+   ],
+   "eye_ventral": [
+    1663.6,
+    2088.7
+   ],
+   "lower_jaw_tip": [
+    1399.2,
+    2153.9
+   ],
+   "maxilla_mandible_intersection": [
+    1600.6,
+    2206.9
+   ],
+   "operculum_posterior": [
+    2221.9,
+    2090.4
+   ],
+   "pectoral_insertion_upper": [
+    2164.1,
+    2254.2
+   ],
+   "pectoral_ray_tip": [
+    2539.9,
+    2265.8
+   ],
+   "pelvic_base_center": [
+    3525.7,
+    2351.7
+   ],
+   "premaxilla_tip": [
+    1395.4,
+    2107.6
+   ],
+   "caudal_base": [
+    5206.0,
+    2095.0
+   ]
+  },
+  "polygons": {},
+  "operators": {
+   "eye_anterior": "JC",
+   "eye_dorsal": "JC",
+   "eye_posterior": "JC",
+   "eye_ventral": "JC",
+   "lower_jaw_tip": "JC",
+   "maxilla_mandible_intersection": "JC",
+   "operculum_posterior": "JC",
+   "pectoral_insertion_upper": "JC",
+   "pectoral_ray_tip": "JC",
+   "pelvic_base_center": "JC",
+   "premaxilla_tip": "JC",
+   "caudal_base": "JC"
+  },
+  "calibration": {
+   "mode": "ticks",
+   "px_per_mm": 22.9002,
+   "placed_by": "restored"
+  }
+ }
+}

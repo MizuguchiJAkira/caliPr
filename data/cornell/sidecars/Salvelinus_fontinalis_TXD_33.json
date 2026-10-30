@@ -17,8 +17,6 @@
         "eye_ventral",
         "maxilla_mandible_intersection",
         "operculum_posterior",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -133,14 +131,6 @@
       "pectoral_ray_tip": [
         2547.0,
         2153.0
-      ],
-      "peduncle_narrowest_dorsal": [
-        4807.0,
-        1630.0
-      ],
-      "peduncle_narrowest_ventral": [
-        4821.0,
-        1841.0
       ],
       "caudal_base": [
         4859.0,

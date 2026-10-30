@@ -6,19 +6,26 @@
     "assist": {
       "model": "snapshot-best-170.pt",
       "accepted": [],
-      "corrected": {},
-      "unreviewed": [
-        "lower_jaw_tip"
-      ],
-      "unreviewed_confidence": {
-        "lower_jaw_tip": 0.842
+      "corrected": {
+        "lower_jaw_tip": {
+          "from": [
+            1727,
+            1398
+          ],
+          "to": [
+            1731,
+            1370
+          ],
+          "px": 28.3,
+          "conf": 0.842
+        }
       },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-23T00:40:35.298Z"
+      "predicted_at": "2026-09-30T17:30:26.246Z"
     },
-    "unreviewed_predictions": [
-      "lower_jaw_tip"
-    ],
+    "unreviewed_predictions": [],
     "assisted_by": "snapshot-best-170.pt",
     "data_note": "caudal fin clipped by frame \u2014 TL/CFd/CFs unreliable; snout clipped by frame \u2014 anterior-anchored traits unreliable",
     "exclude_traits": [
@@ -793,17 +800,9 @@
         2557,
         1627
       ],
-      "peduncle_narrowest_dorsal": [
-        5494,
-        1220
-      ],
-      "peduncle_narrowest_ventral": [
-        5543,
-        1393
-      ],
       "caudal_base": [
-        5543,
-        1297
+        5420,
+        1307
       ],
       "pectoral_insertion_upper": [
         2476,
@@ -854,9 +853,13 @@
         1560
       ],
       "lower_jaw_tip": [
-        1727,
-        1398
+        1731,
+        1370
       ]
+    },
+    "operators": {
+      "caudal_base": "JC",
+      "lower_jaw_tip": "JC"
     },
     "calibration": {
       "mode": "manual",
