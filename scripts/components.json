@@ -1,0 +1,20 @@
+{
+  "autolabel": {
+    "title": "Auto-label",
+    "released": false,
+    "what": "PyTorch, DeepLabCut, Segment Anything and the trained landmark models listed in models.json",
+    "install": "python scripts/install_autolabel.py"
+  },
+  "batch": {
+    "title": "Batch identification",
+    "released": false,
+    "requires": ["autolabel"],
+    "what": "a reference set of hand-landmarked, identified specimens to compare the fish of a photograph with",
+    "install": "python scripts/install_component.py batch",
+    "file": null,
+    "url": null,
+    "sha256": null,
+    "bytes": null,
+    "folder": null
+  }
+}

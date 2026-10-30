@@ -1,7 +1,7 @@
 # caliPr
 
 Reproducible morphometrics for museum fish collections. caliPr records landmarks
-on specimen photographs and derives 33 morphometric traits, coordinates in TPS
+on specimen photographs and derives 34 morphometric traits, coordinates in TPS
 format for geometric morphometrics, and annotated images, from a single stored
 annotation per specimen.
 
@@ -24,6 +24,28 @@ across 35 specimens (see [Accuracy](#accuracy)).
 
 ## Installation
 
+### Mac app
+
+On an Apple Silicon Mac (macOS 12 or later), download `caliPr-<version>-mac.zip`
+from the [releases](https://github.com/MizuguchiJAkira/caliPr/releases), unzip
+it and drag **caliPr** into Applications. It carries its own Python, so there is
+nothing else to install.
+
+The app is not signed with an Apple developer certificate, so macOS refuses to
+open it the first time. Open **System Settings › Privacy & Security**, scroll to
+the message about caliPr and click **Open Anyway**. It opens normally from then
+on.
+
+Studies and exports are kept in `~/Documents/caliPr`. The app is the labeler:
+placing landmarks, measuring and exporting. Auto-label and batch identification
+are separate downloads (see [Optional parts](#optional-parts)); Auto-label goes
+into `~/Library/Application Support/caliPr`.
+
+To build the app from this repository, run `python3 packaging/macos/build_app.py`
+(needs [uv](https://docs.astral.sh/uv/) and the Xcode command line tools).
+
+### From source
+
 ```bash
 git clone https://github.com/MizuguchiJAkira/caliPr.git
 cd caliPr
@@ -35,21 +57,43 @@ Python 3.11 or newer. Four dependencies (NumPy, OpenCV, openpyxl, Pillow),
 approximately seven seconds. The system Python on macOS is 3.9 and will be
 refused.
 
-Automated landmarking (Auto-label) requires PyTorch, DeepLabCut and Segment
-Anything, which are installed separately and are not needed for manual labelling
-or export, and the trained models, which are downloaded rather than kept in the
-repository:
+### Optional parts
+
+The labeler is the download. Two parts are installed on top of it, each when it
+is wanted; `scripts/components.json` records whether each is released for
+download.
+
+| part | what it adds | what it downloads |
+|---|---|---|
+| Auto-label | the trained model places landmarks; you accept or move each one | PyTorch, DeepLabCut and Segment Anything (about 1.7 GB), and the trained models (about 570 MB) |
+| Batch identification | finds and landmarks every fish in a photograph of a lot, and compares each with a reference set of identified species, beside the lot's drainage, GBIF records and museum specimen photographs | a reference set: identified, hand-landmarked specimens and the credits of their photographs |
+
+Neither is released for download yet. Until a part is installed, its button says
+so, and once it is released the button offers to download it. The commands are:
 
 ```bash
-python3.11 -m venv .venv-train
-./.venv-train/bin/pip install "deeplabcut==3.0.1" transformers
-./.venv/bin/python scripts/fetch_model.py
+./.venv/bin/python scripts/install_autolabel.py        # Auto-label
+./.venv/bin/python scripts/install_component.py batch  # batch identification
 ```
 
-About 1.7 GB for the environment and 570 MB for the models and Segment Anything.
-The models are trained on the Cornell brook trout photo rig (fish facing left, a
-ruler along the top, a mirror showing the head) and do not transfer to
-photographs taken another way.
+`install_autolabel.py` builds `.venv-train` with the package versions in
+`scripts/autolabel-requirements.txt`, then downloads the models
+(`scripts/fetch_model.py`). `install_component.py` unpacks the reference set into
+the data folder as a study of its own, after checking it against its recorded
+SHA-256. Batch identification needs Auto-label to find and landmark the fish; the
+two can be installed in either order.
+
+A study of your own can serve as the reference set: identified specimens,
+hand-landmarked, with the species in each file name and `"reference_set": true`
+in its `schema.json`. `scripts/package_component.py` packages one for
+publishing, with its landmarks and photo credits but no photographs.
+
+The side-view model is trained on brook trout and alewife, with three smaller
+museum series, and answers in caliPr's or BGNN's landmark names as the study
+uses. It finds the fish before placing landmarks on it, so a fish photographed
+from farther away or among other objects is handled; a fish of a markedly
+different shape needs labelled examples to fine-tune on (see
+[Automated landmarking](#automated-landmarking)).
 
 Development and all timings reported here are on Apple Silicon (M3, 8 GB) with
 PyTorch on the MPS backend. There is no CUDA requirement.
@@ -85,13 +129,21 @@ specimens' collection records.
 
 ## Measurements
 
-Twenty-two traits from the MorFishJ schema and eleven Cornell extensions, derived
-from 5 polygons and 23 lateral keypoints. The schema is defined in
+Twenty-two traits from the MorFishJ schema and twelve Cornell extensions, derived
+from 5 polygons and 25 lateral keypoints. The schema is defined in
 `src/fish_morpho/landmark_config.py` and is the single source of truth for the
 labeler, the measurement engine and the training pipeline.
 
 Traits requiring a landmark the study does not collect are omitted from the
 export rather than left blank.
+
+The caudal-fin base can be marked as the BGNN 2D protocol marks it: the two ends
+of the caudal crease (its landmarks 11 and 13, under BGNN's own names) either side
+of the end of the vertebral column (its 12, caliPr's `caudal_base`). CPb, the
+peduncle's depth between the crease ends, is an alternative to MorFishJ's CPd,
+whose "narrowest point" is a judgement of where a curve is least. A study can also
+keep landmarks away from Auto-label (`exclude_predicted_keypoints`) where the
+model's guesses cost more to check than to click.
 
 Three columns of the reference spreadsheet are out of scope: `weight(g)` is a
 mass, and `body_width` and `caudal_peduncle_width` are measured across the
@@ -285,12 +337,30 @@ carried onto the QC sheet.
 Under development and not required to use the pipeline. See
 [docs/automation.md](docs/automation.md) for the full evaluation.
 
-Current state: median held-out keypoint error 0.81 mm across 9 specimens, against
-a manual pipeline that agrees with calipers to approximately 1.4 mm. Thirteen of
-nineteen landmarks are under 1 mm; `dorsal_tip` (2.10 mm) and
-`peduncle_narrowest_ventral` (2.01 mm) are not. The model does not transfer
-across orders: on alewife it returns a median likelihood of 0.28 with every point
-below the 0.6 threshold.
+The side-view model is trained across species and landmark schemes: 322 fish
+from five trout strains, 122 alewife, a *Notropis* series and two other CUMV
+lots, on 26 landmarks shared between caliPr's scheme and BGNN's. It predicts in
+two passes: the whole photograph to find the fish, then the fish framed at a
+standard length to place the points. A point more than 35% of the fish's length
+from where its other landmarks put it, or off Segment Anything's outline of the
+fish, is withheld with the reason given.
+
+On 54 held-out fish that neither it nor the previous trout-only model was trained
+on, scoring only points a person placed or moved:
+
+| | median error | points > 5% of length out | points withheld |
+|---|---|---|---|
+| trout-only model (2026-08) | 2.08% of length, 1.72 mm | 34.0% | 82 |
+| cross-species model (2026-10) | 0.52% of length, 0.50 mm | 3.7% | 5 |
+
+Every group improved: the trout strains to 0.41-0.81 mm (HRN and TXD on three or
+four hand-placed points each), alewife from 3.14 to 0.66 mm, and the non-trout
+series, on which the trout-only model was unusable (55-64% of length out), to under
+1% of length. The weakest landmarks are the fin-base ends, at 1.2-1.4% of length. A
+fish of another shape, such as a mormyrid, will need a few dozen labelled specimens
+to fine-tune on; the framing and the checks tolerate other proportions, the
+landmarks themselves have to be learned. Method and caveats:
+[docs/automation.md](docs/automation.md).
 
 Segment Anything produces the body outline at IoU 0.937 against dense hand
 tracings. It follows the dorsal and adipose fins rather than crossing their
@@ -307,10 +377,9 @@ labels the check rejects 0.7% of correct landmarks (4 of 553, leave-one-out). A
 dataset without fitted bands is not checked, which is the correct default for a
 taxon whose proportions have not been measured.
 
-Accuracy is bounded by labelling coverage rather than by the model. The head and
-peduncle landmarks carry 46 labelled examples each and predict to 0.002-0.008 of
-standard length; every fin landmark carries six or seven, and those are the ones
-that fail.
+Accuracy is bounded by labelling coverage rather than by the model. The head
+landmarks, labelled on nearly every fish, predict to 0.2-0.5% of the fish's
+length; the fin-base ends, labelled on a few dozen, are the ones that fail.
 
 Predictions are marked `source: predicted` and are refused by
 `build_dlc_dataset.py`. Saved sidecars record which points a human corrected,
@@ -321,10 +390,11 @@ evidence and are not pooled.
 
 ```
 src/fish_morpho/     schema, measurement engine, calibration, validation, export
-scripts/             labeler, exporters, preprocessing, model training and evaluation
+scripts/             labeler, exporters, preprocessing, model training and evaluation,
+                     installers for the optional parts (components.json)
 data/<dataset>/      lateral/, frontal/, sidecars/, schema.json
 docs/                tutorial, automation reference, methods ledger
-tests/               401 tests
+tests/               522 tests
 ```
 
 `docs/what-we-tried.md` records approaches that were tested and rejected, with
@@ -333,7 +403,7 @@ the measurements that rejected them.
 ## Status
 
 The manual pipeline is in use. Sidecar JSON in, validated workbook and TPS out,
-33 traits covering all 22 photo-measurable columns of the reference spreadsheet.
+34 traits covering all 22 photo-measurable columns of the reference spreadsheet.
 
 Fin outlines are being re-traced at the 16-vertex target; 74 of 131 brook trout
 are complete. Until a specimen is redone its fin-derived traits export as blank

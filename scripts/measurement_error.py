@@ -21,7 +21,7 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 
-from fish_morpho import repeatability  # noqa: E402
+from fish_morpho import paths, repeatability  # noqa: E402
 from fish_morpho.landmark_config import TRAITS  # noqa: E402
 
 
@@ -46,7 +46,7 @@ def as_json(designs) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="measurement_error")
     ap.add_argument("--dataset", required=True)
-    ap.add_argument("--data-root", type=Path, default=_ROOT / "data")
+    ap.add_argument("--data-root", type=Path, default=paths.WORK / "data")
     ap.add_argument("--json", type=Path, default=None, help="Write the result here as JSON.")
     ap.add_argument("--new-round", type=int, default=None, metavar="N",
                     help="Set up a blind re-label round of N labelled fish instead.")

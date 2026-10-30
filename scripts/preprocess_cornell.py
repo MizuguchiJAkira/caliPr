@@ -165,6 +165,32 @@ def is_upside_down(bgr: np.ndarray) -> bool:
     return bottom > top
 
 
+#: How much darker, in mean grey level, the mirror's side of the frame must be
+#: than the other before the mirror decides the orientation on its own.
+MIRROR_MARGIN = 15.0
+
+
+def mirror_side(bgr: np.ndarray) -> str | None:
+    """Which edge the head-on mirror is on: "left", "right", or None if unclear.
+
+    The mirror's holder is black and fills a strip down one side of the frame,
+    so the darker of the two outer strips is the mirror's, by a wide margin (at
+    least 20 grey levels on the lab's photos). It does not depend on where the
+    ruler was laid, which the ruler test does -- and the 2026-09-28 TEM series
+    put its ruler mid-frame, with pinned number cards in the top band, where
+    the ruler test read the cards' grid lines as ticks and left every photo
+    upside down.
+    """
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+    small = cv2.resize(gray, (max(1, gray.shape[1] // 8), max(1, gray.shape[0] // 8)))
+    w = small.shape[1]
+    s = max(1, int(w * 0.12))
+    left, right = float(small[:, :s].mean()), float(small[:, w - s:].mean())
+    if abs(left - right) < MIRROR_MARGIN:
+        return None
+    return "left" if left < right else "right"
+
+
 def normalize_orientation(raw_path: Path) -> np.ndarray:
     """Load a JPEG and return a BGR OpenCV array in canonical orientation.
 
@@ -176,7 +202,9 @@ def normalize_orientation(raw_path: Path) -> np.ndarray:
       3. Detect whether the frame is upside-down (ruler at the bottom) and
          rotate 180° if so.
 
-    Step 3 exists because the EXIF tag is NOT consistent across this
+    Step 3 reads the head-on mirror's side where that is clear (see
+    :func:`mirror_side`), and the ruler's otherwise. It exists because the EXIF
+    tag is NOT consistent across this
     collection: most lab photos carry orientation 6, but a substantial
     minority carry orientation 1 and are already landscape, so steps 1-2
     leave them 180° from canonical — fish facing right with the mirror on
@@ -199,8 +227,11 @@ def normalize_orientation(raw_path: Path) -> np.ndarray:
     rgb = np.array(pil)
     bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
 
+    # The mirror, where it is clear, else the ruler. Canonical has the mirror
+    # on the LEFT; on the right, the frame is 180 degrees round.
     flipped = False
-    if is_upside_down(bgr):
+    side = mirror_side(bgr)
+    if side == "right" or (side is None and is_upside_down(bgr)):
         bgr = cv2.rotate(bgr, cv2.ROTATE_180)
         flipped = True
 

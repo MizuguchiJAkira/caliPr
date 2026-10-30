@@ -45,7 +45,7 @@ def srv(tmp_path, monkeypatch):
     asked = []
 
     def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None,
-             fins=None):
+             fins=None, landmarks=None):
         asked.append(list(fins or []))
         return {"ok": True, "keypoints": {"premaxilla_tip": [50.0, 100.0]},
                 "confidence": {"premaxilla_tip": 0.9}, "low_confidence": [],
@@ -54,6 +54,8 @@ def srv(tmp_path, monkeypatch):
                 "elapsed": 0.1}
 
     monkeypatch.setattr(ls.Predictor, "predict", classmethod(lambda cls, *a, **k: fake(*a, **k)))
+    # Whatever models this machine has installed are not the fake's.
+    monkeypatch.setattr(ls, "current_model", lambda view="lateral": None)
     ls.Handler.datasets = {"study": study}
     ls.Handler.default_dataset = "study"
     ls.Handler.images_dir = study
@@ -90,6 +92,16 @@ def test_a_study_can_refuse_them(srv):
         {"exclude_predicted_polygons": ["anal"], "exclude_polygons": ["pectoral"]}))
     _json(url, f"/api/predict/{FID}?dataset=study")
     assert asked[-1] == []
+
+
+def test_an_outline_cached_before_the_study_refused_it_is_not_served(srv):
+    url, study, asked = srv
+    _json(url, f"/api/predict/{FID}?dataset=study")
+    (study / "schema.json").write_text(json.dumps({"exclude_predicted_polygons": ["anal"]}))
+    before = len(asked)
+    got = _json(url, f"/api/predict/{FID}?dataset=study")
+    assert len(asked) == before                          # served from the cache
+    assert set(got["polygons"]) == {"pectoral"}
 
 
 def test_the_frontal_view_is_not_asked_for_fins(srv):

@@ -40,6 +40,8 @@ from pathlib import Path
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 
+from fish_morpho import paths  # noqa: E402
+
 #: Below this likelihood a point is reported as low-confidence. 0.6 is where the
 #: separation sat on the held-out set; it is a reporting threshold, not a claim
 #: about calibration, and likelihoods are not comparable between landmarks.
@@ -55,14 +57,47 @@ VIEW_PROJECT = {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}
 PIN = "model.json"
 
 
+#: The cross-species model (``build_union_dataset.py``), which answers for the
+#: lateral view once it has been evaluated and its snapshot pinned in its
+#: ``model.json`` -- never merely because training has started writing snapshots.
+UNION_PROJECT = "dlc_project_union"
+
+
 def find_project(explicit: Path | None, view: str = "lateral") -> Path:
     if explicit is not None:
         return explicit
+    if view == "lateral":
+        for cfg in sorted((paths.MODELS / UNION_PROJECT).glob("*/config.yaml"), reverse=True):
+            if (cfg.parent / PIN).is_file():
+                return cfg.parent
     folder = VIEW_PROJECT[view]
-    hits = sorted((_ROOT / folder).glob("*/config.yaml"))
+    hits = sorted((paths.MODELS / folder).glob("*/config.yaml"))
     if not hits:
         raise SystemExit(f"no DLC project under {folder}/ — pass --project")
     return hits[-1].parent
+
+
+def model_label(project: Path, snapshot: Path) -> str:
+    """What a prediction records as the model that made it.
+
+    The snapshot's file name, as it always has been -- but a cross-species
+    snapshot is also named for its project, since every training run's best
+    snapshot is called ``snapshot-best-<epoch>.pt`` and a cached prediction must
+    say which run made it.
+    """
+    if project.parent.name == UNION_PROJECT:
+        return f"{UNION_PROJECT}/{project.name}/{snapshot.name}"
+    return snapshot.name
+
+
+def current_model(view: str = "lateral") -> tuple[Path, str] | None:
+    """The project and label of the model Auto-label would use now, if any."""
+    try:
+        project = find_project(None, view)
+        _, snapshot = find_config_and_snapshot(project, None)
+    except SystemExit:
+        return None
+    return project, model_label(project, snapshot)
 
 
 def _epoch(p: Path) -> int:
@@ -134,7 +169,7 @@ def training_scale(project: Path, override: float | None) -> float:
             return list(split["keypoints"]) == parts
         return bool(parts) and set(parts) <= lateral
 
-    for cand in [project / "split.json", *sorted(_ROOT.glob("dlc*/split.json"))]:
+    for cand in [project / "split.json", *sorted(paths.MODELS.glob("dlc*/split.json"))]:
         if not cand.is_file():
             continue
         try:
@@ -221,7 +256,7 @@ def main(argv=None) -> int:
         raise SystemExit("no images to predict on")
 
     out_dir = args.out or ((base / "sidecars_auto") if base
-                           else _ROOT / "results" / "auto" / "sidecars")
+                           else paths.WORK / "results" / "auto" / "sidecars")
     out_dir.mkdir(parents=True, exist_ok=True)
 
     print(f"model    {snapshot.name}  (trained at scale {scale})")

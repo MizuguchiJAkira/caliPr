@@ -14,12 +14,9 @@ the fin outliner is a single file that lands at ``fin_seg_runs/``. Whichever it
 is, anything already installed under that name is never replaced: it may be one
 trained here.
 
-Auto-label also needs the training stack, installed separately from the labeler:
-
-    python3.11 -m venv .venv-train
-    .venv-train/bin/pip install "deeplabcut==3.0.1" transformers
-
-If that environment exists, this also downloads Segment Anything's weights
+Auto-label also needs the training stack, installed separately from the labeler
+(``install_autolabel.py`` installs it and then runs this). If that environment
+exists, this also downloads Segment Anything's weights
 (~375 MB, from Hugging Face), which the labeler uses to find the fish's outline.
 Otherwise the first Auto-label would stall for a minute while it downloads them.
 
@@ -40,6 +37,10 @@ import zipfile
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(_ROOT / "src"))
+
+from fish_morpho import paths  # noqa: E402
+
 MANIFEST = _ROOT / "scripts" / "models.json"
 SAM = "facebook/sam-vit-base"
 
@@ -178,9 +179,8 @@ def fetch_sam(root: Path) -> None:
     py = root / ".venv-train" / "bin" / "python"
     if not py.is_file():
         print("\nAuto-label also needs the training stack, which is not installed yet:\n"
-              "    python3.11 -m venv .venv-train\n"
-              '    .venv-train/bin/pip install "deeplabcut==3.0.1" transformers\n'
-              "then run this again to fetch the outline model too.")
+              "    python scripts/install_autolabel.py\n"
+              "installs it and fetches the outline model too.")
         return
     print(f"\nfetching Segment Anything ({SAM}, ~375 MB, skipped if already cached)")
     code = ("from transformers import SamModel, SamProcessor; "
@@ -195,7 +195,8 @@ def main(argv=None) -> int:
     ap.add_argument("--views", nargs="+",
                     help="which models to fetch (default: every published one)")
     ap.add_argument("--manifest", type=Path, default=MANIFEST)
-    ap.add_argument("--root", type=Path, default=_ROOT, help="where to install (the repository)")
+    ap.add_argument("--root", type=Path, default=paths.MODELS,
+                    help="where to install (the repository, or CALIPR_MODELS if set)")
     ap.add_argument("--from", dest="source", type=Path,
                     help="a folder holding the zips already (offline, or before a release "
                          "is published); still checked against the recorded checksums")

@@ -64,7 +64,6 @@
      icon. */
   [data-ico]::before { content:''; width:14px; height:14px; flex:none;
     background:center/contain no-repeat; }
-  [data-ico=save]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M1.5 1.5h9l2 2v9h-11z' fill='%234A86C5' stroke='%232C5E94'/%3E%3Crect x='4' y='2' width='5' height='3.2' fill='%23fff'/%3E%3Crect x='3.3' y='8' width='7.4' height='4' fill='%23E6EFF9'/%3E%3C/svg%3E"); }
   [data-ico=undo]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M4.5 2.5 1.5 5.5l3 3' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M2 5.5h6.3a3.6 3.6 0 0 1 0 7.2H5.5' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
   [data-ico=clear]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5.6' fill='%23D2504B'/%3E%3Cpath d='M4.8 4.8l4.4 4.4M9.2 4.8l-4.4 4.4' stroke='%23fff' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
   [data-ico=broom]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M12.5 1.5 7.4 7' stroke='%239A6531' stroke-width='1.7' stroke-linecap='round'/%3E%3Cpath d='M5.6 6.2l3.1 2.6-2 4.2C4.8 12.7 2.9 11.6 1.5 9.9z' fill='%23EBB54E' stroke='%23B07B1E' stroke-linejoin='round'/%3E%3Cpath d='M5.2 7.1l2.9 2.5' stroke='%23B07B1E'/%3E%3C/svg%3E"); }
@@ -78,7 +77,16 @@
   [data-ico=image]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1.5' y='2.5' width='11' height='9' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M2 11l3.4-3.6 2.4 2.3 1.6-1.4L12 11' fill='%2398C379'/%3E%3Ccircle cx='9.4' cy='5.2' r='1.1' fill='%23F0B12B'/%3E%3C/svg%3E"); }
   [data-ico=newfolder]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M.8 2.8h4l1.3 1.4h5.4v6.4H.8z' fill='%23F3C969' stroke='%23B8912F'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
   [data-ico=addphotos]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='.8' y='1.8' width='10.4' height='8.4' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M1.3 9.7l3.1-3.2 2.1 2 1.5-1.3 2.6 2.5z' fill='%2398C379'/%3E%3Ccircle cx='8.3' cy='4.6' r='1' fill='%23F0B12B'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
+  [data-ico=prev]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M8.8 2.5L4.3 7l4.5 4.5' fill='none' stroke='%233A78B5' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  [data-ico=next]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M5.2 2.5L9.7 7l-4.5 4.5' fill='none' stroke='%233A78B5' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  #navpos { font:11px var(--mono); color:var(--mut); min-width:58px; text-align:center;
+    font-variant-numeric:tabular-nums; }
+  [data-ico=rename]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1' y='4' width='8.5' height='6' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M3 7h3' stroke='%23707780' stroke-width='1.2'/%3E%3Cpath d='M11.2 1.8l1.2 1.2-5.3 5.3-1.7.5.5-1.7z' fill='%23F2C94C' stroke='%23B8912F' stroke-width='.8' stroke-linejoin='round'/%3E%3C/svg%3E"); }
   [data-ico=trash]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.5 3.5h9M5.5 3.5V2h3v1.5' fill='none' stroke='%23707780' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M3.5 3.5l.7 9h5.6l.7-9' fill='%23fff' stroke='%23707780' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M5.8 5.5v5M8.2 5.5v5' stroke='%23C9323F' stroke-width='1.1' stroke-linecap='round'/%3E%3C/svg%3E"); }
+  [data-ico=rotr]::before, [data-ico=rotl]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M7 2.4A4.6 4.6 0 1 1 2.4 7' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M.7 8.6 2.4 6.6l1.8 2' fill='none' stroke='%234A6F96' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  [data-ico=rotl]::before { transform:scaleX(-1); }
+  [data-ico=mirh]::before, [data-ico=mirv]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M7 1v12' stroke='%23707780' stroke-width='1.1' stroke-dasharray='1.6 1.2'/%3E%3Cpath d='M5.6 3.4 1.2 7l4.4 3.6z' fill='%234A6F96'/%3E%3Cpath d='M8.4 3.4 12.8 7l-4.4 3.6z' fill='%23fff' stroke='%234A6F96' stroke-width='1.1' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+  [data-ico=mirv]::before { transform:rotate(90deg); }
   [data-ico=repeat]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M2.2 6.2A4.8 4.8 0 0 1 11 4.3M11.8 7.8A4.8 4.8 0 0 1 3 9.7' fill='none' stroke='%233A78B5' stroke-width='1.4'/%3E%3Cpath d='M11.6 1.8v2.9H8.7M2.4 12.2V9.3h2.9' fill='none' stroke='%233A78B5' stroke-width='1.4'/%3E%3C/svg%3E"); }
   [data-ico=records]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='1' y='2.5' width='12' height='9' rx='1' fill='%23fff' stroke='%23B8912F'/%3E%3Ccircle cx='4.3' cy='6' r='1.5' fill='%23F3C969' stroke='%23B8912F' stroke-width='.7'/%3E%3Cpath d='M2.4 9.6c.4-1.3 3.4-1.3 3.8 0M7.4 5.2h4M7.4 7.2h4M7.4 9.2h2.6' stroke='%23B8912F' stroke-width='.9'/%3E%3C/svg%3E"); }
   [data-ico=star]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M7 1.2l1.75 3.6 3.95.55-2.87 2.77.7 3.93L7 10.18l-3.53 1.87.7-3.93L1.3 5.35l3.95-.55z' fill='%23F2C94C' stroke='%23B8912F' stroke-linejoin='round'/%3E%3C/svg%3E"); }
@@ -197,6 +205,7 @@
   .mk.h.on { background:var(--accent); color:#fff; }
   .mk.s.on { background:#F2C94C; color:#3A2A00; }
   .mk.p.on { background:#A9B2BC; color:#fff; }
+  .mk.b.on { background:#7A5EA8; color:#fff; }
   #progress .mk { margin-left:6px; margin-right:2px; }
   #uprog { flex:none; padding:0 10px; font-size:11px; color:var(--mut); }
   #uprog.on { padding:5px 10px 6px; border-bottom:1px solid var(--line); background:var(--panel2); }
@@ -291,10 +300,20 @@
   #clipflags button { padding:1px 7px; font-size:11px; }
   #clipflags button.on { background:var(--warnsoft); border-color:#E3AE4A; color:#5A3800; font-weight:bold; }
   #datanote { width:100%; font-size:11.5px; }
+  #cntbody { padding:2px 0 4px; }
+  .cntrow { display:flex; align-items:center; gap:8px; font:12px/1.35 var(--mono); padding:2px 0; }
+  .cntrow .cl { flex:1; min-width:0; }
+  .cntrow input.cnt { width:58px; font:12px var(--mono); text-align:right; }
+  .cnthint { color:var(--mut); font:11px/1.4 var(--ui); margin:0 0 4px; }
 
   /* ---- Viewer pane -------------------------------------------------------- */
-  #viewtab.dirty #viewname { color:#C9323F; }
-  #viewtab.dirty #viewname::after { content:'*'; }
+  /* Every change saves itself, so the RStudio unsaved mark (red name, *) is kept
+     for a fish whose changes could NOT be saved; #saveState beside it says why. */
+  #viewtab.unsaved #viewname { color:#C9323F; }
+  #viewtab.unsaved #viewname::after { content:'*'; }
+  #saveState { font-size:11px; color:var(--mut); padding:0 4px 3px; white-space:nowrap; }
+  #saveState.held { color:var(--warn); }
+  #saveState.bad { color:#C9323F; font-weight:bold; cursor:pointer; }
   .tbsel { display:flex; align-items:center; gap:6px; color:#454B51; padding-right:2px; }
   /* Wraps rather than clipping: on a narrow window the last buttons (Remove
      photo, the view picker) ran off the edge of the pane and could not be reached. */
@@ -424,7 +443,8 @@
     background:#E8F1FB; border:1px solid #9CC0E4; color:#1C4E80; font-weight:bold; font-size:11px; }
   #blindbar.on { display:block; }
   body.blind #autolabel, body.blind #autoall, body.blind #useExample,
-  body.blind #tbRecords, body.blind #recsec { display:none; }
+  body.blind #tbRecords, body.blind #recsec, body.blind #renamePhoto { display:none; }
+  body.handonly #autolabel { display:none; }
   .dsrow .rl { font:10px var(--mono); color:#1C4E80; background:#E8F1FB; border-radius:3px;
     padding:0 4px; margin-left:6px; }
   /* ---- measurement error ------------------------------------------------- */
@@ -652,6 +672,9 @@ species, sex, where and when collected. Typed, imported from a spreadsheet or iD
 or read from the filenames; carried into every export.">Specimen records</button>
   <button id="tbME" class="tb" data-ico="repeat" type="button"
     title="Measurement error: re-label a subset of fish blind, and get each trait's ICC and %ME">Measurement error</button>
+  <button id="tbBatch" class="tb" data-ico="image" type="button"
+    title="Photographs of several fish: find each one, and see which of the study's species its shape is most like"
+    onclick="openBatch()">Batch</button>
   <span class="spacer"></span>
   <div id="blindbar"></div>
   <div id="demobar">DEMO MODE — automated landmarking is live, saving is disabled</div>
@@ -729,6 +752,9 @@ or read from the filenames; carried into every export.">Specimen records</button
       <div id="hint">Select a specimen to begin.</div>
       <div id="autostat"></div>
       <div id="tasks"></div>
+      <details id="cntsec" class="foot" open hidden><summary>Counts <span id="cntstate"></span></summary>
+        <div id="cntbody"></div>
+      </details>
       <details id="dcsec" class="foot"><summary>Data note / compromise <span id="dcstate"></span></summary>
         <div id="clipflags"></div>
         <input id="datanote" type="text" placeholder="note any photo compromise…" />
@@ -741,9 +767,11 @@ or read from the filenames; carried into every export.">Specimen records</button
   <div id="grip2" title="Drag to resize"></div>
   <div id="main" class="col">
     <section class="pane grow">
-      <div class="tabs"><span class="tab on" id="viewtab" data-ico="doc"><span id="viewname">No specimen</span></span></div>
+      <div class="tabs"><span class="tab on" id="viewtab" data-ico="doc"><span id="viewname">No specimen</span></span><span id="saveState" class="aux"></span></div>
       <div id="viewbar" class="toolbar">
-        <button id="save" class="tb" data-ico="save" title="Save sidecar — write this specimen's labels to disk">Save</button>
+        <button id="prevSpec" class="tb" data-ico="prev" type="button" title="Previous specimen in the list ( [ )">Prev</button>
+        <span id="navpos"></span>
+        <button id="nextSpec" class="tb" data-ico="next" type="button" title="Next specimen in the list ( ] )">Next</button>
         <span class="tsep"></span>
         <button id="undo" class="tb" data-ico="undo" title="Undo the last change — a placed point, a drag, a vertex, a clear (Z or ⌘/Ctrl+Z). Redo: ⇧⌘Z">Undo</button>
         <button id="clear" class="tb" data-ico="clear" title="Clear the selected landmark or outline (undoable)">Clear point</button>
@@ -754,7 +782,13 @@ drop its landmarks in. Points it is unsure about come in orange — those are th
 ones to check.">Auto-label</button>
         <span class="tsep"></span>
         <button id="useExample" class="tb" data-ico="star" title="Make this fish the example shown in the reference panel for this study, from its saved landmarks">Use as example</button>
+        <button id="renamePhoto" class="tb" data-ico="rename" title="Give this specimen a new name. Its photographs, labels and records are renamed with it. The strain is read from the name: …_TEM_18.">Rename</button>
         <button id="removePhoto" class="tb" data-ico="trash" title="Take this photograph out of the study. It is moved to data/.trash/ with its labels, not deleted.">Remove photo</button>
+        <span class="tsep"></span>
+        <button id="rotL" class="tb" data-ico="rotl" aria-label="Turn anticlockwise" title="Turn the photograph a quarter turn anticlockwise. Every point saved on it turns with it, and turning back restores the photograph exactly."></button>
+        <button id="rotR" class="tb" data-ico="rotr" aria-label="Turn clockwise" title="Turn the photograph a quarter turn clockwise. Every point saved on it turns with it, and turning back restores the photograph exactly."></button>
+        <button id="mirH" class="tb" data-ico="mirh" aria-label="Mirror left to right" title="Mirror the photograph left to right, for a fish facing right. Every point saved on it moves with it. A mirrored photograph shows the fish's other side, and is recorded as mirrored."></button>
+        <button id="mirV" class="tb" data-ico="mirv" aria-label="Flip top to bottom" title="Flip the photograph top to bottom, for a fish with its back down. Every point saved on it moves with it. A flipped photograph shows the fish's other side, and is recorded as mirrored."></button>
         <span class="spacer"></span>
         <label class="tbsel">View <select id="viewPick">
           <option value="lateral">Lateral</option>
@@ -914,7 +948,8 @@ let history=[], future=[], lastState=null, restoring=false;
 function _stateNow(){
   return JSON.stringify({
     model: JSON.parse(JSON.stringify(model,
-      (k,v)=> (k==='_draft_at'||k==='_pred'||k==='_base_mtime'||k==='_blocked') ? undefined : v)),
+      (k,v)=> (k==='_draft_at'||k==='_sent_at'||k==='_pred'||k==='_base_mtime'||k==='_blocked'
+               ||k==='_saved_views') ? undefined : v)),
     pred: predToJSON()});
 }
 function recordHistory(){
@@ -932,8 +967,8 @@ function _restore(state){
   const d=JSON.parse(state);
   restoring=true;
   try{
-    const base=model._base_mtime, blocked=model._blocked;   // about the disk, not the edit
-    model=d.model; model._base_mtime=base; model._blocked=blocked;
+    const base=model._base_mtime, blocked=model._blocked, onDisk=model._saved_views;  // about the disk
+    model=d.model; model._base_mtime=base; model._blocked=blocked; model._saved_views=onDisk;
     predFromJSON(d.pred);
     lastState=state;
     persistDraft();
@@ -966,7 +1001,7 @@ const cvi=$('#cvimg'), ictx=cvi.getContext('2d');   // the photograph, under cv
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
 
-function blankModel(){return {lateral:emptyView(),frontal:emptyView(),data_note:'',exclude:[]};}
+function blankModel(){return {lateral:emptyView(),frontal:emptyView(),data_note:'',exclude:[],counts:{}};}
 // ---- operator ------------------------------------------------------------------
 // Who is labelling, kept in this browser and written beside every point placed,
 // moved or accepted (lateral.operators in the sidecar). A repeatability study
@@ -1004,6 +1039,32 @@ const CLIP_FLAGS=[
   {id:'fin_damaged',    label:'fin damaged',    traits:[],
    note:'fin damaged/folded on specimen'},
 ];
+// The study's counts -- scales along a row, fin rays -- typed in as whole numbers.
+// A count left blank is not recorded, so an empty box never reads as zero.
+function renderCounts(){
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const sec=$('#cntsec'), list=(SCHEMA&&SCHEMA.counts)||[];
+  sec.hidden=!list.length; if(!list.length) return;
+  const have=(model&&model.counts)||{};
+  $('#cntbody').innerHTML=list.map(c=>
+    `<label class="cntrow" title="${esc(c.hint)}"><span class="cl">${esc(c.label)}</span>`+
+    `<input class="cnt" type="number" min="0" step="1" inputmode="numeric" data-name="${esc(c.name)}" `+
+    `value="${have[c.name]!=null?have[c.name]:''}"${model?'':' disabled'}></label>`+
+    (c.hint?`<div class="cnthint">${esc(c.hint)}</div>`:'')).join('');
+  $('#cntbody').querySelectorAll('input.cnt').forEach(inp=>inp.oninput=()=>{
+    if(!model) return;
+    model.counts=model.counts||{};
+    const v=inp.value.trim(), n=parseInt(v,10);
+    if(v===''||!(n>=0)) delete model.counts[inp.dataset.name]; else model.counts[inp.dataset.name]=n;
+    updateCntState(); persistDraft();
+  });
+  updateCntState();
+}
+function updateCntState(){
+  const el=$('#cntstate'), list=(SCHEMA&&SCHEMA.counts)||[]; if(!el) return;
+  const n=list.filter(c=>model&&model.counts&&model.counts[c.name]!=null).length;
+  el.textContent=list.length?` — ${n}/${list.length}`:'';
+}
 function updateDcState(){
   const el=$('#dcstate'); if(!el||!model) return;
   const n=(model.flags||[]).length, note=(model.data_note||'').trim();
@@ -1032,7 +1093,10 @@ function syncCompromise(){
   model.data_note=[...notes, typed].filter(Boolean).join('; ');
 }
 
-// ---- draft persistence (survives page reload before an explicit Save) ----
+// ---- draft persistence --------------------------------------------------------
+// Every change is kept in this browser at once, and written to the sidecar a
+// moment later (scheduleSave, below). The local draft is the copy of record until
+// the server confirms that write, so a save that fails loses nothing.
 // Renamed from the old 'jcalipr_*' prefix. Migrate on load rather than just
 // switching the prefix — otherwise any in-progress draft would be orphaned in
 // localStorage under a key nothing reads any more, which looks like data loss.
@@ -1069,13 +1133,13 @@ function _predFrom(d){
           corrected:d.corrected||{}, polys:new Set(d.polys||[]),
           dropped:d.dropped||{}, frameWarning:d.frameWarning||null, at:d.at||null};
 }
-function predFromJSON(d){
+function predsOf(d){
   // A draft from before the views were separated holds one flat record, and
   // Auto-label only ran on lateral then.
-  predBy = (d && d.model) ? {lateral:_predFrom(d), frontal:blankPred()}
-         : {lateral:_predFrom(d&&d.lateral), frontal:_predFrom(d&&d.frontal)};
-  pred=predBy[view];
+  return (d && d.model) ? {lateral:_predFrom(d), frontal:blankPred()}
+       : {lateral:_predFrom(d&&d.lateral), frontal:_predFrom(d&&d.frontal)};
 }
+function predFromJSON(d){ predBy=predsOf(d); pred=predBy[view]; }
 // The review record saved with a fish, read back when it is reopened. Without
 // this, reopening a saved auto-labelled fish started with no record, and saving
 // it again -- to fix a ruler span, say -- wrote the file without one: every point
@@ -1117,7 +1181,8 @@ function persistDraft(){ if(!cur||!model)return;
   model._pred = predToJSON();
   localStorage.setItem(draftKey(cur.id), JSON.stringify(model));
   localStorage.setItem('calipr_last', cur.id);
-}catch(e){} markDirty(true); }
+}catch(e){} markDirty(true);
+  editSeq++; scheduleSave(); checkScale(); }
 // A draft older than the sidecar on disk is stale: the file changed outside this
 // browser (bulk edit, hand fix, git checkout) and the draft would silently
 // resurrect the old values. Drop it and say so rather than showing stale work.
@@ -1129,9 +1194,13 @@ function loadDraft(id){
     const fileMs=spec&&spec.mtime?spec.mtime*1000:0;
     if(fileMs && (!d._draft_at || d._draft_at < fileMs)){
       clearDraft(id);
-      toast('Sidecar changed on disk — discarded an older local draft');
+      // A draft sent as the page closed (_sent_at) is older than the file its
+      // own save wrote: that is the save landing, not someone else's change.
+      if(!(d._sent_at && fileMs >= d._sent_at-2000))
+        toast('Sidecar changed on disk — discarded an older local draft');
       return null;
     }
+    delete d._sent_at;
     return d;
   }catch(e){ return null; }
 }
@@ -1233,6 +1302,34 @@ $('#dsBtn').onclick=e=>{ e.stopPropagation();
 document.addEventListener('click',()=>closeDsMenu());
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeDsMenu(); });
 
+// A study of fish cut from batch photographs goes back to the photograph the open
+// fish came from, in the study that holds it; any other study to its own.
+// Batch identification is downloaded apart from the labeler, on top of Auto-label.
+// Missing, the button says what it needs and whether that can be had yet.
+async function openBatch(){
+  let comp=null;
+  try{ comp=await api('/api/components'); }catch(e){}
+  if(comp && comp.batch && !comp.batch.installed){
+    const a=comp.autolabel, b=comp.batch, why=['Batch identification is not installed.'];
+    if(b.needs_autolabel)
+      why.push('It finds and landmarks the fish with Auto-label, '
+        + (a.released ? 'which the Auto-label button can install.' : 'which is not available to download yet.'));
+    if(!(b.reference_sets||[]).length)
+      why.push('It compares them with a reference set of identified, landmarked specimens, '
+        + (b.released ? 'which can be downloaded.' : 'which is not available to download yet.'));
+    why.push('Hand labelling and export work without it.');
+    if(b.released && !b.needs_autolabel && !(b.reference_sets||[]).length){
+      if(await ask(why.join('\n\n')+'\n\nDownload the reference set now?', {ok:'Download'})) installBatch();
+      return;
+    }
+    await tell(why.join('\n\n'));
+    return;
+  }
+  const of=SCHEMA&&SCHEMA.batch_of;
+  const photo=of&&cur ? cur.id.replace(/_fish_\d+$/,'') : '';
+  location.href='/batch?dataset='+encodeURIComponent(of||dataset)+(photo?'&photo='+encodeURIComponent(photo):'');
+}
+
 async function boot(){
   // ?dataset= wins over the remembered one, so a link to a particular study
   // opens it. The server already honoured the parameter per request while the
@@ -1248,9 +1345,12 @@ async function boot(){
   SCHEMA=await api('/api/schema'+dsq());
   renderSchemePicker();
   await loadSpecs();
+  await writeLeftDrafts();
   loadRef(); loadCalStats(); refreshAuth();
+  api('/api/autolabel/install').then(st=>{ if(st && st.running) watchInstall(); }).catch(()=>{});
   resize();
-  const last=localStorage.getItem('calipr_last');   // re-open where you left off
+  // ?fish= opens that fish (the batch page sends you to one); else where you left off
+  const last=new URLSearchParams(location.search).get('fish')||localStorage.getItem('calipr_last');
   if(last){ const s=SPECS.find(x=>x.id===last); if(s){ await selectSpec(s);
     if(loadDraft(last)) toast('Restored unsaved draft'); } }
   requestAnimationFrame(draw);
@@ -1266,6 +1366,7 @@ function statusWords(s){
   if(s.fins_done) w.push('fins');
   if(s.heldout) w.push('heldout held-out');
   if(s.suggested) w.push('suggested subset');
+  if(s.hand_only) w.push('hand-only blind');
   if(s.predicted && !s.lateral_done) w.push('predicted');
   return w.join(' ');
 }
@@ -1291,6 +1392,7 @@ const SEARCH_COMMANDS = [
   {cmd:'misaligned',  desc:'saved labels do not fit the photo',                 test:s=>!!G(s).misaligned},
   {cmd:'heldout',     desc:'held out from model training',                      test:s=>!!s.heldout},
   {cmd:'subset',      desc:'stratified subset — label these first',             test:s=>!!s.suggested},
+  {cmd:'handonly',    desc:'kept from the model — every point by hand',         test:s=>!!s.hand_only},
 ];
 const commandNamed = name => SEARCH_COMMANDS.find(c=>c.cmd===name);
 // Why a fish matched, shown on hover in the list, so "/fins" says which fin.
@@ -1337,6 +1439,46 @@ function syncViewPick(){
 
 // Pure render from SPECS. Split out from loadSpecs so filtering as you type
 // redraws the list without re-fetching 131 specimens on every keystroke.
+// ---- previous / next specimen ---------------------------------------------------
+// Through the list as it is shown -- the search's filter, in the list's order.
+// Saving a fish can move it (a finished fish leaves the "do these first" block)
+// or drop it from a filter like /todo, so the order is kept while the same fish
+// are shown, and Next carries on from where the fish was rather than from where
+// it landed.
+var NAV_ORDER=null, NAV_PREV=null, navScroll=false;
+function rememberNavOrder(ids){
+  const same = NAV_ORDER && ids.length===NAV_ORDER.length && ids.every(id=>NAV_ORDER.includes(id));
+  if(!same){ NAV_PREV=NAV_ORDER; NAV_ORDER=ids; }
+  updateNav();
+}
+function navTarget(step){
+  const order=NAV_ORDER||[]; if(!order.length) return null;
+  const id=cur && cur.id, i=order.indexOf(id);
+  if(i<0){
+    const prev=NAV_PREV||[], j=prev.indexOf(id);
+    if(j>=0){
+      const seq = step>0 ? prev.slice(j+1) : prev.slice(0,j).reverse();
+      const hit=seq.find(x=>order.includes(x)); if(hit) return hit;
+    }
+    return step>0 ? order[0] : order[order.length-1];
+  }
+  const k=i+step;
+  return k>=0 && k<order.length ? order[k] : null;
+}
+function updateNav(){
+  const order=NAV_ORDER||[], i=cur ? order.indexOf(cur.id) : -1;
+  const pos=$('#navpos'); if(pos) pos.textContent = i>=0 ? `${i+1} / ${order.length}` : (order.length ? `– / ${order.length}` : '');
+  const p=$('#prevSpec'), n=$('#nextSpec'); if(!p||!n) return;
+  p.disabled=!navTarget(-1); n.disabled=!navTarget(1);
+}
+async function gotoSpec(step){
+  const id=navTarget(step);
+  if(!id){ toast(step>0 ? 'That was the last specimen in the list' : 'That was the first specimen in the list'); return; }
+  const s=SPECS.find(x=>x.id===id); if(!s) return;
+  navScroll=true;
+  await selectSpec(s);
+  updateNav();
+}
 function renderSpecList(){
   const w=$('#specWrap'); w.innerHTML='';
   // Unlabelled specimens from the stratified subset float to the top: labelling
@@ -1377,6 +1519,7 @@ function renderSpecList(){
   }
   const filtering = terms.length || cmds.length;
   updateRemoveShown(filtering ? shown : null);
+  rememberNavOrder(shown.map(s=>s.id));
   const cnt=$('#speccount');
   if(cnt){
     cnt.textContent = filtering ? `${shown.length}/${SPECS.length}`
@@ -1407,12 +1550,15 @@ function renderSpecList(){
     const H=s.heldout?`<span class="mk h on" title="DLC held-out — re-trace these first">H</span>`:'';
     const S=(s.suggested&&!s.lateral_done)
       ?`<span class="mk s on" title="stratified subset: one per collection lot, label these first">S</span>`:'';
+    const B=s.hand_only
+      ?`<span class="mk b on" title="hand only: the model is never run on this fish, so its points show how far accepting the model's moves the shapes">B</span>`:'';
     const P=(s.predicted&&!s.lateral_done)
       ?`<span class="mk p on" title="already predicted — opens with the model's points to review">P</span>`:'';
     const why=gapText(s); if(why) d.title=why;
     d.innerHTML=`<span>${s.id.replace('Salvelinus_fontinalis_','')}</span>`+
-                `<span class="st">${S}${P}${H}${L}${F}${V}</span>`;
+                `<span class="st">${S}${B}${P}${H}${L}${F}${V}</span>`;
     d.onclick=()=>selectSpec(s);
+    if(navScroll && cur && cur.id===s.id){ navScroll=false; requestAnimationFrame(()=>d.scrollIntoView({block:'nearest'})); }
     w.appendChild(d);
   });
 }
@@ -1429,7 +1575,23 @@ function sizeMismatches(placedOn, sizes){
   return out;
 }
 async function selectSpec(s){
-  cur=s; model=blankModel(); clearPred(); showRecord();
+  await leaveSpec();         // the fish being left is written first
+  // Nothing is written while a fish is half open: the known-span field and the
+  // view still belong to the one before it.
+  specLoading++;
+  let draft;
+  try{ draft=await openSpec(s); } finally { specLoading--; }
+  // Work left in this browser -- a save that failed, or drafts from before every
+  // change saved itself -- is written now. Otherwise say where the fish stands.
+  if(cur===s){
+    if(draft) scheduleSave(0);
+    else setSaveState(model._blocked && Object.keys(model._blocked).length ? 'blocked'
+                      : s.labeled ? 'saved' : 'none');
+  }
+}
+async function openSpec(s){
+  cur=s; model=blankModel(); clearPred(); showRecord(); updateNav();
+  document.body.classList.toggle('handonly', !!s.hand_only);
   let draft=loadDraft(s.id);
   const staleDraft = draft ? sizeMismatches(draft._placed_on, s.sizes) : {};
   if(Object.keys(staleDraft).length){
@@ -1441,7 +1603,10 @@ async function selectSpec(s){
   // One chain, in priority order: unsaved work, then saved labels, then a cached
   // prediction. Each later source is used only when every earlier one is absent.
   markDirty(!!draft);
-  if(draft){ model=draft; predFromJSON(draft._pred); }   // unsaved work wins
+  if(draft){ model=draft; predFromJSON(draft._pred);    // unsaved work wins
+    const gone=dropUnwantedGuesses();
+    if(gone.length){ persistDraft(); toast(`Removed the model's unreviewed ${gone.join(', ')} — `
+      + `placed by hand in this study`); } }
   else if(s.labeled){ try{ const sc=await api('/api/sidecar/'+encodeURIComponent(s.id)+dsq());
     model._base_mtime = sc._mtime || 0;
     // Labels whose image has been re-cropped or replaced are not drawn at all:
@@ -1454,6 +1619,7 @@ async function selectSpec(s){
     }
     ingest(sc);
     predFromAssist(sc.metadata);
+    model._saved_views=['lateral','frontal'].filter(v=>Object.keys((sc[v]||{}).keypoints||{}).length);
     model._placed_on={};  // (base recorded above)
     for(const [v,a] of Object.entries(al))
       if(a.status!=='size_changed' && a.current) model._placed_on[v]=[a.current.width,a.current.height];
@@ -1470,7 +1636,7 @@ async function selectSpec(s){
     // fills what it can and the rest stay for the hand.
     if(s.predicted && !model._blocked){
       try{
-        const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq());
+        const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()+'&cache=only');
         if(r && r.ok && cur===s){
           const n=applyPrediction(r,'lateral',true);
           if(n) toast(`Filled ${n} landmark(s) the model could place — yours are untouched`);
@@ -1486,7 +1652,7 @@ async function selectSpec(s){
     // of yours -- never over a draft or a saved label -- and nothing is written
     // just by looking: a draft appears once you change something.
     try{
-      const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq());
+      const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()+'&cache=only');
       if(r && r.ok && cur===s) applyPrediction(r);   // a later click wins the race
     }catch(e){}
   }
@@ -1498,7 +1664,7 @@ async function selectSpec(s){
       .split(';').map(s=>s.trim())
       .filter(s=>s && !CLIP_FLAGS.some(fl=>fl.note===s))
       .join('; ');
-  renderClipFlags(); updateDcState(); renderAutoStat(); renderSchemePicker();
+  renderClipFlags(); updateDcState(); renderCounts(); renderAutoStat(); renderSchemePicker();
   await setView('lateral');
   loadAutoCal();
   await loadCalStats();      // the comparison median is per lot, so it moves with the specimen
@@ -1512,6 +1678,7 @@ async function selectSpec(s){
     const first=nextPending(null);
     if(first){ pickByName('keypoint', first); draw(); }
   }
+  return !!draft;
 }
 function ingest(sc){
   for(const v of ['lateral','frontal']){
@@ -1533,6 +1700,7 @@ function ingest(sc){
   // saving again would silently drop its note and trait exclusions.
   const meta=sc.metadata||{};
   model.data_note=meta.data_note||'';
+  model.counts=Object.assign({}, meta.counts||{});
   model.exclude=meta.exclude_traits||[];
   // Re-derive which flag buttons were on from the excluded traits.
   model.flags=CLIP_FLAGS.filter(fl=>fl.traits.length &&
@@ -1553,7 +1721,9 @@ function loadImage(){
       imgW=img.naturalWidth;imgH=img.naturalHeight;imgView=view;
       buildImgSmall();
       resize();fit();buildTasks();draw();res();};
-    img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq();
+    // the file's version in the address: a photograph turned in place is a new image
+    const v=(cur.image_version||{})[view];
+    img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq()+(v?'&v='+v:'');
   });
 }
 // Per-view default span. The frontal mirror ruler is small — its usable span
@@ -1659,7 +1829,7 @@ function buildTasks(){
     + 'every study that follows the scheme. Never inserted: TPS identifies a '
     + 'landmark by its row.'
     : 'A point collected on every specimen in this study. Saved and exported '
-    + 'as a coordinate — the 33 traits are defined in code and cannot use it.';
+    + 'as a coordinate — the 34 traits are defined in code and cannot use it.';
   add.onclick=addLandmark;
   box.appendChild(add);
 
@@ -1716,7 +1886,7 @@ function renderLegend(){
 // dataset's schema and reaches the measurement engine — a trait that needed it
 // gets no Excel column at all, rather than a column of blanks that reads as
 // "measured and missing".
-// Which landmark scheme this study collects. caliPr's own drives the 33 traits;
+// Which landmark scheme this study collects. caliPr's own drives the 34 traits;
 // another protocol's is shape landmarks for geometric morphometrics, which no
 // trait is defined against. Switching asks for different points on every fish in
 // the study, and leaves anything already labelled untouched on disk.
@@ -1739,7 +1909,7 @@ $('#schemepick').onchange=async e=>{
   const keeps=SPECS.filter(s=>s.labeled).length;
   const ok=await ask(`Collect the ${to.title} landmarks in “${dataset}”?\n\n`
     + (name==='calipr'
-        ? 'Back to caliPr\'s own landmarks, which the 33 traits and the model use.'
+        ? 'Back to caliPr\'s own landmarks, which the 34 traits and the model use.'
         : 'These are shape landmarks for geometric morphometrics. None of the 33 traits '
           + 'is defined against them, so this study exports coordinates (.tps) rather than '
           + 'measurements, and Auto-label is off for it.')
@@ -2251,7 +2421,7 @@ function regionsFor(sc){
     ['dorsal',   n=>/^dorsal/.test(n)],
     ['pelvic',   n=>/^pelvic/.test(n)],
     ['anal',     n=>/^anal/.test(n)],
-    ['peduncle', n=>/^(peduncle|caudal)/.test(n)],
+    ['caudal',   n=>/^(peduncle|caudal)/.test(n)],
     ['body',     ()=>true],
   ];
 }
@@ -2620,6 +2790,7 @@ $('#datanote').oninput=()=>{ if(model){ syncCompromise(); updateDcState(); persi
 $('#viewPick').onchange=e=>setView(e.target.value);
 async function pickDataset(name){
   if(!name || name===dataset){ renderDsMenu(); return; }
+  await leaveSpec();             // written to the study it belongs to
   dataset=name;
   localStorage.setItem('calipr_dataset', dataset);
   renderDsMenu();
@@ -2629,7 +2800,7 @@ async function pickDataset(name){
   imgToken++;                    // abandon any image still loading from the old set
   SCHEMA=await api('/api/schema'+dsq());
   renderSchemePicker();
-  await loadSpecs(); loadCalStats(); loadRef();
+  await loadSpecs(); await writeLeftDrafts(); loadCalStats(); loadRef();
   buildTasks(); showHint(); draw();
   if(SPECS.length) await selectSpec(SPECS[0]);
   toast('Switched to '+dataset);
@@ -2712,6 +2883,7 @@ Object.entries(COLS).forEach(([v,c])=>{
 // the server cannot open anything (no desktop) does it fall back to a download.
 // Exports can take a while on a big study, so the button says what is happening.
 async function downloadExport(kind){
+  await flushSave();
   const res=await fetch('/api/export/'+kind+dsq());
   if(!res.ok){
     let msg='export failed';
@@ -2735,6 +2907,7 @@ document.addEventListener('click', ()=>closeExpMenu());
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeExpMenu(); });
 
 async function runExport(kind, opts){
+  await flushSave();             // the export includes the change just made
   const btn=$('#expBtn');
   btn.disabled=true; $('#expstate').textContent=' — building '+kind+'…';
   try{
@@ -3151,6 +3324,15 @@ async function recordsDialog(focusId){
 }
 // Always shown, like the other toolbar commands: a button that is there but does
 // nothing reads as broken, so when the records cannot be had it says why.
+$('#prevSpec').onclick=()=>gotoSpec(-1);
+$('#nextSpec').onclick=()=>gotoSpec(1);
+window.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA'||e.target.tagName==='SELECT') return;
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  if($('#dlg.on')||document.querySelector('#xp,#dwc,#me,#stp')) return;   // a dialog is open
+  if(e.key===']'){ e.preventDefault(); gotoSpec(1); }
+  else if(e.key==='['){ e.preventDefault(); gotoSpec(-1); }
+});
 $('#operator').value=OPERATOR;
 $('#operator').classList.toggle('need', !OPERATOR);
 $('#operator').onchange=()=>setOperator($('#operator').value);
@@ -3217,6 +3399,7 @@ async function measurementErrorDialog(){
     const op=q('#meOp').value.trim();
     if(!op){ toast('Say who will re-label the round'); q('#meOp').focus(); return; }
     const body={n:+q('#meN').value, operator:op, same_as:q('#meSame').value||null};
+    await flushSave();
     let r; try{ r=await api('/api/relabel/new'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(body)}); }catch(e){ r={ok:false,error:e.message}; }
     if(!r.ok){ await tell(r.error||'Could not start a round.'); return; }
@@ -3400,6 +3583,26 @@ window.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return;
 setRefMin(localStorage.getItem('calipr_ref_min')==='1');
 setRefBig(localStorage.getItem('calipr_ref_big')==='1');
 
+// A study can take a landmark away from Auto-label (exclude_predicted_keypoints)
+// after a draft already holds the model's guess for it. A guess nobody reviewed
+// is removed; a point anybody moved or accepted is theirs and stays.
+function dropUnwantedGuesses(m, pb){        // the open fish's unless given
+  m=m||model; pb=pb||predBy;
+  const no=new Set((SCHEMA && SCHEMA.exclude_predicted_keypoints) || []);
+  const gone=[];
+  if(!no.size || !m) return gone;
+  for(const v of ['lateral','frontal']){
+    const p=pb[v]; if(!p || !p.conf) continue;
+    for(const name of Object.keys(p.conf)){
+      if(!no.has(name)) continue;
+      if(m[v] && m[v].keypoints) delete m[v].keypoints[name];
+      if(m[v] && m[v].operators) delete m[v].operators[name];
+      delete p.conf[name]; if(p.orig) delete p.orig[name]; if(p.low) p.low.delete(name);
+      gone.push(name);
+    }
+  }
+  return gone;
+}
 function reviewed(name){          // the human MOVED this point
   if(pred.conf[name]===undefined) return;
   const from=pred.orig[name], to=(model[view].keypoints||{})[name];
@@ -3514,6 +3717,62 @@ async function refreshAuth(){
   const b=$('#autolabel');
   if(b) b.textContent = (AUTH.required && !AUTH.unlocked) ? 'Auto-label 🔒' : 'Auto-label';
 }
+// Auto-label's environment and models are not part of the labeler. Rather than
+// sending anyone to a terminal, the page offers to install them and shows the
+// installer's progress where Auto-label reports its own.
+async function offerInstall(why){
+  let comp=null;
+  try{ comp=await api('/api/components'); }catch(e){}
+  if(comp && comp.autolabel && !comp.autolabel.released && !comp.autolabel.installed){
+    await tell(why+'\n\nAuto-label is not available to download yet.');
+    return;
+  }
+  let st=null;
+  try{ st=await api('/api/autolabel/install'); }catch(e){}
+  if(!(st && st.running)){
+    if(!await ask(why+'\n\nInstall them now? caliPr downloads and sets them up itself, '
+                  + 'and you can go on labelling by hand meanwhile.', {ok:'Install'})) return;
+    let r;
+    try{ r=await api('/api/autolabel/install',{method:'POST'}); }
+    catch(e){ r={ok:false, error:String(e)}; }
+    if(!r.ok){ await tell('The install could not start.\n\n'+(r.error||'')); return; }
+  }
+  watchInstall();
+}
+// The reference set batch identification compares with: downloaded into the data
+// folder as a study of its own, its progress shown as Auto-label's is.
+async function installBatch(){
+  let r;
+  try{ r=await api('/api/install/batch',{method:'POST'}); }catch(e){ r={ok:false, error:String(e)}; }
+  if(!r.ok){ await tell('The download could not start.\n\n'+(r.error||'')); return; }
+  const tick=async()=>{
+    let st=null;
+    try{ st=await api('/api/install/batch'); }catch(e){}
+    if(st && st.running){ toast('Batch identification — '+(st.line||'starting…')); setTimeout(tick, 2000); return; }
+    if(st && st.ok){ toast('Batch identification is installed'); refreshDatasets(); }
+    else if(st && st.finished) await tell('The download stopped before it finished. Its last lines:\n\n'+(st.tail||[]).join('\n'));
+  };
+  setTimeout(tick, 500);
+}
+let installTimer=null;
+function watchInstall(){
+  if(installTimer) return;
+  const tick=async()=>{
+    let st=null;
+    try{ st=await api('/api/autolabel/install'); }catch(e){}
+    if(st && st.running){
+      const el=$('#autostat');
+      if(el) el.textContent='Installing Auto-label — '+(st.line||'starting…');
+      installTimer=setTimeout(tick, 1500); return;
+    }
+    installTimer=null; renderAutoStat();
+    if(st && st.ok) toast('Auto-label is installed — click Auto-label to use it');
+    else if(st && st.finished)
+      await tell('The Auto-label install stopped before it finished. Its last lines:\n\n'
+                 + (st.tail||[]).join('\n') + '\n\nClick Auto-label to try again.');
+  };
+  installTimer=setTimeout(tick, 0);
+}
 async function unlock(){
   const pw=await askText('Passphrase to unlock automated landmarking on this machine:');
   if(pw===null) return false;
@@ -3532,7 +3791,7 @@ async function applyCachedPrediction(v){
   if(!s || v!=='frontal' || !s.predicted_frontal || !model) return;
   if(predBy[v].model || Object.keys(model[v].keypoints).length) return;
   try{
-    const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()+'&view='+v);
+    const r=await api('/api/predict/'+encodeURIComponent(s.id)+dsq()+'&view='+v+'&cache=only');
     if(!r || !r.ok || cur!==s || view!==v) return;                 // a later click wins
     if(predBy[v].model || Object.keys(model[v].keypoints).length) return;
     applyPrediction(r, v);
@@ -3546,7 +3805,8 @@ async function applyCachedPrediction(v){
 // ``fill`` places only what is not already there. A landmark a person placed is
 // evidence; a predicted one is a suggestion, and a suggestion must never quietly
 // replace evidence. Nothing here writes to disk either way -- a filled point is a
-// prediction to review, and reaches a sidecar only when Save is pressed.
+// prediction to review. It reaches the sidecar with the fish's next save, marked
+// unreviewed, and a fish of nothing but predictions is not saved at all.
 function applyPrediction(r, v='lateral', fill=false){
   const p=blankPred();
   Object.assign(p, {conf:r.confidence||{}, model:r.model||null,
@@ -3577,6 +3837,9 @@ function applyPrediction(r, v='lateral', fill=false){
     p.orig[nm]=[q[0],q[1]];           // frozen: the correction is measured from here
     filled++;
   }
+  // Filling nothing leaves the record as it was: replacing it would date the
+  // fish's prediction to now, and the next save would write that date.
+  if(fill && !filled && !p.polys.size) return 0;
   // The record has to cover what was actually placed, or A would walk points the
   // model never put down and the sidecar would claim them as reviewed.
   if(fill){
@@ -3624,6 +3887,7 @@ $('#autolabel').onclick=async()=>{
                       +(v==='frontal'?'&view=frontal':''));
     if(cur!==s){ return; }                 // another fish was opened meanwhile
     if(!r.ok){ renderAutoStat();
+               if(r.install){ await offerInstall(r.error); return; }
                await tell('Auto-label is not available.\n\n'+(r.error||'The model did not answer.'));
                return; }
     // A server started before frontal Auto-label existed ignores the view and
@@ -3860,9 +4124,9 @@ $('#autoall').onclick=async()=>{
   // fully landmarked on the lateral and still have no mouth corners, which is
   // most of them, and the batch used to skip those because their lateral is done.
   const todo=[
-    ...SPECS.filter(s=>!s.lateral_done).map(s=>({s, view:'lateral'})),
+    ...SPECS.filter(s=>!s.lateral_done && !s.hand_only).map(s=>({s, view:'lateral'})),
     ...(SCHEMA.frontal && (SCHEMA.frontal.keypoints||[]).length
-        ? SPECS.filter(s=>s.frontal && !s.frontal_done).map(s=>({s, view:'frontal'})) : []),
+        ? SPECS.filter(s=>s.frontal && !s.frontal_done && !s.hand_only).map(s=>({s, view:'frontal'})) : []),
   ];
   if(!todo.length){ toast('Every specimen is labelled on both views'); return; }
   const nlat=todo.filter(t=>t.view==='lateral').length, nfro=todo.length-nlat;
@@ -3870,12 +4134,13 @@ $('#autoall').onclick=async()=>{
       + [nlat?`${nlat} unlabelled specimen(s)`:'', nfro?`${nfro} frontal view(s) with no mouth corners`:'']
         .filter(Boolean).join(' and ') + `?\n\n`
       + `Results are cached so reviewing them is instant. Nothing is saved `
-      + `as a label — you still review and save each one.`)) return;
+      + `as a label — you still review each one, and a fish is saved once you `
+      + `have checked a point on it.`)) return;
 
   batchRunning=true; batchCancel=false;
   const label=btn.textContent;
   btn.textContent='Stop';
-  let done=0, failed=0;
+  let done=0, failed=0, needInstall=null;
   progress(0, todo.length, `predicting 1/${todo.length}`);
   try{
     for(const {s:sp, view:v} of todo){
@@ -3886,7 +4151,8 @@ $('#autoall').onclick=async()=>{
         const r=await api('/api/predict/'+encodeURIComponent(sp.id)+dsq()
                           +(v==='frontal'?'&view=frontal':''));
         if(r.ok) done++;
-        else { failed++; if(r.locked){ toast('Locked — stopping'); break; } }
+        else { failed++; if(r.locked){ toast('Locked — stopping'); break; }
+               if(r.install){ needInstall=r.error; break; } }
       }catch(e){ failed++; }
     }
   } finally {
@@ -3894,6 +4160,7 @@ $('#autoall').onclick=async()=>{
     btn.textContent=label;
     progressDone();
   }
+  if(needInstall){ await offerInstall(needInstall); return; }
   toast(batchCancel ? `Stopped after ${done}`
         : `Predicted ${done}${failed?`, ${failed} failed`:''} — open any of them`);
   // Surface the result without a reload: badges on every predicted fish, and the
@@ -3982,15 +4249,18 @@ $('#addfolder').onchange=async e=>{
     uploadFiles(e.dataTransfer.files||[]);   // browsers without the entry API
   });
 })();
-// Make the open fish this study's example. Built from its SAVED landmarks, so an
-// unsaved edit is not what gets shown to everyone as the convention.
+// Make the open fish this study's example. Built from its SAVED landmarks, so a
+// change that could not be saved is not what gets shown to everyone as the
+// convention.
 $('#useExample').onclick=async()=>{
   if(!cur){ toast('Open a specimen first'); return; }
+  await flushSave();
   const name=shortId(cur.id);
-  if(!cur.labeled){ tell(`Save ${name} first: the example is made from its saved landmarks.`); return; }
+  if(!cur.labeled){ tell(`Label ${name} first: the example is made from its saved landmarks.`); return; }
   if($('#viewtab').classList.contains('dirty')
-     && !await ask(`${name} has unsaved changes. The example is made from its saved landmarks, `
-                   + `so those changes would not be in it.`, {ok:'Use the saved version'})) return;
+     && !await ask(`${name} has changes that are not saved (${$('#saveState').textContent.toLowerCase()}). `
+                   + `The example is made from its saved landmarks, so those changes would not be in it.`,
+                   {ok:'Use the saved version'})) return;
   const prev = refOwn && refData && refData.specimen ? shortId(refData.specimen) : null;
   if(prev && prev!==name && !await ask(`Make ${name} the example for “${dataset}”? It replaces ${prev}.`,
                                        {ok:'Use as example'})) return;
@@ -4015,6 +4285,7 @@ function updateRemoveShown(list){
 }
 $('#removeShown').onclick=async()=>{
   const list=(SHOWN||[]).slice(); if(!list.length) return;
+  await leaveSpec();
   const n=list.length, labelled=list.filter(s=>s.labeled).length, q=$('#specsearch').value.trim();
   const msg=`Remove the ${n} specimen${n>1?'s':''} the search “${q}” shows from “${dataset}”?\n\n`
     + (labelled ? `${labelled} of them ${labelled>1?'have':'has'} saved labels, which go with ${labelled>1?'them':'it'}. ` : '')
@@ -4042,8 +4313,40 @@ $('#removeShown').onclick=async()=>{
 // Remove the open photograph from the study. Moved to data/.trash/ with its
 // labels and cached predictions, not deleted -- a wrong click is undone by
 // moving the files back -- so it asks once, and says so when there are labels.
+// Rename: the file names carry the specimen's identity and strain, and a batch
+// often arrives named by the camera (Img0133) or needs a number corrected. The
+// server renames every file and record of the fish together; the page carries
+// its unsaved work across to the new name.
+$('#renamePhoto').onclick=async()=>{
+  if(!cur){ toast('Pick a specimen first'); return; }
+  await leaveSpec();
+  const was=cur.id;
+  let v=await askText(`Rename “${was}”.\n\nIts photographs, saved labels and records are renamed with `
+    + `it. The strain is read from the name (…_TEM_18), so a new name can change it.`, was);
+  if(v===null) return;
+  v=v.trim().replace(/\.(jpe?g|png|tiff?)$/i,'');
+  if(!v || v===was) return;
+  let r;
+  try{ r=await api('/api/specimen/rename'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({id:was, new_id:v})}); }
+  catch(e){ r={ok:false, error:e.message}; }
+  if(r.ok===undefined && /unknown route/.test(r.error||''))
+    r.error='The labeler server was started before renaming existed. Restart it, then reload this page.';
+  if(!r.ok){ await tell(r.error||'Nothing was renamed.'); return; }
+  // unsaved work follows the fish to its new name
+  try{
+    const d=localStorage.getItem(draftKey(was));
+    if(d!==null){ localStorage.setItem(draftKey(r.id), d); localStorage.removeItem(draftKey(was)); }
+    if(localStorage.getItem('calipr_last')===was) localStorage.setItem('calipr_last', r.id);
+  }catch(e){}
+  await loadSpecs();
+  const s=SPECS.find(x=>x.id===r.id);
+  if(s) await selectSpec(s);
+  toast(`Renamed to ${shortId(r.id)}`+(r.updated&&r.updated.length?` — also updated: ${r.updated.join(', ')}`:''));
+};
 $('#removePhoto').onclick=async()=>{
   if(!cur){ toast('Open a specimen first'); return; }
+  await leaveSpec();
   const s=cur, name=shortId(s.id), i=SPECS.findIndex(x=>x.id===s.id);
   const msg=`Remove ${name} from “${dataset}”?\n\n`
     + (s.labeled ? `Its saved labels go with it. ` : '')
@@ -4062,47 +4365,127 @@ $('#removePhoto').onclick=async()=>{
   toast(`Removed ${name} — in ${r.moved_to}`);
 };
 
-$('#save').onclick=async()=>{
-  if(!cur){toast('No specimen');return;}
-  if(model._blocked && Object.keys(model._blocked).length){
-    await tell(`Not saved. The labels already saved for ${shortId(cur.id)} do not fit this `
-      + `photograph, and saving now would overwrite coordinates that can still be recovered. `
-      + `Repair them first:\n\n  python scripts/realign_labels.py --fish ${cur.id}`);
+// Turn or mirror the photograph. Every study is labelled head left, back up, which
+// is how the landmark model and the exports expect a fish; a photograph that came
+// in on its side, upside down or facing right is put right here. The server turns
+// the file and every point saved on it together, and keeps the photograph as it
+// first was, so the fish is saved first and reopened from the turned file.
+const TURNED={rotate_cw:'Turned clockwise', rotate_ccw:'Turned anticlockwise',
+              mirror:'Mirrored left to right', flip:'Flipped top to bottom'};
+async function turnPhoto(op){
+  if(!cur){ toast('Open a specimen first'); return; }
+  await leaveSpec();
+  const s=cur;
+  if(saveStuck[s.id] || (model._blocked && Object.keys(model._blocked).length)){
+    await tell(`${shortId(s.id)} has labels that could not be saved, or that no longer fit `
+      + `its photograph. Sort that out before turning it.`);
     return;
   }
+  // Anything still only in this browser would be left at the old positions. The
+  // model's unreviewed guesses are not saved by design, and are turned in the cache.
+  if(loadDraft(s.id)){
+    const out=payloadFor(cur, model, predBy, []);
+    if(out!=='held' && out!=='empty'){
+      await tell(`Changes to ${shortId(s.id)} have not reached the server yet, so it was not `
+        + `turned. Try again in a moment.`);
+      return;
+    }
+  }
+  let r;
+  try{ r=await api('/api/specimen/orient'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({id:s.id, view, op})}); }
+  catch(e){ r={ok:false, error:e.message}; }
+  if(r.ok===undefined && /unknown route/.test(r.error||''))
+    r.error='The labeler server was started before photographs could be turned. Restart it, then reload this page.';
+  if(!r.ok){ await tell(r.error||'The photograph was not turned.'); return; }
+  clearDraft(s.id);
+  framesFor=null;                       // where the views sit is found again on the new image
+  await loadSpecs();
+  const n=SPECS.find(x=>x.id===s.id);
+  if(n) await selectSpec(n);
+  toast(TURNED[op] + (r.restored ? ' — back as it was taken'
+                      : r.mirrored ? ' — this photograph now shows the fish mirrored' : ''));
+}
+$('#rotL').onclick=()=>turnPhoto('rotate_ccw');
+$('#rotR').onclick=()=>turnPhoto('rotate_cw');
+$('#mirH').onclick=()=>turnPhoto('mirror');
+$('#mirV').onclick=()=>turnPhoto('flip');
+
+// ---- saving -------------------------------------------------------------------
+// There is no Save button: every change is written to the fish's sidecar a moment
+// after it is made (persistDraft schedules it), and at once before anything that
+// leaves the fish -- another specimen, another study, a rename, an export, the
+// page closing. The draft in this browser stays until the server confirms the
+// write, so a save that fails loses nothing; the status beside the photograph's
+// tab says what happened.
+//
+// Two things are not written, and the status says which:
+//  - labels already saved that no longer fit the photograph (_blocked): writing
+//    would overwrite coordinates that can still be recovered exactly;
+//  - a fish where every landmark is still exactly where the model put it. Written,
+//    that would read as a hand label and train the model on its own guesses. The
+//    first point accepted, moved or placed saves it, the rest marked unreviewed.
+// The scale check that Save used to run asks when the scale is set (checkScale).
+var SAVE_DELAY_MS=600, SAVE_RETRY_MS=5000, retryTimer=null;
+var saveTimer=null, saveFor=null, saveChain=Promise.resolve(), editSeq=0, specLoading=0;
+var saveStuck={};        // fish -> why a retry cannot help (reopen after fixing it)
+function scheduleSave(ms){
+  if(!cur) return;
+  clearTimeout(saveTimer); saveFor=cur.id;
+  saveTimer=setTimeout(()=>{ saveTimer=null; saveNow(); }, ms==null ? SAVE_DELAY_MS : ms);
+  setSaveState('pending');
+}
+// Write whatever is waiting; resolves when every write has come back.
+function flushSave(){
+  if(saveTimer){ clearTimeout(saveTimer); saveTimer=null; saveNow(); }
+  return saveChain;
+}
+// Before the open fish goes: write it, including anything changed while the
+// last write was out.
+async function leaveSpec(){
+  await flushSave();
+  while(saveTimer) await flushSave();
+}
+function saveNow(){
+  // Not while a fish is half open, nor while the scale question is open: the
+  // answer decides what the scale is.
+  if(specLoading || scaleAsking){ scheduleSave(); return saveChain; }
+  if(!cur || saveFor!==cur.id) return saveChain;     // that fish is no longer open
+  const job=buildSave();
+  if(job) saveChain=saveChain.then(()=>sendSave(job));
+  return saveChain;
+}
+function buildSave(){
+  if(!cur || !model) return null;
+  if(model._blocked && Object.keys(model._blocked).length){ setSaveState('blocked'); return null; }
+  if(saveStuck[cur.id]){ setSaveState('error', saveStuck[cur.id]); return null; }
   // capture the "known span" field value even if it was left at its default
   const km=parseFloat($('#knownmm').value);
   if(!isNaN(km) && (model[view].ruler.a||model[view].ruler.b)) model[view].known_mm=km;
   syncCompromise();
-  // A scale far from the rest of its lot multiplies every length on the fish by
-  // the same factor, and nothing downstream can tell. The readout warns, but it
-  // went unread three times in one evening, so saving asks too.
-  const L=model.lateral;
-  if(calMedian && L.ruler.a && L.ruler.b && L.known_mm>0 && !L.auto_ppm){
-    const px=Math.hypot(L.ruler.b[0]-L.ruler.a[0], L.ruler.b[1]-L.ruler.a[1]), ppm=px/L.known_mm;
-    if(ppm>calMedian*1.35 || ppm<calMedian*0.74){
-      const fit=spanThatFits(px);
-      if(!await ask(`The scale on ${shortId(cur.id)} reads ${ppm.toFixed(1)} px/mm; the rest of `
-          + `its lot reads about ${calMedian.toFixed(1)}. Every length on this fish would be off `
-          + `by ${Math.max(ppm/calMedian, calMedian/ppm).toFixed(1)}×.`
-          + (fit && fit!==L.known_mm ? `\n\nThe two ruler points are about ${fit} mm apart, `
-             + `not ${L.known_mm} — set "known span" to ${fit}.` : '')
-          + `\n\nSave anyway?`, {ok:'Save anyway'})) return;
-    }
-  }
-  const strain=(cur.id.match(/_([A-Z]{2,4})_\d+$/)||[])[1]||'';
-  const out={fish_id:cur.id, metadata:{strain, source:'hand-labeled'}};
+  const held=[], out=payloadFor(cur, model, predBy, held);
+  if(out==='held'){ setSaveState('held'); return null; }
+  if(out==='empty'){ clearDraft(cur.id); setSaveState('none'); return null; }
+  return {id:cur.id, url:'/api/save'+dsq(), body:JSON.stringify(out), seq:editSeq, held,
+          views:['lateral','frontal'].filter(v=>out[v])};
+}
+// The sidecar for one fish from its labels and review record -- the open fish's,
+// or a draft left in this browser. 'held' while every landmark is still where
+// the model put it; 'empty' for a fish with nothing on disk and nothing placed.
+function payloadFor(spec, model, predBy, held=[]){
+  // A view whose every landmark is still exactly where the model put it is the
+  // model's output, not a label, and written it would read as one. It is left
+  // out and the rest of the fish saved -- unless the file already holds that
+  // view, which leaving out would delete. Its views go in ``held``.
+  const onDisk=model._saved_views||[];
   const untouched=['lateral','frontal'].filter(v=>{
     const p=predBy[v], total=Object.keys(model[v].keypoints).length;
-    return p.model && total>0 && Object.keys(p.conf).length>=total;
+    return p.model && total>0 && Object.keys(p.conf).length>=total && !onDisk.includes(v);
   });
-  if(untouched.length){
-    // Saving a prediction with nothing touched would launder model output
-    // into the training set, where it teaches the model its own mistakes.
-    if(!await ask(`Every ${untouched.join(' and ')} landmark here is still exactly `+
-      `where the model put it — nothing has been checked.\n\nSaving now records `+
-      `this as a hand label and it WILL be used for training. Save anyway?`)) return;
-  }
+  held.push(...untouched);
+  const keep=v=>!untouched.includes(v);
+  const strain=(spec.id.match(/_([A-Z]{2,4})_\d+$/)||[])[1]||'';
+  const out={fish_id:spec.id, metadata:{strain, source:'hand-labeled'}};
   // Per-landmark provenance. The three states are kept apart deliberately:
   // a corrected point is independent evidence, an accepted one is a human
   // agreeing with a suggestion they were shown, and an unreviewed one is
@@ -4125,18 +4508,19 @@ $('#save').onclick=async()=>{
     polygons_from_model: [...p.polys].filter(placed).sort(),
     predicted_at: p.at || new Date().toISOString(),
   };};
-  if(predBy.lateral.model){
+  if(predBy.lateral.model && keep('lateral')){
     out.metadata.assist=assistOf(predBy.lateral,'lateral');
     out.metadata.unreviewed_predictions=out.metadata.assist.unreviewed;
   }
-  if(predBy.frontal.model) out.metadata.assist_frontal=assistOf(predBy.frontal,'frontal');
-  const by=predBy.lateral.model||predBy.frontal.model;
+  if(predBy.frontal.model && keep('frontal')) out.metadata.assist_frontal=assistOf(predBy.frontal,'frontal');
+  const by=(keep('lateral') && predBy.lateral.model)||(keep('frontal') && predBy.frontal.model);
   if(by) out.metadata.assisted_by=by;
   if(model.data_note) out.metadata.data_note=model.data_note;
+  if(model.counts&&Object.keys(model.counts).length) out.metadata.counts=model.counts;
   if(model.exclude&&model.exclude.length) out.metadata.exclude_traits=model.exclude;
   for(const v of ['lateral','frontal']){
     const m=model[v]; const has=Object.keys(m.keypoints).length||Object.keys(m.polygons).length;
-    if(!has) continue;
+    if(!has || !keep(v)) continue;
     const blk={}; if(Object.keys(m.polygons).length)blk.polygons=m.polygons;
     blk.keypoints=m.keypoints;
     // The line a bent fish is measured along. Kept beside the landmarks, which
@@ -4165,6 +4549,12 @@ $('#save').onclick=async()=>{
       blk.calibration={mode:'none',notes:'no scale reference placed'};
     out[v]=blk;
   }
+  // A fish with nothing on disk and nothing placed -- a point put down and
+  // cleared again -- is not given an empty file.
+  if(!out.lateral && !out.frontal){
+    if(untouched.length) return 'held';                 // nothing here but the model's
+    if(!spec.labeled && !model.data_note) return 'empty';
+  }
   // The size of the image each view's labels were placed on; the server refuses
   // the save if the file on disk is no longer that size.
   // Only a server that checks these understands them. The page is re-read from
@@ -4179,27 +4569,169 @@ $('#save').onclick=async()=>{
     if(Object.keys(placed).length) out.metadata.placed_on=placed;
     if(model._base_mtime!==undefined) out.metadata.base_mtime=model._base_mtime;
   }
-  const res=await api('/api/save'+dsq(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(out)});
+  return out;
+}
+async function sendSave(job){
+  if(cur && cur.id===job.id) setSaveState('saving');
+  let res;
+  try{ res=await api(job.url,{method:'POST',headers:{'Content-Type':'application/json'},body:job.body}); }
+  catch(e){ res={ok:false, error:'The labeler server did not answer. Is it still running?'}; }
+  const here = cur && cur.id===job.id;
   if(res.ok){
-    clearDraft(cur.id);
-    if(res.mtime!==undefined) model._base_mtime=res.mtime;   // later saves build on this one
-    // Report what is still short rather than refusing the save: partial fin work
-    // is worth keeping, it just must not read as finished.
-    // A study whose scheme traces no fins has nothing to report here.
-    const groups=finGroups();
-    const short=groups.map(g=>({g,st:finState(g)})).filter(x=>!x.st.done);
-    toast(!groups.length ? 'Saved '+res.saved
-      : short.length
-      ? `Saved ${res.saved} — still short: `+short.map(x=>`${x.g.fin} ${x.st.n}/${x.g.target}`).join(', ')
-      : 'Saved '+res.saved+' — all four fins at target');
+    for(const x of [SPECS.find(y=>y.id===job.id), here?cur:null]) if(x){
+      x.labeled=true; if(res.mtime!==undefined) x.mtime=res.mtime; }
+    if(here){
+      if(res.mtime!==undefined) model._base_mtime=res.mtime;   // later saves build on this one
+      model._saved_views=job.views;
+      if(editSeq===job.seq) clearDraft(job.id);
+      else try{     // changed again while this was out: the draft is newer than the file
+        model._draft_at=Date.now(); localStorage.setItem(draftKey(job.id), JSON.stringify(model));
+      }catch(e){}
+      if(!saveTimer) setSaveState(job.held.length ? 'partial' : 'saved', job.held);
+    } else clearDraft(job.id);
     loadSpecs();
     if(document.body.classList.contains('blind')) refreshDatasets();   // the round's count
-  } else if(res.demo){
-    toast('Demo mode — nothing was saved. Your labels on disk are untouched.');
-  } else if(res.misaligned || res.conflict){
+    return;
+  }
+  if(res.demo){ if(here) setSaveState('demo'); return; }
+  if(res.misaligned || res.conflict){
+    // Trying again cannot help: the file on disk has to be repaired or re-read.
+    saveStuck[job.id]=res.error;
+    if(here) setSaveState('error', res.error);
     await tell(res.error);
-  } else toast('Error: '+(res.error||'?'));
+    return;
+  }
+  // Anything else -- the server down or refusing -- is tried again while the fish
+  // is open; the draft holds the work meanwhile, and reopening the fish writes it.
+  if(here){
+    setSaveState('error', res.error||'The save failed.');
+    clearTimeout(retryTimer);
+    retryTimer=setTimeout(()=>{ if(cur && cur.id===job.id && !saveTimer){ saveFor=cur.id; saveNow(); } },
+                          SAVE_RETRY_MS);
+  }
+}
+// What the status beside the tab says, and the RStudio unsaved mark on the tab.
+var saveDetail='';
+const VIEW_WORD=vs=>Array.isArray(vs) ? vs.map(v=>v==='frontal'?'head-on':'side').join(' and ') : '';
+function setSaveState(st, detail){
+  const el=$('#saveState'); if(!el) return;
+  const S={
+    none:   ['', ''],
+    pending:['Saving…', ''],
+    saving: ['Saving…', ''],
+    saved:  ['Saved', '', 'Every change is written to this fish’s sidecar as you make it.'],
+    held:   ['Not saved yet', 'held', 'Every landmark here is still where the model put it. '
+             + 'Accept, move or place one and the fish is saved, the rest marked unreviewed. '
+             + 'Saved untouched, it would read as a hand label and train the model on its own guesses.'],
+    partial:['Saved — '+VIEW_WORD(detail)+' guesses unchecked', 'held',
+             'Saved, except the '+VIEW_WORD(detail)+' view: every point on it is still where the '
+             + 'model put it, so it is not a label yet. Accept, move or place one of them and it is '
+             + 'saved too. Left as they are, the guesses are not kept once you move to another fish; '
+             + 'Auto-label brings them back from its cache.'],
+    blocked:['Not saved', 'bad', 'The labels already saved for this fish do not fit this photograph, '
+             + 'and saving would overwrite coordinates that can still be recovered. Repair them first:'
+             + `\n\n  python scripts/realign_labels.py --fish ${cur?cur.id:''}`],
+    demo:   ['Demo — not saved', 'held', 'Demo mode: nothing is written to disk.'],
+    error:  ['Not saved', 'bad', detail||''],
+  }[st] || ['', ''];
+  el.textContent=S[0]; el.className='aux '+S[1]; el.title=S[2]||S[0];
+  saveDetail = S[1]==='bad' ? (S[2]||'') : '';
+  const t=$('#viewtab'); if(t) t.classList.toggle('unsaved', S[1]==='bad' || st==='held');
+}
+$('#saveState').onclick=async()=>{
+  if(!saveDetail || !cur) return;
+  await tell(saveDetail);
+  if(!saveStuck[cur.id] && !(model._blocked && Object.keys(model._blocked).length)){
+    saveFor=cur.id; saveNow(); }
 };
+// Hidden (another tab, the window minimised): write what is waiting. Closing or
+// reloading: the same, by a request that outlives the page. If it does not land,
+// the draft is still here and is written when the fish is next opened.
+document.addEventListener('visibilitychange', ()=>{ if(document.hidden) flushSave(); });
+window.addEventListener('pagehide', ()=>{
+  if(!saveTimer || !cur || saveFor!==cur.id || specLoading) return;
+  clearTimeout(saveTimer); saveTimer=null;
+  const job=buildSave(); if(!job) return;
+  try{
+    localStorage.setItem(draftKey(job.id), JSON.stringify(Object.assign({}, model, {_sent_at:Date.now()})));
+    fetch(job.url, {method:'POST', headers:{'Content-Type':'application/json'}, body:job.body, keepalive:true});
+  }catch(e){}
+});
+
+// Work left in this browser and never written -- labelled before every change
+// saved itself, or a save that failed as the page closed -- is written when the
+// study opens, not left until each fish is opened again. A draft that opening
+// its fish would refuse or question is left for that: labels that no longer fit
+// the photograph, a photograph changed under the draft, or nothing but the
+// model's guesses.
+async function writeLeftDrafts(){
+  let keys=[];
+  try{ keys=Object.keys(localStorage).filter(k=>k.startsWith('calipr_draft_')); }catch(e){ return; }
+  let n=0; const failed=[];
+  for(const k of keys){
+    const id=k.slice('calipr_draft_'.length);
+    if(cur && cur.id===id) continue;                     // the open fish writes its own
+    const s=SPECS.find(x=>x.id===id); if(!s) continue;   // another study's
+    const d=loadDraft(id); if(!d) continue;              // older than its file
+    if(Object.keys(sizeMismatches(d._placed_on, s.sizes)).length) continue;
+    if(d._blocked && Object.keys(d._blocked).length) continue;
+    const pb=predsOf(d._pred);
+    dropUnwantedGuesses(d, pb);
+    for(const v of ['lateral','frontal']){                // the span the field showed
+      const m=d[v]; if(m && m.ruler && m.ruler.a && m.ruler.b && !(m.known_mm>0)) m.known_mm=defaultMM(v); }
+    const out=payloadFor(s, d, pb);
+    if(out==='held') continue;
+    if(out==='empty'){ clearDraft(id); continue; }
+    let r;
+    try{ r=await api('/api/save'+dsq(), {method:'POST', headers:{'Content-Type':'application/json'},
+                                         body:JSON.stringify(out)}); }
+    catch(e){ r={ok:false, error:'the labeler server did not answer'}; }
+    if(r.ok){ clearDraft(id); n++; }
+    else if(!r.demo) failed.push(`${shortId(id)}: ${r.error||'?'}`);
+  }
+  if(n){ await loadSpecs(); toast(`Saved ${n} fish left unsaved in this browser`); }
+  if(failed.length)
+    await tell(`${failed.length} fish left unsaved in this browser could not be saved. Their work is `
+      + `kept here; open each one to see why.\n\n` + failed.join('\n'));
+}
+
+// ---- the scale check -------------------------------------------------------------
+// A scale far from the rest of its lot multiplies every length on the fish by the
+// same factor, and nothing downstream can tell. The readout under the ruler warns,
+// but it went unread three times in one evening, so a dialog asks as well. It
+// used to ask on Save. Every change saves itself now, so it asks when the scale
+// is set instead: the second ruler point placed, either one moved, the known span
+// changed -- and at the first change to a fish whose saved scale is already off.
+// Each scale is asked about once: one kept on purpose is not asked about again.
+var scaleAsked={}, scaleAsking=false;
+async function checkScale(){
+  if(!cur || !model || specLoading || scaleAsking || !calMedian) return;
+  const L=model.lateral;
+  if(L.auto_ppm || !(L.ruler.a && L.ruler.b)) return;
+  const km = view==='lateral' ? parseFloat($('#knownmm').value) : L.known_mm;
+  if(!(km>0)) return;
+  const id=cur.id, sig=JSON.stringify([L.ruler.a, L.ruler.b, km]);
+  if(scaleAsked[id]===sig) return;
+  scaleAsked[id]=sig;
+  const px=Math.hypot(L.ruler.b[0]-L.ruler.a[0], L.ruler.b[1]-L.ruler.a[1]), ppm=px/km;
+  if(!(ppm>calMedian*1.35 || ppm<calMedian*0.74)) return;
+  const fit=spanThatFits(px);
+  const msg=`The scale on ${shortId(id)} reads ${ppm.toFixed(1)} px/mm; the rest of its lot `
+    + `reads about ${calMedian.toFixed(1)}. Every length on this fish would be off by `
+    + `${Math.max(ppm/calMedian, calMedian/ppm).toFixed(1)}×.`;
+  scaleAsking=true;
+  try{
+    if(fit && fit!==km){
+      const use=await ask(msg+`\n\nThe two ruler points are about ${fit} mm apart, not ${km}.`,
+                          {ok:`Set known span to ${fit} mm`, cancel:`Keep ${km} mm`});
+      if(use && cur && cur.id===id){
+        if(view==='lateral'){ $('#knownmm').value=fit; $('#knownmm').onchange(); }
+        else { model.lateral.known_mm=fit; persistDraft(); updateCalRead(); }
+        toast(`Known span set to ${fit} mm`);
+      }
+    } else await tell(msg+`\n\nCheck the two ruler points and the known span.`);
+  } finally { scaleAsking=false; }
+}
 boot();
 </script>
 </body>

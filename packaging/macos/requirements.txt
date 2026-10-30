@@ -1,0 +1,9 @@
+# What the app's own Python carries: the labeler's dependencies, with OpenCV's
+# headless build (the labeler never opens an OpenCV window), and pywebview for the
+# window. Auto-label's environment is separate (scripts/autolabel-requirements.txt).
+numpy==2.5.1
+opencv-python-headless==5.0.0.93
+openpyxl==3.1.5
+et-xmlfile==2.0.0
+pillow==12.3.0
+pywebview>=5.4,<7

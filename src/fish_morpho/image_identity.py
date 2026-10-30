@@ -113,13 +113,92 @@ def shift_view(doc: dict, view: str, dx: float, dy: float = 0.0) -> int:
     coordinate with the pixels under it, which is what the labeler draws and what
     the landmark model is trained on.
     """
+    return _map_view(doc, view, lambda x, y: (x + dx, y + dy))
+
+
+#: The ways a photograph can be turned. Each is its own exact inverse but the
+#: quarter turns, which undo each other.
+ORIENT_OPS = ("rotate_cw", "rotate_ccw", "mirror", "flip")
+
+
+def orient_point(op: str, x: float, y: float, w: float, h: float) -> tuple[float, float]:
+    """Where the point (x, y) of a w x h image lands when the image is turned by ``op``.
+
+    Coordinates are continuous, from 0 to w across: a pixel's left edge at x lands
+    at w - x, so the mapping is exact, with no half-pixel drift.
+    """
+    if op == "rotate_cw":           # a quarter turn clockwise: the left edge becomes the top
+        return h - y, x
+    if op == "rotate_ccw":          # anticlockwise: the top edge becomes the left
+        return y, w - x
+    if op == "mirror":              # left and right swapped
+        return w - x, y
+    if op == "flip":                # top and bottom swapped
+        return x, h - y
+    raise ValueError(f"unknown orientation {op!r}")
+
+
+def oriented_size(op: str, w: int, h: int) -> tuple[int, int]:
+    """The image's (width, height) after ``op``."""
+    return (h, w) if op in ("rotate_cw", "rotate_ccw") else (w, h)
+
+
+def orient_view(doc: dict, view: str, op: str, w: float, h: float) -> int:
+    """Turn every coordinate stored for ``view`` with its image, in place.
+
+    The same coverage as :func:`shift_view`. A turn or a mirror changes no
+    distance, area or angle, so every trait is unaffected; each point keeps the
+    anatomy it marks. Names stay right after a mirror too: ``mouth_left`` is the
+    fish's own left corner, and the point moves with that corner's pixels.
+    """
+    return _map_view(doc, view, lambda x, y: orient_point(op, x, y, w, h))
+
+
+def orientation_after(state: dict | None, op: str) -> dict:
+    """The net turn of an image after one more ``op``.
+
+    ``{"turns": k, "mirrored": m}`` means: mirror left-right if m, then k quarter
+    turns clockwise -- every combination of turns and mirrors is one of these
+    eight. Keeping the net turn, rather than the steps, lets each new image be cut
+    from the untouched original, so a JPEG is re-encoded once however many times
+    it is turned, and turning back to the start returns the original exactly.
+    """
+    k = int((state or {}).get("turns", 0)) % 4
+    m = bool((state or {}).get("mirrored", False))
+    if op == "rotate_cw":
+        k += 1
+    elif op == "rotate_ccw":
+        k -= 1
+    elif op == "mirror":            # H R^k = R^-k H
+        k, m = -k, not m
+    elif op == "flip":              # flip = a half turn and a mirror
+        k, m = 2 - k, not m
+    else:
+        raise ValueError(f"unknown orientation {op!r}")
+    return {"turns": k % 4, "mirrored": m}
+
+
+def apply_orientation(image, state: dict):
+    """A PIL image turned by a net orientation (see :func:`orientation_after`)."""
+    from PIL import Image
+
+    if state.get("mirrored"):
+        image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    for _ in range(int(state.get("turns", 0)) % 4):
+        image = image.transpose(Image.Transpose.ROTATE_270)     # PIL's 270 is clockwise
+    return image
+
+
+def _map_view(doc: dict, view: str, fn) -> int:
+    """Replace every coordinate (x, y) stored for ``view`` with ``fn(x, y)``."""
     block = doc.get(view) or {}
     moved = 0
 
     def mv(pt):
         nonlocal moved
         moved += 1
-        return [round(float(pt[0]) + dx, 1), round(float(pt[1]) + dy, 1)]
+        x, y = fn(float(pt[0]), float(pt[1]))
+        return [round(x, 1), round(y, 1)]
 
     for name, pt in list((block.get("keypoints") or {}).items()):
         if pt:
@@ -142,8 +221,8 @@ def shift_view(doc: dict, view: str, dx: float, dy: float = 0.0) -> int:
     for rec in (assist.get("corrected") or {}).values():
         for key in ("from", "to"):
             if rec.get(key):
-                rec[key] = [round(float(rec[key][0]) + dx, 1),
-                            round(float(rec[key][1]) + dy, 1)]
+                x, y = fn(float(rec[key][0]), float(rec[key][1]))
+                rec[key] = [round(x, 1), round(y, 1)]
     return moved
 
 

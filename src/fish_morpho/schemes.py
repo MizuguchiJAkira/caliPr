@@ -1,6 +1,6 @@
 """Alternative landmark schemes a study can be switched to.
 
-caliPr's own scheme (``landmark_config``) exists to compute 33 traits, so its
+caliPr's own scheme (``landmark_config``) exists to compute its traits, so its
 landmarks are chosen for what each trait needs. Geometric morphometrics asks a
 different question -- shape, after Procrustes -- and uses its own published point
 sets, which no trait here is defined against.
@@ -155,7 +155,9 @@ def get(name: str | None) -> dict | None:
 
 def listing() -> list[dict]:
     """Every scheme a study can be switched to, caliPr's own first."""
-    out = [{"name": DEFAULT, "title": "caliPr (23 landmarks, 33 traits)",
+    from .landmark_config import KEYPOINTS, TRAITS, View
+    n_lat = sum(1 for k in KEYPOINTS if k.view == View.LATERAL)
+    out = [{"name": DEFAULT, "title": f"caliPr ({n_lat} landmarks, {len(TRAITS)} traits)",
             "landmarks": None, "editable": False,
             "note": "The scheme the traits, the trained model and the tutorial use."}]
     out += [{"name": k, "title": v["title"], "landmarks": len(v["landmarks"]),

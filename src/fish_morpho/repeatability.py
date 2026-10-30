@@ -254,7 +254,8 @@ def _reference_fish(study_dir: Path) -> set[str]:
 
 
 def create_round(study_dir: Path, n: int, operator: str = "", same_as: int | None = None,
-                 seed: int | None = None) -> dict:
+                 seed: int | None = None, fish: list[str] | None = None,
+                 purpose: str = "") -> dict:
     """Set up a blind re-label round of ``n`` labelled fish; returns its round.json.
 
     Fish are drawn across the study's comparison groups in turn, so a small round
@@ -263,6 +264,11 @@ def create_round(study_dir: Path, n: int, operator: str = "", same_as: int | Non
     their photographs are linked in (a hard link, or a copy where the disk will
     not link), never moved. ``same_as`` re-labels the fish of an earlier round
     again -- a second operator, or the same one weeks later.
+
+    ``fish`` names the fish instead, for a round with a design of its own -- fish
+    whose labels came about one way against fish whose labels came about another.
+    ``purpose`` says what that design is, in round.json, where the labeller does
+    not look.
     """
     import datetime
     import os
@@ -271,6 +277,7 @@ def create_round(study_dir: Path, n: int, operator: str = "", same_as: int | Non
     from . import grouping
 
     study_dir = Path(study_dir)
+    fish_named = bool(fish)
     if read_round(study_dir):
         raise ValueError("this is a re-label round already; start one from the study itself")
     existing = rounds_of(study_dir)
@@ -281,6 +288,23 @@ def create_round(study_dir: Path, n: int, operator: str = "", same_as: int | Non
         if prev is None:
             raise ValueError(f"there is no round {same_as} to repeat")
         chosen = sorted(prev["fish"].values())
+    elif fish:
+        skip = _reference_fish(study_dir)
+        chosen = []
+        for fid in dict.fromkeys(fish):
+            sc = study_dir / "sidecars" / f"{fid}.json"
+            try:
+                labelled = bool((json.loads(sc.read_text()).get("lateral") or {}).get("keypoints"))
+            except Exception:
+                labelled = False
+            if not labelled or not _find_image(study_dir / "lateral", fid):
+                raise ValueError(f"{fid} is not a labelled fish of this study")
+            if fid in skip:
+                raise ValueError(f"{fid} is the reference panel's worked example; "
+                                 "re-labelling it blind is not possible")
+            chosen.append(fid)
+        if len(chosen) < 3:
+            raise ValueError("a round needs at least three labelled fish to re-label")
     else:
         labelled = []
         for f in sorted((study_dir / "sidecars").glob("*.json")):
@@ -339,6 +363,8 @@ def create_round(study_dir: Path, n: int, operator: str = "", same_as: int | Non
         "study": study_dir.name, "round": k, "blind": True,
         "created": datetime.datetime.now().astimezone().isoformat(timespec="seconds"),
         "operator": operator.strip(), "n": len(fish), "same_as": same_as, "seed": seed,
+        "chosen": "named" if (fish_named and same_as is None) else "drawn",
+        "purpose": purpose.strip(),
         "note": ("Blind re-label for measurement error. Which fish each code is stays in this "
                  "file; the labeller never sees it, nor the original landmarks. Label every "
                  "fish here from scratch, ruler included."),

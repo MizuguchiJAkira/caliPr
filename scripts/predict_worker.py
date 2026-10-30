@@ -10,6 +10,10 @@ which has no torch and no DeepLabCut; the training stack lives in
 ``.venv-train``. Rather than merge them, the server launches this module with the
 training interpreter and talks to it over pipes.
 
+``{"detect": true, "image": ...}`` instead finds every fish in a photograph of
+several (``fish_morpho.batch_fish``): a rectangle and an outline for each, no
+landmarks.
+
 Protocol — one JSON object per line, in and out::
 
     {"image": "/abs/path/to/fish.JPEG", "polygons": true, "view": "lateral",
@@ -60,7 +64,143 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "scripts"))
 sys.path.insert(0, str(_ROOT / "src"))
 
-from fish_morpho import plausibility  # noqa: E402  (needs the path above)
+from fish_morpho import paths, plausibility  # noqa: E402  (needs the path above)
+from fish_morpho import landmark_union as lu  # noqa: E402
+from fish_morpho.landmark_config import KEYPOINTS as _KEYPOINTS, View as _View  # noqa: E402
+
+#: The names a request gets back when it does not say which it wants: caliPr's.
+CALIPR_LATERAL = [k.name for k in _KEYPOINTS if k.view == _View.LATERAL]
+
+#: The cross-species model (trained by ``build_union_dataset.py``) predicts in two
+#: passes. The first sees the whole photograph and only finds the fish; these are
+#: the points it frames it by -- ones every fish has and the model finds well. The
+#: second pass sees the fish cut out at a standard length and places the points.
+#: A rig that photographs from farther away, or a fish in a corner of the frame,
+#: then looks to the second pass like every fish it was trained on.
+FRAME_POINTS = ("eye_anterior", "eye_posterior", "eye_dorsal", "eye_ventral",
+                "orbit_center", "premaxilla_tip", "lower_jaw_tip",
+                "maxilla_mandible_intersection", "operculum_posterior",
+                "pectoral_insertion_upper", "dorsal_base_anterior",
+                "dorsal_base_posterior", "pelvic_base_center",
+                "pelvic_fin_base_anterior", "anal_base_anterior",
+                "anal_base_posterior", "caudal_base")
+#: Low on purpose. The first pass only has to say roughly where the fish's ends
+#: are, and it does that well long before it is sure of it: points under 0.1 sit
+#: on the right part of the fish. A frame drawn from the confident points alone
+#: is often the head only, which the second pass then reads as a whole fish.
+#: Strays agree with nothing and are left out (``candidate_frames``).
+FRAME_MIN_CONFIDENCE = 0.05
+#: How many places the first pass may propose for the fish. The second pass looks
+#: at each and keeps the one whose surest landmarks it is surest of: the mean
+#: confidence of its best ``FRAME_SURE_OF`` -- not of all of them, since a trout
+#: has no BGNN opercle points to be sure of. A frame scoring ``FRAME_SURE`` ends
+#: the search. On a frame round a number card the model still finds some points
+#: at 0.6-0.8; round the fish, eight above 0.9.
+FRAME_CANDIDATES = 3
+FRAME_SURE_OF = 8
+FRAME_SURE = 0.9
+
+#: A point this far from where the fish's other landmarks put it -- as a fraction of
+#: its length -- is on the wrong part of the fish. Generous on purpose: the template
+#: is a straight median fish. A bent one puts its caudal base up to 27% of its
+#: length from where a template placed on its head would (TEM_18, TEM_24, from
+#: their hand labels), and other species are built differently -- a mormyrid's
+#: dorsal fin starts some 15% further back than a trout's. The points it exists
+#: to catch were 65-110% out: a caudal base beside the eye.
+SHAPE_TOLERANCE = 0.35
+#: The points the fish's placement is taken from.
+SHAPE_MIN_CONFIDENCE = 0.3
+
+
+def shape_outliers(ukps: dict, uconf: dict, tmpl: dict | None) -> dict:
+    """Points far from where the rest of the fish puts them, with why (union names).
+
+    The template is placed on the confident points that agree with one another;
+    a point it would put somewhere else entirely is dropped. Off the fish or on
+    it, a caudal base beside the eye is not a caudal base.
+    """
+    import math
+
+    if not tmpl:
+        return {}
+    sure = {n: (*ukps[n], uconf[n]) for n in ukps if uconf.get(n, 0) >= SHAPE_MIN_CONFIDENCE}
+    fit = lu.fit_template(tmpl, sure, tolerance=0.08)
+    if fit is None or len(fit[1]) < 4:
+        return {}
+    place, agree, length = fit
+    out = {}
+    for n, (x, y) in ukps.items():
+        if n in tmpl and n not in agree:
+            d = math.dist((x, y), place(n)) / length
+            if d > SHAPE_TOLERANCE:
+                out[n] = (f"not where the rest of the fish puts it: {100 * d:.0f}% of the "
+                          f"fish's length from where its other landmarks place it")
+    return out
+
+
+#: How far outside the fish's outline a point may sit and still count as on it, as
+#: a fraction of the fish's length: the snout tip and the fin bases lie on the
+#: edge, and an outline is never traced to the pixel.
+ON_BODY_MARGIN = 0.03
+
+
+def candidate_frames(names, arr, tmpl: dict | None = None, size=None) -> list:
+    """Where the fish may be, for the second pass: frames, most likely first.
+
+    With the model's template (``landmark_union.template``), the median fish is
+    placed on first-pass points that agree with one another, and each frame drawn
+    round the whole of it: a fish whose head was found but not its tail is still
+    framed snout to tail. More than one placement can be offered -- a number
+    card's ``0`` can pass for an eye -- and the second pass, which sees each up
+    close, says which is the fish.
+    """
+    if tmpl:
+        found = {n: (float(x), float(y), float(c)) for n, (x, y, c) in zip(names, arr)
+                 if c >= FRAME_MIN_CONFIDENCE}
+        frames = []
+        for place, agree, _ in lu.placements(tmpl, found, most=FRAME_CANDIDATES):
+            frame = lu.fish_frame([place(n) for n in tmpl] + [found[n][:2] for n in agree])
+            if frame is None:
+                continue
+            # A placement whose fish would lie mostly outside the photograph is
+            # not one the photograph shows.
+            cx, cy = frame["x0"] + frame["w"] / 2, frame["y0"] + frame["h"] / 2
+            if size and not (0 <= cx <= size[0] and 0 <= cy <= size[1]):
+                continue
+            frames.append(frame)
+        if frames:
+            return frames
+    frame = robust_frame(names, arr)
+    return [frame] if frame else []
+
+
+def robust_frame(names, arr):
+    """One frame round the first pass's points, strays dropped (no template).
+
+    Points far from the rest -- on a pin, a card, the mirror -- are left out
+    before the frame is drawn.
+    """
+    import numpy as np
+
+    pts = [(float(x), float(y), float(c), n) for n, (x, y, c) in zip(names, arr)
+           if n in FRAME_POINTS]
+    good = [p for p in pts if p[2] >= FRAME_MIN_CONFIDENCE]
+    if len(good) < 4:
+        good = sorted(pts, key=lambda p: -p[2])[:6]
+    xy = np.array([[p[0], p[1]] for p in good])
+    if len(xy) < 2:
+        return None
+    med = np.median(xy, axis=0)
+    d = np.hypot(*(xy - med).T)
+    keep = xy[d <= max(3.0 * float(np.median(d)), 1e-6)]
+    frame = lu.fish_frame(keep.tolist())
+    found = {p[3] for p in good}
+    # Without both ends the extent is short of the fish: give it room.
+    if frame and not ("caudal_base" in found and {"premaxilla_tip", "lower_jaw_tip"} & found):
+        grow = 0.35 * frame["w"]
+        frame["x0"] -= grow / 2
+        frame["w"] += grow
+    return frame
 
 #: The one polygon worth predicting. SAM matches a dense hand tracing on the body
 #: outline (~1.6% median area error here, and it is 52 of the 82 vertices traced
@@ -172,7 +312,7 @@ def smooth_body(poly, kps, max_frac=MAX_BODY_SAGITTA_SL,
     """
     import numpy as np
 
-    a, b = kps.get("premaxilla_tip"), kps.get("caudal_base")
+    a, b = kps.get("premaxilla_tip") or kps.get("lower_jaw_tip"), kps.get("caudal_base")
     if not a or not b or len(poly) < 8:
         return poly
     P = np.array(poly, float)
@@ -290,6 +430,25 @@ class _Sam:
         return cls.proc, cls.model
 
     @classmethod
+    def fish_mask(cls, rgb_small, box, device: str):
+        """The fish inside ``box`` (small-image pixels) as a boolean mask, or None."""
+        import torch
+
+        proc, model = cls.ready(device)
+        inputs = proc(rgb_small, input_boxes=[[box]], return_tensors="pt")
+        inputs = {k: (v.to(torch.float32)
+                      if getattr(v, "dtype", None) == torch.float64 else v)
+                  for k, v in inputs.items()}
+        inputs = {k: (v.to(device) if hasattr(v, "to") else v) for k, v in inputs.items()}
+        with torch.no_grad():
+            out = model(**inputs, multimask_output=True)
+        masks = proc.image_processor.post_process_masks(
+            out.pred_masks.cpu(), inputs["original_sizes"].cpu(),
+            inputs["reshaped_input_sizes"].cpu())[0][0]
+        best = int(out.iou_scores.cpu()[0][0].argmax())
+        return masks[best].numpy().astype(bool)
+
+    @classmethod
     def body_outline(cls, rgb_small, points, device: str, scale: float):
         import torch
 
@@ -342,7 +501,7 @@ class _Fin:
             import torch
 
             import train_fin_segmenter as tfs
-            path = _ROOT / "fin_seg_runs" / "fin_segmenter.pt"
+            path = paths.MODELS / "fin_seg_runs" / "fin_segmenter.pt"
             if not path.is_file():
                 return None
             blob = torch.load(path, map_location="cpu", weights_only=False)
@@ -439,9 +598,32 @@ class _Model:
 
         self.project = pl.find_project(project, view)
         self.cfg, self.snapshot = pl.find_config_and_snapshot(self.project, snapshot)
-        self.scale = pl.training_scale(self.project, scale)
+        try:
+            self.split = json.loads((self.project / "split.json").read_text())
+        except Exception:
+            self.split = {}
+        # A cross-species model is framed per fish, not shrunk by one factor.
+        self.union = self.split.get("view") == "union"
+        self.scale = None if self.union else pl.training_scale(self.project, scale)
         with open(self.cfg) as fh:
             self.names = list(ruamel.yaml.YAML().load(fh)["metadata"]["bodyparts"])
+        self.label = pl.model_label(self.project, self.snapshot)
+        self.runner = None
+
+    def infer(self, bgr, device: str):
+        """The model's (x, y, confidence) per landmark on one image, in its pixels.
+
+        The runner is built once and the image handed over in memory -- the two
+        passes would otherwise load the snapshot twice per photograph.
+        """
+        import cv2
+        import numpy as np
+        if self.runner is None:
+            from deeplabcut.pose_estimation_pytorch.apis.utils import get_pose_inference_runner
+            self.runner = get_pose_inference_runner(
+                model_config=str(self.cfg), snapshot_path=str(self.snapshot), device=device)
+        pred = self.runner.inference([cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)])[0]
+        return np.asarray(pred["bodyparts"], dtype=float).reshape(-1, 3)
 
 
 def _mouth_corners_in_image_order(kps: dict, confs: dict) -> None:
@@ -456,6 +638,42 @@ def _mouth_corners_in_image_order(kps: dict, confs: dict) -> None:
         kps["mouth_left"], kps["mouth_right"] = b, a
         if "mouth_left" in confs and "mouth_right" in confs:
             confs["mouth_left"], confs["mouth_right"] = confs["mouth_right"], confs["mouth_left"]
+
+
+def off_body(kps: dict, frame: dict, small, scale: float, device: str) -> dict:
+    """Landmarks lying off the fish, with why: the fish is SAM's mask in the frame.
+
+    The box is the landmarks' own extent, padded; if SAM's answer covers almost
+    none of it or almost all of it, it found something other than the fish and
+    nothing is judged on it.
+    """
+    import cv2
+    import numpy as np
+
+    xs = [p[0] for p in kps.values()]
+    ys = [p[1] for p in kps.values()]
+    length = frame["scale"] and lu.FRAMING["length_px"] / frame["scale"]
+    pad = 0.08 * length
+    box = [(min(xs) - pad) * scale, (min(ys) - pad) * scale,
+           (max(xs) + pad) * scale, (max(ys) + pad) * scale]
+    h, w = small.shape[:2]
+    box = [max(0, box[0]), max(0, box[1]), min(w - 1, box[2]), min(h - 1, box[3])]
+    mask = _Sam.fish_mask(cv2.cvtColor(small, cv2.COLOR_BGR2RGB), box, device)
+    x0, y0, x1, y1 = (int(v) for v in box)
+    cover = float(mask[y0:y1, x0:x1].mean()) if x1 > x0 and y1 > y0 else 0.0
+    if not 0.12 <= cover <= 0.92:
+        return {}
+    r = max(1, int(round(ON_BODY_MARGIN * length * scale)))
+    grown = cv2.dilate(mask.astype(np.uint8), cv2.getStructuringElement(
+        cv2.MORPH_ELLIPSE, (2 * r + 1, 2 * r + 1)))
+    out = {}
+    for name, (x, y) in kps.items():
+        u, v = int(round(x * scale)), int(round(y * scale))
+        # Beyond the edge of what was looked at is out of view, not off the fish:
+        # a snout past the mirror's edge is still a snout.
+        if 0 <= u < w and 0 <= v < h and not grown[v, u]:
+            out[name] = "not on the fish: it lies outside the specimen's outline"
+    return out
 
 
 def main(argv=None) -> int:
@@ -487,8 +705,8 @@ def main(argv=None) -> int:
                "error": NO_MODEL.format(view="lateral") if missing else str(exc)})
         return 1
     lat = models["lateral"]
-    _emit({"ready": True, "model": lat.snapshot.name, "scale": lat.scale,
-           "landmarks": lat.names, "device": args.device})
+    _emit({"ready": True, "model": lat.label, "scale": lat.scale,
+           "landmarks": lat.names, "device": args.device, "union": lat.union})
 
     def model_for(view: str) -> _Model:
         if view not in models:
@@ -510,6 +728,18 @@ def main(argv=None) -> int:
         t0 = time.time()
         try:
             req = json.loads(line)
+            if req.get("detect"):
+                # Where each fish lies in a photograph of several. No landmarks:
+                # those come from a request per fish, on its own rectangle.
+                src = Path(req["image"])
+                im = cv2.imread(str(src))
+                if im is None:
+                    raise ValueError(f"unreadable image: {src.name}")
+                from fish_morpho.batch_fish import find_fish
+                _emit({"ok": True, "image": src.name, "fish": find_fish(im),
+                       "width": im.shape[1], "height": im.shape[0],
+                       "elapsed": round(time.time() - t0, 2)})
+                continue
             view = req.get("view") or "lateral"
             m = model_for(view)
             src = Path(req["image"])
@@ -524,6 +754,7 @@ def main(argv=None) -> int:
             # goes back on at the end, so what comes out names pixels of the frame.
             box = req.get("crop")
             ox = oy = 0
+            photo = im
             if box:
                 x0, y0, x1, y1 = (int(v) for v in box)
                 x0, y0 = max(0, x0), max(0, y0)
@@ -531,25 +762,89 @@ def main(argv=None) -> int:
                 if x1 - x0 < 10 or y1 - y0 < 10:
                     raise ValueError(f"crop {box} is not inside the photograph")
                 im, ox, oy = im[y0:y1, x0:x1], x0, y0
-            scale = m.scale
-            small = cv2.resize(im, None, fx=scale, fy=scale,
-                               interpolation=cv2.INTER_AREA)
-            # One image per call, in its own directory: the folder API is what is
-            # available, and reusing a name keeps the temp dir from growing.
-            for old in tmp.iterdir():
-                old.unlink()
-            cv2.imwrite(str(tmp / "frame.png"), small)
+            frame = None
+            misplaced = {}
+            rename = None
+            if m.union:
+                # Pass 1: the whole photograph, to find the fish. Pass 2: the fish
+                # framed at a standard length, to place the points.
+                h, w = im.shape[:2]
+                s1 = lu.WHOLE_SIDE / max(h, w)
+                whole = cv2.resize(im, (round(w * s1), round(h * s1)),
+                                   interpolation=cv2.INTER_AREA)
+                first = m.infer(whole, args.device)
+                first[:, :2] /= s1
+                frames = candidate_frames(m.names, first, m.split.get("template"), (w, h))
+                if not frames:
+                    raise ValueError("no fish was found in this photograph")
+                # The fish is cut from the whole photograph, not the view's
+                # rectangle: a fish lying against the mirror has its snout on the
+                # far side of the rectangle's edge, and the second pass has to see
+                # it to place the points on it.
+                best = None
+                for cand in frames:
+                    cand = dict(cand, x0=cand["x0"] + ox, y0=cand["y0"] + oy)
+                    crop_img, _ = lu.cut_frame(photo, cand)
+                    out = m.infer(crop_img, args.device)
+                    sure = float(np.sort(out[:, 2])[::-1][:FRAME_SURE_OF].mean())
+                    if best is None or sure > best[0]:
+                        best = (sure, cand, out)
+                    if sure >= FRAME_SURE:
+                        break
+                _, frame, second = best
+                ukps, uconf = {}, {}
+                # From here on the view's rectangle is widened to hold the whole
+                # fish, so the outline and the checks below see what the second
+                # pass saw -- an outline cut at the rectangle's edge puts the head
+                # in front of the snout, and the anatomy check then drops it.
+                H, W = photo.shape[:2]
+                fx0, fy0 = int(frame["x0"]), int(frame["y0"])
+                fx1, fy1 = int(frame["x0"] + frame["w"]), int(frame["y0"] + frame["h"])
+                nx0, ny0 = max(0, min(ox, fx0)), max(0, min(oy, fy0))
+                nx1 = min(W, max(ox + im.shape[1], fx1))
+                ny1 = min(H, max(oy + im.shape[0], fy1))
+                im, ox, oy = photo[ny0:ny1, nx0:nx1], nx0, ny0
+                h, w = im.shape[:2]
+                for name, (u, v, c) in zip(m.names, second):
+                    x, y = lu.from_crop(frame, float(u), float(v))
+                    x, y = x - ox, y - oy
+                    ukps[name] = [round(x, 1), round(y, 1)]
+                    uconf[name] = round(float(c), 3)
+                # Only what this study collects. Checked under the shared names --
+                # caliPr's own wherever the schemes agree, so the outline and the
+                # anatomy checks below know them -- and renamed to the study's
+                # names at the end.
+                wanted = req.get("landmarks") or CALIPR_LATERAL
+                rename = {lu.union_name(n): n for n in wanted if lu.union_name(n) in ukps}
+                kps = {u: ukps[u] for u in rename}
+                confs = {u: uconf[u] for u in rename}
+                misplaced = {u: why for u, why in
+                             shape_outliers(ukps, uconf, m.split.get("template")).items()
+                             if u in rename}
+                # The outline and the checks below work on a modest copy.
+                scale = min(1.0, 1500.0 / max(h, w))
+                small = cv2.resize(im, None, fx=scale, fy=scale,
+                                   interpolation=cv2.INTER_AREA)
+            else:
+                scale = m.scale
+                small = cv2.resize(im, None, fx=scale, fy=scale,
+                                   interpolation=cv2.INTER_AREA)
+                # One image per call, in its own directory: the folder API is what
+                # is available, and reusing a name keeps the temp dir from growing.
+                for old in tmp.iterdir():
+                    old.unlink()
+                cv2.imwrite(str(tmp / "frame.png"), small)
 
-            res = apis.analyze_image_folder(
-                model_cfg=str(m.cfg), images=str(tmp),
-                snapshot_path=str(m.snapshot), device=args.device,
-                progress_bar=False)
-            arr = np.asarray(next(iter(res.values()))["bodyparts"]).reshape(-1, 3)
+                res = apis.analyze_image_folder(
+                    model_cfg=str(m.cfg), images=str(tmp),
+                    snapshot_path=str(m.snapshot), device=args.device,
+                    progress_bar=False)
+                arr = np.asarray(next(iter(res.values()))["bodyparts"]).reshape(-1, 3)
 
-            kps, confs = {}, {}
-            for name, (x, y, c) in zip(m.names, arr):
-                kps[name] = [round(float(x) / scale, 1), round(float(y) / scale, 1)]
-                confs[name] = round(float(c), 3)
+                kps, confs = {}, {}
+                for name, (x, y, c) in zip(m.names, arr):
+                    kps[name] = [round(float(x) / scale, 1), round(float(y) / scale, 1)]
+                    confs[name] = round(float(c), 3)
 
             if view == "frontal":
                 _mouth_corners_in_image_order(kps, confs)
@@ -559,15 +854,17 @@ def main(argv=None) -> int:
                        "view": view, "keypoints": kps, "confidence": confs,
                        "low_confidence": sorted(low), "polygons": {},
                        "implausible": {}, "frame_warning": None,
-                       "model": m.snapshot.name,
+                       "model": m.label,
                        "elapsed": round(time.time() - t0, 2)})
                 continue
             low = [n for n, c in confs.items() if c < args.min_confidence]
 
             polys = {}
             if req.get("polygons"):
+                # A study on BGNN's scheme marks the lower jaw, not the upper.
+                names = BODY_PROMPT if "premaxilla_tip" in kps else ("lower_jaw_tip", *BODY_PROMPT)
                 prompt = [[kps[n][0] * scale, kps[n][1] * scale]
-                          for n in BODY_PROMPT if n in kps]
+                          for n in names if n in kps]
                 # Fewer than three prompt points spread along the animal and SAM
                 # returns a part rather than the fish; better to return no
                 # outline than a plausible wrong one.
@@ -588,6 +885,8 @@ def main(argv=None) -> int:
             # dorsal base half a fin out of position at 0.914. Needs the outline
             # for its axis, so a keypoints-only request is simply not checked.
             bad = plausibility.check(kps, polys.get(BODY), _bands_for(src))
+            for name, why in misplaced.items():
+                bad.setdefault(name, why)
             # Both are conditions of the whole prediction, not of one landmark:
             # nothing is dropped, the labeller is told why nothing was checked.
             frame_warning = (bad.pop("_frame", None) or bad.pop("_axis", None)
@@ -600,6 +899,21 @@ def main(argv=None) -> int:
                 kps.pop(name, None)
                 confs.pop(name, None)
             low = [n for n in low if n not in bad]
+
+            # A point has to be on the fish. The model's worst failures were points
+            # on the board, a pin or a number card, which no anatomy band catches
+            # when the band is wide; the fish's own outline does.
+            if frame is not None and kps:
+                try:
+                    off = off_body(kps, frame, small, scale, args.device)
+                except Exception as exc:
+                    off = {}
+                    print(f"on-body check failed: {exc}", file=sys.stderr)
+                for name in off:
+                    bad[name] = {"why": off[name], "confidence": confs.get(name)}
+                    kps.pop(name, None)
+                    confs.pop(name, None)
+                low = [n for n in low if n not in bad]
 
             # The outline may be wanted only as the axis the check above needs.
             # It is computed either way; this decides whether it comes back as
@@ -623,13 +937,18 @@ def main(argv=None) -> int:
                     # back to the photograph goes on once, below.
                     polys[fin] = poly
 
+            if rename:
+                kps = {rename[n]: p for n, p in kps.items()}
+                confs = {rename[n]: c for n, c in confs.items()}
+                low = [rename[n] for n in low]
+                bad = {rename.get(n, n): v for n, v in bad.items()}
             kps = {n: [x + ox, y + oy] for n, (x, y) in kps.items()}
             polys = {n: [[x + ox, y + oy] for x, y in poly] for n, poly in polys.items()}
             _emit({"ok": True, "fish_id": pl.stem_of(src), "image": src.name,
                    "keypoints": kps, "confidence": confs,
                    "low_confidence": sorted(low), "polygons": polys,
                    "implausible": bad, "frame_warning": frame_warning,
-                   "view": view, "model": m.snapshot.name,
+                   "view": view, "model": m.label,
                    "elapsed": round(time.time() - t0, 2)})
         except MissingModel as exc:
             _emit({"ok": False, "missing_model": True, "error": str(exc)})

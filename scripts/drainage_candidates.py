@@ -236,7 +236,7 @@ def drainage_species(web: Web, wkt: str, keys) -> list[dict]:
         facets = {f["field"]: f["counts"] for f in e.get("facets") or []}
         years = [int(y["name"]) for y in facets.get("YEAR", [])]
         insts = {i["name"]: i["count"] for i in facets.get("INSTITUTION_CODE", [])}
-        return {"species": sp.get("canonicalName") or sp.get("scientificName"),
+        return {"species": sp.get("canonicalName") or sp.get("scientificName"), "key": int(c["name"]),
                 "records": c["count"], "institutions": len(insts),
                 "first_year": min(years) if years else None,
                 "last_year": max(years) if years else None,

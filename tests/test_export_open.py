@@ -49,6 +49,7 @@ def srv(tmp_path, monkeypatch):
     results = tmp_path / "repo"             # results/ goes here, not into the real repository
     results.mkdir()
     monkeypatch.setattr(ls, "_ROOT", results)
+    monkeypatch.setattr(ls.paths, "WORK", results)
     (results / "scripts").symlink_to(SCRIPTS)
     shown = []
     def record(path, how):

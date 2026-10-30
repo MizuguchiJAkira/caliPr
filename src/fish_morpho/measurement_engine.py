@@ -530,6 +530,14 @@ def _compute_CPd(ann: Annotation, cache: _RefCache) -> float:
     )
 
 
+def _compute_CPb(ann: Annotation, cache: _RefCache) -> float:
+    # Peduncle depth at the caudal-fin base: between the ends of the caudal
+    # crease, BGNN 2D landmarks 11 and 13.
+    return _distance(
+        ann.keypoints["caudal_crease_dorsal"], ann.keypoints["caudal_crease_ventral"]
+    )
+
+
 def _compute_CFd(ann: Annotation, cache: _RefCache) -> float:
     # Caudal fin depth: vertical between F (caudal top) and G (caudal bottom).
     caudal = cache.caudal_half()
@@ -733,6 +741,7 @@ TRAIT_COMPUTERS: dict[str, _TraitComputer] = {
     "Jl": _compute_Jl,
     "Bs": _compute_Bs,
     "CPd": _compute_CPd,
+    "CPb": _compute_CPb,
     "CFd": _compute_CFd,
     "CFs": _compute_CFs,
     "PFs": _compute_PFs,

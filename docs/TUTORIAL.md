@@ -1,7 +1,11 @@
 # Tutorial
 
-Getting from a folder of photographs to a spreadsheet of measurements. No
-terminal beyond the two lines below, and nothing to configure.
+Getting from a folder of photographs to a spreadsheet of measurements.
+
+On a Mac, the app needs no terminal at all: see
+[Mac app](../README.md#mac-app) in the README, open it, and skip to section 1.
+Otherwise, from source — no terminal beyond the lines below, and nothing to
+configure:
 
 ```bash
 git clone https://github.com/MizuguchiJAkira/caliPr.git
@@ -25,12 +29,11 @@ export**. The trained models are downloaded separately, not kept in the
 repository. Skip all of it until you want it:
 
 ```bash
-python3.11 -m venv .venv-train
-./.venv-train/bin/pip install "deeplabcut==3.0.1" transformers
-./.venv/bin/python scripts/fetch_model.py
+./.venv/bin/python scripts/install_autolabel.py
 ```
 
-Without it the labeler runs normally, and Auto-label tells you what to run.
+Without it the labeler runs normally, and clicking Auto-label offers to install
+it for you, showing its progress as it goes.
 
 ---
 
@@ -84,6 +87,23 @@ labels asks you to type its name first.
 A study is a plain folder under `data/`, so you can also just make one yourself
 and it will appear without restarting the server.
 
+**Rename** (above the photograph) gives a specimen a new name. Use it for a batch
+named by the camera (`Img0133`), or for a number that was read wrong. The
+photograph, the saved labels, cached predictions, the Darwin Core record,
+`groups.csv` and any re-label round all follow the new name. The strain is read
+from the name (`Salvelinus_fontinalis_TEM_18`), so a rename can move a fish into
+another group.
+
+Every fish is labelled **head left, back up**: that is how the landmark model
+and the exports expect it. A photograph that came in on its side, upside down or
+facing right is put right with the four buttons after **Remove photo**: a quarter
+turn anticlockwise or clockwise, mirror left to right (for a fish facing right),
+and flip top to bottom (for a fish with its back down). Every point already
+placed on it turns with it. The photograph as it was taken is kept in the
+study's `unturned/` folder, and turning it back to the start restores that file
+exactly. A mirrored or flipped photograph shows the fish's other side, so its
+labels are recorded as mirrored, which matters for anything left-right.
+
 ---
 
 ## 2. The three columns
@@ -106,7 +126,7 @@ species, collection and size, say), lists them in its `schema.json` as
 The **Reference** panel in the corner of the photograph shows an example fish,
 zoomed and centred on whichever landmark is selected, so you can see where the
 point goes before you click. Each study has its own example: open a fish you have
-labelled carefully, save it, and click **Use as example** above the photograph.
+labelled carefully and click **Use as example** above the photograph.
 `⤢` enlarges the panel, `–` (or `R`) minimises it. A study on caliPr's own
 landmarks shows a built-in brook trout until it has one of its own; a study on
 another scheme shows nothing until you choose one.
@@ -247,7 +267,7 @@ Under the **Landmarks** header, **scheme** chooses what a study collects:
 
 | | |
 |---|---|
-| **caliPr (23 landmarks, 33 traits)** | the default: what the traits, the trained model and this tutorial use |
+| **caliPr (25 landmarks, 34 traits)** | the default: what the traits, the trained model and this tutorial use |
 | **BGNN 2D body landmarks (23)** | the Fish-AIR / BGNN shape landmarks, in their numbered order |
 
 **＋ new scheme…**, the dropdown's last entry, starts one of your own — empty, or
@@ -284,7 +304,7 @@ for until you switch back.
 Every study collects the landmarks defined in the code. A study can also add its
 own: **＋ add a landmark to this study**, at the end of the list. It is then
 offered on every specimen in that study, saved with the labels, and written to the
-TPS export. No trait is computed from it — the 33 traits are defined in code
+TPS export. No trait is computed from it — the 34 traits are defined in code
 against fixed names — and the model does not learn it.
 
 The **✎** on any landmark renames it for this study. That changes what the labeler
@@ -294,19 +314,34 @@ your own to nothing removes it, and it asks first if the point is already placed
 
 ---
 
-## 4. Save, and export
+## 4. Saving, and export
 
-![Save and export](img/tutorial/4-save.png)
+There is no Save button. Every change is written to the specimen's JSON file in
+`sidecars/` a moment after you make it, and at once when you move to another
+fish, switch study, export, or close the page. The word beside the photograph's
+tab says where it stands: *Saving…*, *Saved*, or *Not saved*, with the reason
+when you hover over it. A change that could not be written is kept in
+the browser and written when the fish is next opened. That file is the durable
+artefact: every export is derived from it, and it records which points you
+corrected and which you accepted.
 
-**Save** (the disk above the photograph) writes one JSON file per specimen into
-`sidecars/`. Until then the photograph's tab shows its name in red with a `*`, the
-way RStudio marks an unsaved script. That file
-is the durable artefact — every export is derived from it, and it records which
-points you corrected and which you accepted.
+Two things are not saved, and the tab's name turns red with a `*`, the way
+RStudio marks an unsaved script:
 
-If every landmark is still exactly where the model put it, Save asks first. A
-sidecar saved that way is model output entering the training set as ground
-truth, which is worth one deliberate click to avoid.
+- **A view where every landmark is still exactly where the model put it.**
+  Saved that way, model output would read as a label. The rest of the fish is
+  saved, and the tab says *Saved — head-on guesses unchecked*. Accept, move or
+  place one of those points and that view is saved too, with the rest marked
+  unreviewed. A fish with nothing but the model's guesses says *Not saved yet*.
+- **Saved labels that no longer fit the photograph** (it was re-cropped or
+  replaced). Saving would overwrite coordinates that can still be recovered;
+  `python scripts/realign_labels.py --fish <id>` repairs them first.
+
+**The scale is checked when you set it.** Place the second ruler point, move
+one, or change **known span**, and if the px/mm is far from the rest of the
+fish's lot a dialog says by how much. When the two points are a round number of
+millimetres apart it offers that span, e.g. *Set known span to 50 mm*. It asks
+once per scale, so a span you keep on purpose is not asked about again.
 
 Open **Export ▾** in the toolbar. Each export is saved under `results/<study>/`
 and opened on your computer rather than downloaded: the workbook in your

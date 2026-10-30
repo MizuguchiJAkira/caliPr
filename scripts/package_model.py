@@ -96,6 +96,27 @@ Packaged {dt.date.today().isoformat()}. MIT licence, as the repository.
 """
 
 
+def union_card(project: Path, snapshot: Path, parts: list[str], split: dict) -> str:
+    groups = sorted({g.split(":")[0] for g in (split.get("groups") or {}).values()})
+    return f"""# caliPr side-view landmark model (cross-species)
+
+- Project: `{project.name}`
+- Snapshot: `{snapshot.name}` (DeepLabCut 3.0.1, PyTorch, ResNet-50)
+- Landmarks ({len(parts)}): {", ".join(parts)}
+- Trained on: {len(split.get("fish_train") or [])} hand-labelled fish from {", ".join(groups)}
+
+Predicts in two passes: the whole photograph to find the fish, then the fish framed
+at a standard length to place the points, under caliPr's or BGNN's landmark names
+as the study uses. Trained mostly on brook trout and alewife; other body shapes
+need labelled examples to fine-tune on.
+
+Installed by `python scripts/fetch_model.py`. Accuracy and limits:
+https://github.com/{REPO}#automated-landmarking
+
+Packaged {dt.date.today().isoformat()}. MIT licence, as the repository.
+"""
+
+
 def package(view: str, out_dir: Path, release: str) -> dict:
     project = pl.find_project(None, view)
     cfg, snapshot = pl.find_config_and_snapshot(project, None)
@@ -103,11 +124,18 @@ def package(view: str, out_dir: Path, release: str) -> dict:
     parts = bodyparts(config_text)
     if not parts:
         raise SystemExit(f"{project}: no bodyparts in config.yaml")
-    scale, split = trained_scale(project, parts)
+    union = project.parent.name == pl.UNION_PROJECT
+    if union:
+        # Framed per fish, not shrunk by one factor: what the loader needs is the
+        # framing and the template, not a scale.
+        split = json.loads((project / "split.json").read_text())
+        scale = None
+    else:
+        scale, split = trained_scale(project, parts)
 
     rel_train = cfg.parent.relative_to(project)
     trained = "-".join(project.name.split("-")[-3:])     # jcalipr-jcalipr-2026-08-05
-    name = f"calipr-trout-{view}-{trained}.zip"
+    name = f"calipr-{'fish' if union else 'trout'}-{view}-{trained}.zip"
     out_dir.mkdir(parents=True, exist_ok=True)
     target = out_dir / name
     root = project.name
@@ -119,12 +147,18 @@ def package(view: str, out_dir: Path, release: str) -> dict:
         text("config.yaml", set_paths(config_text, {"project_path": PLACEHOLDER}))
         text(f"{rel_train}/pytorch_config.yaml", set_paths(cfg.read_text(), blank))
         # Just what the loader needs from the split; which fish trained is not.
-        text("split.json", json.dumps({"view": view, "scale": scale, "keypoints": parts},
-                                      indent=2))
+        if union:
+            text("split.json", json.dumps({k: split[k] for k in
+                                           ("view", "keypoints", "framing", "template")},
+                                          indent=2))
+        else:
+            text("split.json", json.dumps({"view": view, "scale": scale, "keypoints": parts},
+                                          indent=2))
         text("model.json", json.dumps({"snapshot": snapshot.name,
                                        "why": "the snapshot the labeler loads for this view"},
                                       indent=2))
-        text("MODEL.md", card(view, project, snapshot, scale, parts))
+        text("MODEL.md", union_card(project, snapshot, parts, split) if union
+             else card(view, project, snapshot, scale, parts))
         z.write(snapshot, f"{root}/{rel_train}/{snapshot.name}", compress_type=zipfile.ZIP_STORED)
 
     data = target.read_bytes()
@@ -133,7 +167,7 @@ def package(view: str, out_dir: Path, release: str) -> dict:
         "url": f"https://github.com/{REPO}/releases/download/{release}/{name}",
         "sha256": hashlib.sha256(data).hexdigest(),
         "bytes": len(data),
-        "folder": pl.VIEW_PROJECT[view],
+        "folder": pl.UNION_PROJECT if union else pl.VIEW_PROJECT[view],
         "project": project.name,
         "snapshot": snapshot.name,
         "scale": scale,
@@ -152,7 +186,13 @@ def main(argv=None) -> int:
     ap.add_argument("--out", type=Path, default=_ROOT / "dist" / "models")
     ap.add_argument("--manifest", type=Path, default=MANIFEST)
     args = ap.parse_args(argv)
-    models = {view: package(view, args.out, args.release) for view in args.views}
+    # Models not packaged this time keep their entries, and their URLs into the
+    # release they were published in: repackaging one view must not unpublish
+    # the others.
+    previous = (json.loads(args.manifest.read_text()).get("models") or {}
+                if args.manifest.is_file() else {})
+    models = dict(previous)
+    models.update({view: package(view, args.out, args.release) for view in args.views})
     args.manifest.write_text(json.dumps({"release": args.release, "models": models},
                                         indent=2) + "\n")
     print(f"wrote {args.manifest}")
