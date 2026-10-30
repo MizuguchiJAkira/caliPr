@@ -26,10 +26,10 @@ across 35 specimens (see [Accuracy](#accuracy)).
 
 ### Mac app
 
-On an Apple Silicon Mac (macOS 12 or later), download `caliPr-<version>-mac.zip`
-from the [releases](https://github.com/MizuguchiJAkira/caliPr/releases), unzip
-it and drag **caliPr** into Applications. It carries its own Python, so there is
-nothing else to install.
+A Mac app for Apple Silicon (macOS 12 or later) is built from this repository
+with `python3 packaging/macos/build_app.py` (needs [uv](https://docs.astral.sh/uv/)
+and the Xcode command line tools); it is not yet published as a release. It
+carries its own Python, so there is nothing else to install.
 
 The app is not signed with an Apple developer certificate, so macOS refuses to
 open it the first time. Open **System Settings › Privacy & Security**, scroll to
@@ -40,9 +40,6 @@ Studies and exports are kept in `~/Documents/caliPr`. The app is the labeler:
 placing landmarks, measuring and exporting. Auto-label and batch identification
 are separate downloads (see [Optional parts](#optional-parts)); Auto-label goes
 into `~/Library/Application Support/caliPr`.
-
-To build the app from this repository, run `python3 packaging/macos/build_app.py`
-(needs [uv](https://docs.astral.sh/uv/) and the Xcode command line tools).
 
 ### From source
 
@@ -88,12 +85,11 @@ hand-landmarked, with the species in each file name and `"reference_set": true`
 in its `schema.json`. `scripts/package_component.py` packages one for
 publishing, with its landmarks and photo credits but no photographs.
 
-The side-view model is trained on brook trout and alewife, with three smaller
-museum series, and answers in caliPr's or BGNN's landmark names as the study
-uses. It finds the fish before placing landmarks on it, so a fish photographed
-from farther away or among other objects is handled; a fish of a markedly
-different shape needs labelled examples to fine-tune on (see
-[Automated landmarking](#automated-landmarking)).
+The side-view model is trained on brook trout, alewife, leuciscids, cichlids and
+mormyrids, and answers in caliPr's or BGNN's landmark names as the study uses. It
+finds the fish before placing landmarks on it, so a fish photographed from farther
+away or among other objects is handled, and it carries over to fish it was not
+trained on (see [Automated landmarking](#automated-landmarking)).
 
 Development and all timings reported here are on Apple Silicon (M3, 8 GB) with
 PyTorch on the MPS backend. There is no CUDA requirement.
@@ -296,17 +292,19 @@ notes consistent with labelling in progress.
 |  | brook trout (`cornell`) | alewife (`alewife`) |
 |---|---|---|
 | species | *Salvelinus fontinalis* | *Alosa pseudoharengus* |
-| question | body-shape differences among three hatchery strains | proportional differences between landlocked and migratory populations |
-| photographs | 131 | 30, from four CUMV lots, 1947–1953 |
-| labelled | 131 lateral, 130 frontal | not yet |
-| collects | caliPr landmarks: 5 polygons, 19 keypoints | BGNN 2D landmarks |
+| question | body-shape differences among five hatchery strains | proportional differences between landlocked and migratory populations |
+| photographs | 227 | 143, CUMV |
+| labelled | 227 lateral, 226 frontal | 143 lateral |
+| collects | caliPr landmarks: head, jaw, gill cover, end of the vertebral column and fin bases; the two mouth corners in the mirror | BGNN 2D landmarks |
 | scale reference | ruler on the tray | ruler on the tank glass |
 
-Photographs are not included in the repository. Sidecars are.
+Photographs are not included in the repository. The brook trout sidecars are;
+the alewife sidecars are not.
 
-Population assignment for the alewife lots has not been made; no comparison is
-meaningful until it is. That study excludes the pelvic and anal fin outlines,
-where fin-to-body contrast and fraying prevent reliable tracing.
+Since 2026-09-28 the brook trout fins are collected only at their bases: in these
+preserved specimens a fin's length and area record how it dried and was pinned
+more than its size. Population assignment for the alewife lots has not been made;
+no comparison is meaningful until it is.
 
 ## Limitations
 
@@ -323,10 +321,10 @@ re-tracing one specimen at 46–86 vertices per fin changed areas by +27.1%, +1.
 −3.1% and −7.8% across the four fins. `FIN_POLYGON_TARGET_VERTICES` is 16 because
 errors of that size in either direction cannot be corrected afterwards.
 
-**Measurement repeatability has not yet been measured for these datasets.** The
-tool for it is built (see [Measurement error](#measurement-error)), but no blind
-re-label round has been run, so the operator's contribution to any between-group
-difference is not yet known.
+**Measurement repeatability is being measured.** A blind re-label round on the
+brook trout is under way (13 of 24 fish; see [Measurement error](#measurement-error)).
+Until it is complete, the operator's contribution to any between-group difference
+is not known.
 
 **Declared compromises.** A clipped fin or snout is flagged in the labeler,
 which records the affected traits; the pipeline sets those to NaN with the reason
@@ -334,38 +332,40 @@ carried onto the QC sheet.
 
 ## Automated landmarking
 
-Under development and not required to use the pipeline. See
-[docs/automation.md](docs/automation.md) for the full evaluation.
+Not yet released for download (see [Optional parts](#optional-parts)), and not
+required to use the pipeline. See [docs/automation.md](docs/automation.md) for the
+evaluation method.
 
-The side-view model is trained across species and landmark schemes: 322 fish
-from five trout strains, 122 alewife, a *Notropis* series and two other CUMV
-lots, on 26 landmarks shared between caliPr's scheme and BGNN's. It predicts in
+The side-view model is trained across species and landmark schemes, on 482 of 579
+hand-labelled fish: brook trout from five hatchery strains, alewife, leuciscids
+(CUMV lots, and museum specimens photographed on GBIF), and cichlids and mormyrids
+from the Yale Peabody Museum, on 26 landmarks shared between caliPr's scheme and
+BGNN's. It predicts in
 two passes: the whole photograph to find the fish, then the fish framed at a
 standard length to place the points. A point more than 35% of the fish's length
 from where its other landmarks put it, or off Segment Anything's outline of the
 fish, is withheld with the reason given.
 
-On 54 held-out fish that neither it nor the previous trout-only model was trained
-on, scoring only points a person placed or moved:
+On 97 held-out fish that neither model was trained on, scoring only points a
+person placed or moved:
 
 | | median error | points > 5% of length out | points withheld |
 |---|---|---|---|
-| trout-only model (2026-08) | 2.08% of length, 1.72 mm | 34.0% | 82 |
-| cross-species model (2026-10) | 0.52% of length, 0.50 mm | 3.7% | 5 |
+| run 4 (2026-10-25) | 0.54% of length, 0.42 mm | 3.2% | 34 |
+| run 5 (2026-10-26) | 0.50% of length, 0.38 mm | 2.5% | 37 |
 
-Every group improved: the trout strains to 0.41-0.81 mm (HRN and TXD on three or
-four hand-placed points each), alewife from 3.14 to 0.66 mm, and the non-trout
-series, on which the trout-only model was unusable (55-64% of length out), to under
-1% of length. The weakest landmarks are the fin-base ends, at 1.2-1.4% of length. A
-fish of another shape, such as a mormyrid, will need a few dozen labelled specimens
-to fine-tune on; the framing and the checks tolerate other proportions, the
-landmarks themselves have to be learned. Method and caveats:
-[docs/automation.md](docs/automation.md).
+The first, trout-only model placed points at 2.08% of length (1.72 mm) on an
+earlier held-out set. By group, run 5 places the brook trout strains at 0.31-0.61%
+of length, alewife at 0.53%, the Peabody fish at 0.64% and the shiners at 0.46%.
+It carries over to fish it was not trained on: six *Petrocephalus catostomus*, held
+out entirely, with only four other mormyrids in training (three *Cyphomyrus
+petherici*, one *Mormyrus niloticus*), are placed at 0.64% of length (0.48 mm),
+with 88% of points within 2%. The fin-base ends remain the weakest landmarks.
+Method and caveats: [docs/automation.md](docs/automation.md).
 
 Segment Anything produces the body outline at IoU 0.937 against dense hand
-tracings. It follows the dorsal and adipose fins rather than crossing their
-bases; correcting this requires the four fin-base endpoint landmarks, which are
-in the schema but not in the trained model.
+tracings. Where it wraps a fin, the predicted fin-base ends are used to cut across
+the base; on BGNN's scheme this is not yet reliable.
 
 Predicted landmarks are checked against where each one falls on the fish's own
 body, as a fraction of the span from snout to caudal tip, measured from the
@@ -405,21 +405,22 @@ the measurements that rejected them.
 The manual pipeline is in use. Sidecar JSON in, validated workbook and TPS out,
 34 traits covering all 22 photo-measurable columns of the reference spreadsheet.
 
-Fin outlines are being re-traced at the 16-vertex target; 74 of 131 brook trout
-are complete. Until a specimen is redone its fin-derived traits export as blank
-with the reason attached.
+The brook trout study has 227 fish from five strains labelled on both views, with
+the fins collected only at their bases. Automated landmarking is used there as a
+starting point: each sidecar records which predicted points a person corrected,
+accepted or left unreviewed (22 of 227 fish still have some unreviewed).
 
-Automated landmarking is used on the brook trout as a starting point: each
-sidecar records which predicted points a person corrected, accepted or left
-unreviewed (19 of 131 fish still have some unreviewed). It does not transfer to
-other taxa.
+Auto-label and batch identification are built and in use, but not yet released
+for download (see [Optional parts](#optional-parts)). With landmarks checked by
+hand, batch identification ranks the correct species first or second for about
+three fish in four; on tray photographs with uncorrected landmarks, about half,
+mainly because fish in trays lie rolled toward or away from the camera.
 
 Priorities, in order:
 
-1. Run a blind re-label round on the brook trout.
+1. Complete the blind re-label round on the brook trout.
 2. Assign the alewife lots to populations.
-3. Complete the fin re-tracing.
-4. Label the four fin-base endpoints and retrain.
+3. Release Auto-label and batch identification.
 
 ## Citation
 
