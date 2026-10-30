@@ -15,8 +15,6 @@
         "maxilla_mandible_intersection",
         "operculum_posterior",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "premaxilla_tip"
       ],
       "corrected": {
@@ -76,7 +74,7 @@
         "anal_base_center": 0.981
       },
       "polygons_from_model": [],
-      "predicted_at": "2026-09-24T01:24:13.686Z"
+      "predicted_at": "2026-09-30T17:34:34.943Z"
     },
     "unreviewed_predictions": [
       "anal_base_center"
@@ -399,14 +397,6 @@
         2399,
         2054
       ],
-      "peduncle_narrowest_dorsal": [
-        3971,
-        1772
-      ],
-      "peduncle_narrowest_ventral": [
-        3962,
-        1919
-      ],
       "caudal_base": [
         3989,
         1852
@@ -442,7 +432,19 @@
       "dorsal_tip": [
         2868,
         1511
+      ],
+      "dorsal_base_anterior": [
+        2664,
+        1547
+      ],
+      "dorsal_base_posterior": [
+        3023,
+        1572
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "ticks",

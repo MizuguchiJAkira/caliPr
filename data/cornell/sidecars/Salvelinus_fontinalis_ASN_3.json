@@ -17,7 +17,6 @@
         "maxilla_mandible_intersection",
         "operculum_posterior",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -34,18 +33,6 @@
           ],
           "px": 17.5,
           "conf": 0.796
-        },
-        "peduncle_narrowest_ventral": {
-          "from": [
-            3802,
-            1769
-          ],
-          "to": [
-            3755,
-            1792
-          ],
-          "px": 52.3,
-          "conf": 0.328
         },
         "caudal_base": {
           "from": [
@@ -707,14 +694,6 @@
       "pectoral_ray_tip": [
         2910,
         1851
-      ],
-      "peduncle_narrowest_dorsal": [
-        5161,
-        1555
-      ],
-      "peduncle_narrowest_ventral": [
-        5164,
-        1792
       ],
       "caudal_base": [
         5192,

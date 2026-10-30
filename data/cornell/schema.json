@@ -1,17 +1,39 @@
 {
-  "note": "Brook trout: the dorsal and anal fin outlines ARE traced, so the fin-base endpoint keypoints are redundant here and are NOT collected (excluded 2026-09-22; the 45-53 fish already carrying them keep those coordinates). DFbl and CPl derive those points from the polygons. The body+caudal outline is not collected either, and Auto-label does not offer it: SAM wraps the adipose and anal fins instead of crossing their bases. Landmarks are checked against the eye-to-caudal-base axis, which needs no outline.",
+  "note": "Brook trout. Since 2026-09-28 the fins are not collected -- no fin outlines, bases or tips -- except the fin BASES, restored 2026-09-29/30: where each fin meets the body, which drying and pinning do not move -- the dorsal fin origin and insertion (its base endpoints), the pelvic base, and the pectoral insertion; the anal base endpoints and the pectoral ray tip were taken out again 2026-09-30. The dorsal base centre stays out: midpoints the endpoints make redundant. In these preserved specimens a fin's length and area record how it dried and was pinned more than its size, so the analysis (a size-corrected trait PCA, and a Procrustes analysis of the head) uses none of them. What is asked for is what that analysis uses: the snout, eye, jaw and gill cover points, the end of the vertebral column (caudal_base, SL's endpoint; the caudal crease points and the narrowest-peduncle pair were wiped from every fish 2026-09-30) -- the two mouth corners in the mirror, and both rulers. The 131 fish labelled before keep their fin coordinates in their sidecars; putting a fin back in scope brings its traits back. The body+caudal outline is not collected either, and Auto-label does not offer it: SAM wraps the adipose and anal fins instead of crossing their bases. The caudal points are placed by hand: Auto-label does not offer them (exclude_predicted_keypoints), its guesses there having been the least reliable.",
   "exclude_keypoints": [
     "anal_base_anterior",
+    "anal_base_center",
     "anal_base_posterior",
+    "anal_tip",
+    "caudal_crease_dorsal",
+    "caudal_crease_ventral",
     "dorsal_base_anterior",
-    "dorsal_base_posterior"
+    "dorsal_base_center",
+    "dorsal_base_posterior",
+    "dorsal_tip",
+    "pectoral_ray_tip",
+    "peduncle_narrowest_dorsal",
+    "peduncle_narrowest_ventral",
+    "pelvic_tip"
   ],
   "exclude_polygons": [
-    "body_plus_caudal"
+    "anal",
+    "body_plus_caudal",
+    "dorsal",
+    "pectoral",
+    "pelvic"
   ],
   "group_from_filename": "_([A-Z]{2,4})_\\d+$",
   "exclude_predicted_polygons": [
     "body_plus_caudal"
   ],
-  "single_photo": true
+  "single_photo": true,
+  "exclude_predicted_keypoints": [
+    "caudal_base",
+    "caudal_crease_dorsal",
+    "caudal_crease_ventral"
+  ],
+  "known_mm_default": {
+    "lateral": 10.0
+  }
 }

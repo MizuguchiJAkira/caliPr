@@ -1,0 +1,361 @@
+{
+  "fish_id": "Salvelinus_fontinalis_LT_2",
+  "metadata": {
+    "strain": "LT",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "lower_jaw_tip",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "pectoral_insertion_upper"
+      ],
+      "corrected": {
+        "eye_anterior": {
+          "from": [
+            1837,
+            2367
+          ],
+          "to": [
+            1854,
+            2373
+          ],
+          "px": 18,
+          "conf": 0.51
+        },
+        "eye_posterior": {
+          "from": [
+            2030,
+            2304
+          ],
+          "to": [
+            2025,
+            2291
+          ],
+          "px": 13.9,
+          "conf": 0.44
+        },
+        "eye_dorsal": {
+          "from": [
+            1907,
+            2268
+          ],
+          "to": [
+            1911,
+            2262
+          ],
+          "px": 7.2,
+          "conf": 0.666
+        },
+        "eye_ventral": {
+          "from": [
+            1964,
+            2411
+          ],
+          "to": [
+            1976,
+            2404
+          ],
+          "px": 13.9,
+          "conf": 0.629
+        },
+        "premaxilla_tip": {
+          "from": [
+            1735,
+            2461
+          ],
+          "to": [
+            1730,
+            2468
+          ],
+          "px": 8.6,
+          "conf": 0.771
+        },
+        "pectoral_ray_tip": {
+          "from": [
+            2862,
+            2499
+          ],
+          "to": [
+            2846,
+            2511
+          ],
+          "px": 20,
+          "conf": 0.452
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [
+        "pectoral"
+      ],
+      "predicted_at": "2026-09-30T02:58:49.470Z"
+    },
+    "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [],
+      "corrected": {
+        "mouth_left": {
+          "from": [
+            556,
+            2408
+          ],
+          "to": [
+            809,
+            2558
+          ],
+          "px": 294.1,
+          "conf": 0.322
+        },
+        "mouth_right": {
+          "from": [
+            961,
+            2471
+          ],
+          "to": [
+            981,
+            2501
+          ],
+          "px": 36.1,
+          "conf": 0.111
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-10-01T03:27:23.522Z"
+    },
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "1dc02d5b5bc71fd288cab3c630961cbc218bda9436e152ab4073cddd6a7c2289"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "1dc02d5b5bc71fd288cab3c630961cbc218bda9436e152ab4073cddd6a7c2289"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2680,
+          2439
+        ],
+        [
+          2643,
+          2441
+        ],
+        [
+          2607,
+          2446
+        ],
+        [
+          2569,
+          2449
+        ],
+        [
+          2537,
+          2465
+        ],
+        [
+          2513,
+          2492
+        ],
+        [
+          2529,
+          2520
+        ],
+        [
+          2555,
+          2546
+        ],
+        [
+          2583,
+          2572
+        ],
+        [
+          2612,
+          2594
+        ],
+        [
+          2644,
+          2610
+        ],
+        [
+          2676,
+          2624
+        ],
+        [
+          2709,
+          2638
+        ],
+        [
+          2743,
+          2648
+        ],
+        [
+          2779,
+          2648
+        ],
+        [
+          2800,
+          2621
+        ],
+        [
+          2831,
+          2602
+        ],
+        [
+          2841,
+          2567
+        ],
+        [
+          2849,
+          2532
+        ],
+        [
+          2847,
+          2497
+        ],
+        [
+          2819,
+          2476
+        ],
+        [
+          2787,
+          2459
+        ],
+        [
+          2755,
+          2444
+        ],
+        [
+          2719,
+          2439
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1854,
+        2373
+      ],
+      "eye_posterior": [
+        2025,
+        2291
+      ],
+      "eye_dorsal": [
+        1911,
+        2262
+      ],
+      "eye_ventral": [
+        1976,
+        2404
+      ],
+      "premaxilla_tip": [
+        1730,
+        2468
+      ],
+      "maxilla_mandible_intersection": [
+        1901,
+        2526
+      ],
+      "lower_jaw_tip": [
+        1749,
+        2533
+      ],
+      "operculum_posterior": [
+        2570,
+        2310
+      ],
+      "pectoral_insertion_upper": [
+        2498,
+        2502
+      ],
+      "pectoral_ray_tip": [
+        2846,
+        2511
+      ],
+      "caudal_base": [
+        5213,
+        2279
+      ],
+      "dorsal_base_anterior": [
+        3263,
+        1603
+      ],
+      "dorsal_base_posterior": [
+        3790,
+        1680
+      ],
+      "pelvic_base_center": [
+        3599,
+        2532
+      ]
+    },
+    "operators": {
+      "pectoral": "model",
+      "eye_anterior": "JC",
+      "eye_posterior": "JC",
+      "eye_dorsal": "JC",
+      "eye_ventral": "JC",
+      "premaxilla_tip": "JC",
+      "maxilla_mandible_intersection": "JC",
+      "lower_jaw_tip": "JC",
+      "operculum_posterior": "JC",
+      "pectoral_insertion_upper": "JC",
+      "pectoral_ray_tip": "JC",
+      "caudal_base": "JC",
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC",
+      "pelvic_base_center": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        2511,
+        1042
+      ],
+      "point_b": [
+        2754,
+        1034
+      ],
+      "known_mm": 10
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        809,
+        2558
+      ],
+      "mouth_right": [
+        981,
+        2501
+      ]
+    },
+    "operators": {
+      "mouth_left": "JC",
+      "mouth_right": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        1124,
+        2924
+      ],
+      "point_b": [
+        1151,
+        3136
+      ],
+      "known_mm": 10
+    }
+  }
+}

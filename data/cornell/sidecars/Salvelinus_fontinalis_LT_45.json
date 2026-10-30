@@ -1,0 +1,260 @@
+{
+  "fish_id": "Salvelinus_fontinalis_LT_45",
+  "metadata": {
+    "strain": "LT",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "eye_anterior",
+        "eye_dorsal",
+        "eye_posterior",
+        "eye_ventral",
+        "maxilla_mandible_intersection",
+        "operculum_posterior",
+        "premaxilla_tip"
+      ],
+      "corrected": {
+        "lower_jaw_tip": {
+          "from": [
+            1489,
+            1608
+          ],
+          "to": [
+            1489,
+            1597
+          ],
+          "px": 11,
+          "conf": 0.695
+        },
+        "pectoral_insertion_upper": {
+          "from": [
+            2255,
+            1831
+          ],
+          "to": [
+            2296,
+            1832
+          ],
+          "px": 41,
+          "conf": 0.699
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-30T03:15:40.963Z"
+    },
+    "unreviewed_predictions": [],
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "fffc8be5fc98b0bac7262c63af21b987f43e5afc603a97266b46185d40cf45c0"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "fffc8be5fc98b0bac7262c63af21b987f43e5afc603a97266b46185d40cf45c0"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          2299,
+          1828
+        ],
+        [
+          2333,
+          1809
+        ],
+        [
+          2404,
+          1794
+        ],
+        [
+          2459,
+          1781
+        ],
+        [
+          2525,
+          1786
+        ],
+        [
+          2582,
+          1800
+        ],
+        [
+          2644,
+          1827
+        ],
+        [
+          2705,
+          1858
+        ],
+        [
+          2748,
+          1872
+        ],
+        [
+          2708,
+          1897
+        ],
+        [
+          2678,
+          1915
+        ],
+        [
+          2603,
+          1912
+        ],
+        [
+          2567,
+          1909
+        ],
+        [
+          2507,
+          1886
+        ],
+        [
+          2473,
+          1877
+        ],
+        [
+          2428,
+          1881
+        ],
+        [
+          2380,
+          1877
+        ],
+        [
+          2346,
+          1860
+        ],
+        [
+          2311,
+          1847
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1651,
+        1530
+      ],
+      "eye_posterior": [
+        1861,
+        1514
+      ],
+      "eye_dorsal": [
+        1755,
+        1435
+      ],
+      "eye_ventral": [
+        1763,
+        1602
+      ],
+      "premaxilla_tip": [
+        1489,
+        1574
+      ],
+      "maxilla_mandible_intersection": [
+        1656,
+        1692
+      ],
+      "lower_jaw_tip": [
+        1489,
+        1597
+      ],
+      "operculum_posterior": [
+        2355,
+        1656
+      ],
+      "pectoral_insertion_upper": [
+        2296,
+        1832
+      ],
+      "pectoral_ray_tip": [
+        2739,
+        1872
+      ],
+      "caudal_base": [
+        5247,
+        1496
+      ],
+      "dorsal_base_anterior": [
+        3299,
+        1293
+      ],
+      "dorsal_base_posterior": [
+        3733,
+        1371
+      ],
+      "pelvic_base_center": [
+        3518,
+        2039
+      ]
+    },
+    "operators": {
+      "eye_anterior": "JC",
+      "eye_posterior": "JC",
+      "eye_dorsal": "JC",
+      "eye_ventral": "JC",
+      "premaxilla_tip": "JC",
+      "maxilla_mandible_intersection": "JC",
+      "lower_jaw_tip": "JC",
+      "operculum_posterior": "JC",
+      "pectoral_insertion_upper": "JC",
+      "pectoral_ray_tip": "JC",
+      "pectoral": "JC",
+      "caudal_base": "JC",
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC",
+      "pelvic_base_center": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        4548,
+        2642
+      ],
+      "point_b": [
+        4841,
+        2653
+      ],
+      "known_mm": 10
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        417,
+        1714
+      ],
+      "mouth_right": [
+        646,
+        1700
+      ]
+    },
+    "operators": {
+      "mouth_left": "JC",
+      "mouth_right": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        734,
+        2859
+      ],
+      "point_b": [
+        693,
+        2615
+      ],
+      "known_mm": 10
+    }
+  }
+}

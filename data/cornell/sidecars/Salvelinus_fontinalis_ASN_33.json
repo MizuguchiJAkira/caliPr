@@ -19,8 +19,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "premaxilla_tip"
       ],
       "corrected": {
@@ -199,14 +197,6 @@
       "pectoral_ray_tip": [
         2593.0,
         2043.0
-      ],
-      "peduncle_narrowest_dorsal": [
-        4257.0,
-        1758.0
-      ],
-      "peduncle_narrowest_ventral": [
-        4264.0,
-        1926.0
       ],
       "caudal_base": [
         4292.0,

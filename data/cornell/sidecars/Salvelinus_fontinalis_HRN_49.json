@@ -21,9 +21,26 @@
       "polygons_from_model": [
         "anal"
       ],
-      "predicted_at": "2026-09-23T00:54:44.178Z"
+      "predicted_at": "2026-10-01T01:44:26.384Z"
     },
     "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.829,
+        "mouth_right": 0.82
+      }
+    },
     "assisted_by": "snapshot-best-170.pt",
     "images": {
       "lateral": {
@@ -45,24 +62,7 @@
         "points": 72,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ],
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.829,
-        "mouth_right": 0.82
-      }
-    }
+    ]
   },
   "lateral": {
     "polygons": {
@@ -534,14 +534,6 @@
         2643,
         2082
       ],
-      "peduncle_narrowest_dorsal": [
-        4645,
-        2067
-      ],
-      "peduncle_narrowest_ventral": [
-        4621,
-        2198
-      ],
       "caudal_base": [
         4658,
         2148
@@ -577,7 +569,19 @@
       "anal_tip": [
         4362,
         2218
+      ],
+      "dorsal_base_anterior": [
+        3277,
+        1686
+      ],
+      "dorsal_base_posterior": [
+        3606,
+        1747
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -606,8 +610,8 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 23.4206,
-      "placed_by": "ruler-ticks",
-      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.81 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
+      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.81 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations",
+      "placed_by": "ruler-ticks"
     }
   }
 }

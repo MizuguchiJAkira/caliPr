@@ -17,8 +17,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -40,7 +38,7 @@
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-24T01:25:13.657Z"
+      "predicted_at": "2026-09-30T17:35:49.423Z"
     },
     "unreviewed_predictions": [],
     "assist_frontal": {
@@ -357,14 +355,6 @@
         2467,
         2056
       ],
-      "peduncle_narrowest_dorsal": [
-        4172,
-        1579
-      ],
-      "peduncle_narrowest_ventral": [
-        4193,
-        1718
-      ],
       "caudal_base": [
         4207,
         1647
@@ -400,7 +390,19 @@
       "dorsal_tip": [
         3023,
         1491
+      ],
+      "dorsal_base_anterior": [
+        2819,
+        1513
+      ],
+      "dorsal_base_posterior": [
+        3182,
+        1543
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",

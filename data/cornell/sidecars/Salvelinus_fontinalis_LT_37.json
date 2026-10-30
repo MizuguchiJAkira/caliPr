@@ -1,0 +1,327 @@
+{
+  "fish_id": "Salvelinus_fontinalis_LT_37",
+  "metadata": {
+    "strain": "LT",
+    "source": "hand-labeled",
+    "assist": {
+      "model": "snapshot-best-170.pt",
+      "accepted": [
+        "pectoral_insertion_upper",
+        "pectoral_ray_tip"
+      ],
+      "corrected": {
+        "eye_anterior": {
+          "from": [
+            2767,
+            146
+          ],
+          "to": [
+            1295,
+            1635
+          ],
+          "px": 2093.8,
+          "conf": 0.157
+        },
+        "eye_posterior": {
+          "from": [
+            5455,
+            176
+          ],
+          "to": [
+            1501,
+            1599
+          ],
+          "px": 4202.3,
+          "conf": 0.257
+        },
+        "eye_dorsal": {
+          "from": [
+            5360,
+            125
+          ],
+          "to": [
+            1393,
+            1526
+          ],
+          "px": 4207.1,
+          "conf": 0.221
+        },
+        "eye_ventral": {
+          "from": [
+            5372,
+            213
+          ],
+          "to": [
+            1415,
+            1698
+          ],
+          "px": 4226.5,
+          "conf": 0.193
+        },
+        "premaxilla_tip": {
+          "from": [
+            4389,
+            1921
+          ],
+          "to": [
+            1161,
+            1725
+          ],
+          "px": 3233.9,
+          "conf": 0.109
+        },
+        "maxilla_mandible_intersection": {
+          "from": [
+            3939,
+            1867
+          ],
+          "to": [
+            1302,
+            1815
+          ],
+          "px": 2637.5,
+          "conf": 0.115
+        },
+        "pelvic_base_center": {
+          "from": [
+            3883,
+            1905
+          ],
+          "to": [
+            3240,
+            2038
+          ],
+          "px": 656.6,
+          "conf": 0.459
+        }
+      },
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-10-01T03:32:50.264Z"
+    },
+    "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-10-01T03:33:07.350Z"
+    },
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "46d2b73ef349541f44d9ab3dbc8da9e31b6e7096314e8d6815a77dc17677822c"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "46d2b73ef349541f44d9ab3dbc8da9e31b6e7096314e8d6815a77dc17677822c"
+      }
+    }
+  },
+  "lateral": {
+    "polygons": {
+      "pectoral": [
+        [
+          1941,
+          1869
+        ],
+        [
+          2003,
+          1856
+        ],
+        [
+          2081,
+          1851
+        ],
+        [
+          2168,
+          1851
+        ],
+        [
+          2253,
+          1867
+        ],
+        [
+          2337,
+          1884
+        ],
+        [
+          2402,
+          1909
+        ],
+        [
+          2465,
+          1951
+        ],
+        [
+          2505,
+          1986
+        ],
+        [
+          2449,
+          2027
+        ],
+        [
+          2406,
+          2036
+        ],
+        [
+          2369,
+          2055
+        ],
+        [
+          2288,
+          2045
+        ],
+        [
+          2203,
+          2036
+        ],
+        [
+          2132,
+          2012
+        ],
+        [
+          2082,
+          1998
+        ],
+        [
+          2036,
+          1974
+        ],
+        [
+          2005,
+          1958
+        ],
+        [
+          1975,
+          1923
+        ]
+      ]
+    },
+    "keypoints": {
+      "eye_anterior": [
+        1295,
+        1635
+      ],
+      "eye_posterior": [
+        1501,
+        1599
+      ],
+      "eye_dorsal": [
+        1393,
+        1526
+      ],
+      "eye_ventral": [
+        1415,
+        1698
+      ],
+      "premaxilla_tip": [
+        1161,
+        1725
+      ],
+      "maxilla_mandible_intersection": [
+        1302,
+        1815
+      ],
+      "pectoral_insertion_upper": [
+        1929,
+        1880
+      ],
+      "pectoral_ray_tip": [
+        2461,
+        1996
+      ],
+      "lower_jaw_tip": [
+        1161,
+        1781
+      ],
+      "operculum_posterior": [
+        2007,
+        1698
+      ],
+      "caudal_base": [
+        4901,
+        1649
+      ],
+      "pelvic_base_center": [
+        3133,
+        2041
+      ],
+      "dorsal_base_anterior": [
+        2876,
+        1201
+      ],
+      "dorsal_base_posterior": [
+        3339,
+        1267
+      ]
+    },
+    "operators": {
+      "eye_anterior": "JC",
+      "eye_posterior": "JC",
+      "eye_dorsal": "JC",
+      "eye_ventral": "JC",
+      "premaxilla_tip": "JC",
+      "maxilla_mandible_intersection": "JC",
+      "pectoral_insertion_upper": "JC",
+      "pectoral_ray_tip": "JC",
+      "lower_jaw_tip": "JC",
+      "operculum_posterior": "JC",
+      "pectoral": "JC",
+      "caudal_base": "JC",
+      "pelvic_base_center": "JC",
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        2056,
+        463
+      ],
+      "point_b": [
+        2347,
+        462
+      ],
+      "known_mm": 10
+    }
+  },
+  "frontal": {
+    "keypoints": {
+      "mouth_left": [
+        508,
+        1853
+      ],
+      "mouth_right": [
+        748,
+        1814
+      ]
+    },
+    "operators": {
+      "mouth_left": "JC",
+      "mouth_right": "JC"
+    },
+    "calibration": {
+      "mode": "manual",
+      "point_a": [
+        621,
+        2689
+      ],
+      "point_b": [
+        661,
+        2952
+      ],
+      "known_mm": 10
+    }
+  }
+}

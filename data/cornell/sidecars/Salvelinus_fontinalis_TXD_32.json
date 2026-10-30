@@ -20,8 +20,6 @@
         "operculum_posterior",
         "pectoral_insertion_upper",
         "pectoral_ray_tip",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -33,28 +31,6 @@
       "predicted_at": "2026-09-21T15:21:34.324Z"
     },
     "unreviewed_predictions": [],
-    "assisted_by": "snapshot-best-170.pt",
-    "coordinate_history": [
-      {
-        "at": "2026-09-21T15:18:46",
-        "view": "lateral",
-        "dx": 1009,
-        "points": 19,
-        "reason": "one photograph per fish: the lateral crop's start column"
-      }
-    ],
-    "images": {
-      "lateral": {
-        "width": 6000,
-        "height": 4000,
-        "sha256": "34080e09c16e9b667959ba8f2d0d51810627af6431258982547fb3300bfd214a"
-      },
-      "frontal": {
-        "width": 6000,
-        "height": 4000,
-        "sha256": "34080e09c16e9b667959ba8f2d0d51810627af6431258982547fb3300bfd214a"
-      }
-    },
     "assist_frontal": {
       "model": "snapshot-200.pt",
       "accepted": [
@@ -71,86 +47,112 @@
         "mouth_left": 1.0,
         "mouth_right": 0.958
       }
-    }
+    },
+    "assisted_by": "snapshot-best-170.pt",
+    "images": {
+      "lateral": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "34080e09c16e9b667959ba8f2d0d51810627af6431258982547fb3300bfd214a"
+      },
+      "frontal": {
+        "width": 6000,
+        "height": 4000,
+        "sha256": "34080e09c16e9b667959ba8f2d0d51810627af6431258982547fb3300bfd214a"
+      }
+    },
+    "coordinate_history": [
+      {
+        "at": "2026-09-21T15:18:46",
+        "view": "lateral",
+        "dx": 1009,
+        "points": 19,
+        "reason": "one photograph per fish: the lateral crop's start column"
+      }
+    ]
   },
   "lateral": {
     "keypoints": {
       "eye_anterior": [
-        1601.0,
-        1704.0
+        1601,
+        1704
       ],
       "eye_posterior": [
-        1794.0,
-        1687.0
+        1794,
+        1687
       ],
       "eye_dorsal": [
-        1683.0,
-        1618.0
+        1683,
+        1618
       ],
       "eye_ventral": [
-        1707.0,
-        1768.0
+        1707,
+        1768
       ],
       "premaxilla_tip": [
-        1465.0,
-        1774.0
+        1465,
+        1774
       ],
       "maxilla_mandible_intersection": [
-        1608.0,
-        1867.0
+        1608,
+        1867
       ],
       "lower_jaw_tip": [
-        1449.0,
-        1862.0
+        1449,
+        1862
       ],
       "operculum_posterior": [
-        2215.0,
-        1786.0
+        2215,
+        1786
       ],
       "pectoral_insertion_upper": [
-        2143.0,
-        1973.0
+        2143,
+        1973
       ],
       "pectoral_ray_tip": [
-        2612.0,
-        2069.0
-      ],
-      "peduncle_narrowest_dorsal": [
-        4938.0,
-        1606.0
-      ],
-      "peduncle_narrowest_ventral": [
-        4938.0,
-        1825.0
+        2612,
+        2069
       ],
       "caudal_base": [
-        4978.0,
-        1722.0
+        4978,
+        1722
       ],
       "dorsal_base_center": [
-        3276.0,
-        1346.0
+        3276,
+        1346
       ],
       "dorsal_tip": [
-        3323.0,
-        1262.0
+        3323,
+        1262
       ],
       "pelvic_base_center": [
-        3233.0,
-        2059.0
+        3233,
+        2059
       ],
       "pelvic_tip": [
-        3389.0,
-        1949.0
+        3389,
+        1949
       ],
       "anal_base_center": [
-        4244.0,
-        1954.0
+        4244,
+        1954
       ],
       "anal_tip": [
-        4571.0,
-        1985.0
+        4571,
+        1985
+      ],
+      "dorsal_base_anterior": [
+        3098,
+        1319
+      ],
+      "dorsal_base_posterior": [
+        3618,
+        1384
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -180,8 +182,8 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 22.9483,
-      "placed_by": "ruler-ticks",
-      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.35 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
+      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.35 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations",
+      "placed_by": "ruler-ticks"
     }
   }
 }

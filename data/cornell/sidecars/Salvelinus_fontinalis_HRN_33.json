@@ -16,8 +16,6 @@
         "maxilla_mandible_intersection",
         "operculum_posterior",
         "pectoral_insertion_upper",
-        "peduncle_narrowest_dorsal",
-        "peduncle_narrowest_ventral",
         "pelvic_base_center",
         "pelvic_tip",
         "premaxilla_tip"
@@ -51,9 +49,26 @@
       "unreviewed": [],
       "unreviewed_confidence": {},
       "polygons_from_model": [],
-      "predicted_at": "2026-09-23T01:42:24.529Z"
+      "predicted_at": "2026-10-01T01:42:43.546Z"
     },
     "unreviewed_predictions": [],
+    "assist_frontal": {
+      "model": "snapshot-200.pt",
+      "accepted": [
+        "mouth_left",
+        "mouth_right"
+      ],
+      "corrected": {},
+      "unreviewed": [],
+      "unreviewed_confidence": {},
+      "polygons_from_model": [],
+      "predicted_at": "2026-09-23T09:39:47",
+      "approved_in_bulk": true,
+      "confidence_at_approval": {
+        "mouth_left": 0.674,
+        "mouth_right": 0.898
+      }
+    },
     "assisted_by": "snapshot-best-170.pt",
     "data_note": "Anal fin hardly visible",
     "images": {
@@ -76,24 +91,7 @@
         "points": 17,
         "reason": "one photograph per fish: the lateral crop's start column"
       }
-    ],
-    "assist_frontal": {
-      "model": "snapshot-200.pt",
-      "accepted": [
-        "mouth_left",
-        "mouth_right"
-      ],
-      "corrected": {},
-      "unreviewed": [],
-      "unreviewed_confidence": {},
-      "polygons_from_model": [],
-      "predicted_at": "2026-09-23T09:39:47",
-      "approved_in_bulk": true,
-      "confidence_at_approval": {
-        "mouth_left": 0.674,
-        "mouth_right": 0.898
-      }
-    }
+    ]
   },
   "lateral": {
     "keypoints": {
@@ -133,14 +131,6 @@
         2175,
         2070
       ],
-      "peduncle_narrowest_dorsal": [
-        4027,
-        1777
-      ],
-      "peduncle_narrowest_ventral": [
-        4022,
-        1924
-      ],
       "caudal_base": [
         4062,
         1855
@@ -168,7 +158,19 @@
       "anal_base_center": [
         3667,
         2007
+      ],
+      "dorsal_base_anterior": [
+        2810,
+        1653
+      ],
+      "dorsal_base_posterior": [
+        3108,
+        1681
       ]
+    },
+    "operators": {
+      "dorsal_base_anterior": "JC",
+      "dorsal_base_posterior": "JC"
     },
     "calibration": {
       "mode": "manual",
@@ -197,8 +199,8 @@
     "calibration": {
       "mode": "ticks",
       "px_per_mm": 22.8603,
-      "placed_by": "ruler-ticks",
-      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.26 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations"
+      "notes": "mirror ruler detected on the head-on view turned a quarter turn (22.26 px/mm), x1.0267 to put it on the basis of the 42 hand-clicked frontal calibrations",
+      "placed_by": "ruler-ticks"
     }
   }
 }
