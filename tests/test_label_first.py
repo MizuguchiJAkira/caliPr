@@ -12,6 +12,7 @@ import importlib.util
 import json
 import sys
 import threading
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -55,6 +56,7 @@ def study(tmp_path):
                                     "/api/specimens?dataset=shiners", timeout=30) as r:
             return sorted(s["id"] for s in json.loads(r.read()) if s["suggested"])
 
+    suggested.url = f"http://127.0.0.1:{server.server_address[1]}"
     yield ls, suggested
     server.shutdown()
 
@@ -74,3 +76,17 @@ def test_a_name_with_no_photograph_is_left_out(study):
 def test_without_a_list_the_rotation_over_lots_decides(study):
     ls, suggested = study
     assert suggested({}) == sorted(ls.suggested_subset(FISH))
+
+
+def test_a_hand_only_fish_is_never_predicted(study):
+    ls, suggested = study
+    suggested({"hand_only": ["Notropis_rubellus_1"]})
+    ls.auth.is_configured = lambda: False                 # no unlock on this machine
+    with urllib.request.urlopen(suggested.url + "/api/specimens?dataset=shiners",
+                                timeout=30) as r:
+        marked = {s["id"]: s["hand_only"] for s in json.loads(r.read())}
+    assert marked["Notropis_rubellus_1"] and not marked["Notropis_rubellus_2"]
+    with pytest.raises(urllib.error.HTTPError) as e:
+        urllib.request.urlopen(suggested.url + "/api/predict/Notropis_rubellus_1"
+                               "?dataset=shiners&cache=only", timeout=30)
+    assert e.value.code == 403 and json.loads(e.value.read())["hand_only"]

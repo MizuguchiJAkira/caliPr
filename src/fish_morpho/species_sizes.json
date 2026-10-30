@@ -1,0 +1,292 @@
+{
+ "note": "Longest recorded length of each species from a named source (the largest such, so that no real fish is ruled out; compilations without an attributed source are left out), converted between TL and SL with FishBase's length-length relationship for the species (TL = b x SL; the mean where it lists several; the median of the others where it lists none). Names: the accepted name, every synonym GBIF's backbone lists, FishBase's valid name, and names museum labels carry from Gilbert 1964, Scott & Crossman 1973 and FishBase. Collected 2026-10-25.",
+ "fallback_tl_per_sl": 1.186,
+ "species": [
+  {
+   "name": "Luxilus cornutus",
+   "gbif_name": "Luxilus cornutus",
+   "gbif_key": 2366967,
+   "names": [
+    "Argyreus rubripinnis",
+    "Cyprinus cornutus",
+    "Cyprinus haematopterus",
+    "Cyprinus megalops",
+    "Cyprinus melanurus",
+    "Cyprinus trivittatus",
+    "Hypsilepis cornutus",
+    "Hypsilepis cornutus cyaneus",
+    "Hypsilepis cornutus gibbus",
+    "Leuciscus frontalis",
+    "Leuciscus gracilis",
+    "Leuciscus spirlingulus",
+    "Leuciscus vittatus",
+    "Luxilus cornutus",
+    "Luxilus cornutus frontalis",
+    "Minnilus cornutus",
+    "Notropis cornuta",
+    "Notropis cornuta frontalis",
+    "Notropis cornutus",
+    "Notropis cornutus cornutus",
+    "Notropis cornutus frontalis",
+    "Notropis cornutus notalis",
+    "Notropis macdonaldi",
+    "Notropis megalops",
+    "Notropis megalops albeolus",
+    "Notropis universitatis",
+    "Plargyrus argentatus",
+    "Plargyrus bowmani",
+    "Rutilus compressus"
+   ],
+   "max_tl_mm": 201,
+   "max_source": "Scott & Crossman 1973, Freshwater Fishes of Canada, Bull. Fish. Res. Board Can. 184, p. 451: largest known, a male from Lake Bernard, Que.",
+   "tl_per_sl": 1.175,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.159 SL and 1.192 SL",
+   "max_sl_mm": 171,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "180 mm TL, Page & Burr 2011, 2nd ed. (FishBase Ref. 86798)",
+    "ca. 175 mm, length not stated, Gilbert 1964, Bull. Florida State Mus. 8(2), Table 3"
+   ],
+   "notes": "The largest fish are breeding males. Until Gilbert (1961, 1964) the striped shiner was Notropis cornutus chrysocephalus, so a pre-1964 lot labelled Notropis cornutus from the Ohio or Mississippi basin may be L. chrysocephalus."
+  },
+  {
+   "name": "Luxilus chrysocephalus",
+   "gbif_name": "Luxilus chrysocephalus",
+   "gbif_key": 2366993,
+   "names": [
+    "Hybopsis lacertosus",
+    "Leuciscus gibbosus",
+    "Leuciscus obesus",
+    "Luxilus chrysocephalus",
+    "Luxilus chrysocephalus isolepis",
+    "Luxilus cornutus isolepis",
+    "Notropis chrysocephalus",
+    "Notropis chrysocephalus chrysocephalus",
+    "Notropis chrysocephalus isolepis",
+    "Notropis cornuta isolepis",
+    "Notropis cornutus chrysocephalus",
+    "Notropis cornutus isolepis",
+    "Plargyrus typicus",
+    "Rutilus plargyrus"
+   ],
+   "max_tl_mm": 240,
+   "max_source": "Etnier & Starnes 1993, The Fishes of Tennessee, p. 183: 'Maximum total length 240 mm (9.3 in) reported by Marshall (1939)'",
+   "tl_per_sl": 1.169,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.169 SL",
+   "max_sl_mm": 205,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "ca. 175 mm, length not stated, Gilbert 1964, Table 3",
+    "163 mm SL figured breeding male, Etnier & Starnes 1993, The Fishes of Tennessee, plate 53b"
+   ],
+   "notes": "The 240 mm rests on one report (Marshall 1939); treat it as a ceiling."
+  },
+  {
+   "name": "Notropis atherinoides",
+   "gbif_name": "Notropis atherinoides",
+   "gbif_key": 2362170,
+   "names": [
+    "Alburnellus jaculus",
+    "Alburnus acutus",
+    "Alburnus dilectus",
+    "Alburnus lepidulus",
+    "Alburnus nitidus",
+    "Alburnus oligaspis",
+    "Leuciscus copii",
+    "Minnilus dinemus",
+    "Minulus dinemus",
+    "Notropis atherinoides",
+    "Notropis atherinoides acutus",
+    "Notropis atherinoides atherinoides",
+    "Notropis atherinoides caddonis",
+    "Notropis louisianae"
+   ],
+   "max_tl_mm": 132,
+   "max_source": "Etnier & Starnes 1993, The Fishes of Tennessee, p. 212, from Trautman 1957 (Ohio)",
+   "tl_per_sl": 1.129,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.129 SL",
+   "max_sl_mm": 117,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "130 mm TL, Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)",
+    "103 mm TL, largest in ROM collections, Scott & Crossman 1973, Freshwater Fishes of Canada, Bull. Fish. Res. Board Can. 184, p. 442",
+    "99 mm TL, largest Etnier & Starnes saw"
+   ],
+   "notes": "Regional sizes differ widely; 132 mm (Lake Erie region) is well above most collections."
+  },
+  {
+   "name": "Notropis rubellus",
+   "gbif_name": "Notropis rubellus",
+   "gbif_key": 2362326,
+   "names": [
+    "Alburnus rubellus",
+    "Alburnus rubrifrons",
+    "Cyprinella lugubris",
+    "Notropis kanawha",
+    "Notropis macdonaldi",
+    "Notropis rubellus",
+    "Notropis rubrifrons",
+    "Photogenis rubrifrons",
+    "Rutilus ruber"
+   ],
+   "max_tl_mm": 110,
+   "max_source": "Parker, Fritts & DeBoer 2018, J. Appl. Ichthyol. 34:1081-1083 (FishBase Ref. 121533)",
+   "tl_per_sl": 1.209,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.209 SL",
+   "max_sl_mm": 91,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "90 mm TL, Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)",
+    "99 mm TL, Central Appalachia, FishBase max. ages/sizes",
+    "75 mm SL, largest female in Pfeiffer's 1955 sample, Scott & Crossman 1973, Freshwater Fishes of Canada, Bull. Fish. Res. Board Can. 184, p. 465",
+    "76 mm TL, Tennessee form, Etnier & Starnes 1993, The Fishes of Tennessee, p. 221"
+   ],
+   "notes": "The 110 mm is from a Midwestern sample that may include N. percobromus (split from rubellus in 2002). Kept as the ceiling so a large true rubellus is not ruled out; rubellus sensu stricto records run 90-99 mm TL."
+  },
+  {
+   "name": "Hudsonius hudsonius",
+   "gbif_name": "Notropis hudsonius",
+   "gbif_key": 2362185,
+   "names": [
+    "Alburnops saludanus",
+    "Clupea hudsonia",
+    "Hudsonius amarus",
+    "Hudsonius euryopa",
+    "Hudsonius fluviatilis",
+    "Hudsonius hudsonius",
+    "Hybobsis phaenna",
+    "Hybopsis phaenna",
+    "Luxilus selene",
+    "Notropis hudsonius",
+    "Notropis hudsonius amarus",
+    "Notropis hudsonius hudsonius",
+    "Notropis hudsonius saludanus",
+    "Notropis hudsonius selene",
+    "Notropis scopiferus",
+    "Opsopoeodus borealis"
+   ],
+   "max_tl_mm": 150,
+   "max_source": "Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)",
+   "tl_per_sl": 1.146,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.146 SL",
+   "max_sl_mm": 131,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "132 mm TL, largest in ROM collections (Lake Erie), Scott & Crossman 1973, Freshwater Fishes of Canada, Bull. Fish. Res. Board Can. 184, p. 462"
+   ],
+   "notes": "Lake Erie fish run large; spottails over 127 mm TL are unusual elsewhere (Scott & Crossman)."
+  },
+  {
+   "name": "Paranotropis volucellus",
+   "gbif_name": "Notropis volucellus",
+   "gbif_key": 2362211,
+   "names": [
+    "Hybognathus volucellus",
+    "Hybopsis volucella",
+    "Notropis kanawha",
+    "Notropis nocomis",
+    "Notropis volucellus",
+    "Notropis volucellus volucellus",
+    "Paranotropis volucellus"
+   ],
+   "max_tl_mm": 76,
+   "max_source": "Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)",
+   "tl_per_sl": 1.206,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.206 SL",
+   "max_sl_mm": 63,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "65 mm TL, Tennessee forms, Etnier & Starnes 1993, The Fishes of Tennessee, p. 232"
+   ],
+   "notes": "Moved to Paranotropis by Stout et al. 2022 (PeerJ 10:e14072) and Page et al. 2023. A complex: older lots labelled N. volucellus wickliffi or N. v. buchanani may be P. wickliffi or P. buchanani, now species of their own."
+  },
+  {
+   "name": "Notropis heterolepis",
+   "gbif_name": "Notropis heterolepis",
+   "gbif_key": 2362139,
+   "names": [
+    "Hybopsis heterolepis",
+    "Notropis germanus",
+    "Notropis heterolepis",
+    "Notropis heterolepis heterolepis",
+    "Notropis heterolepis regalis",
+    "Notropis kendalli",
+    "Notropis muskoka"
+   ],
+   "max_tl_mm": 98,
+   "max_source": "Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)",
+   "tl_per_sl": 1.196,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.196 SL",
+   "max_sl_mm": 82,
+   "max_measured_as": "TL",
+   "other_maxima": [
+    "95 mm TL, Scott & Crossman 1973, Freshwater Fishes of Canada, Bull. Fish. Res. Board Can. 184, p. 458"
+   ],
+   "notes": ""
+  },
+  {
+   "name": "Cyprinella analostana",
+   "gbif_name": "Cyprinella analostana",
+   "gbif_key": 5207658,
+   "names": [
+    "Cyprinella analostana",
+    "Notropis analostanus"
+   ],
+   "max_tl_mm": 110,
+   "max_source": "Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723); the same in Page & Burr 2011, 2nd ed. (FishBase Ref. 86798)",
+   "tl_per_sl": 1.186,
+   "tl_per_sl_source": "none in FishBase; median of the other species (1.186)",
+   "max_sl_mm": 93,
+   "max_measured_as": "TL",
+   "other_maxima": [],
+   "notes": "No length-length relationship in FishBase."
+  },
+  {
+   "name": "Notropis amoenus",
+   "gbif_name": "Notropis amoenus",
+   "gbif_key": 2362198,
+   "names": [
+    "Alburnellus amoenus",
+    "Notropis amoenus"
+   ],
+   "max_tl_mm": 110,
+   "max_source": "Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)",
+   "tl_per_sl": 1.186,
+   "tl_per_sl_source": "none in FishBase; median of the other species (1.186)",
+   "max_sl_mm": 93,
+   "max_measured_as": "TL",
+   "other_maxima": [],
+   "notes": "No length-length relationship in FishBase."
+  },
+  {
+   "name": "Notropis bifrenatus",
+   "gbif_name": "Notropis bifrenatus",
+   "gbif_key": 2362305,
+   "names": [
+    "Hybopsis bifrenatus",
+    "Notropis bifrenatus",
+    "Notropis cayuga"
+   ],
+   "max_tl_mm": 78,
+   "max_source": "COSEWIC 2013, status report on the Bridle Shiner, citing Holm, Mandrak & Burridge 2010, ROM Field Guide to Freshwater Fishes of Ontario",
+   "tl_per_sl": 1.196,
+   "tl_per_sl_source": "FishBase length-length: TL = 1.196 SL",
+   "max_sl_mm": 65,
+   "max_measured_as": "SL",
+   "other_maxima": [
+    "65 mm TL, Page & Burr 1991, A Field Guide to Freshwater Fishes of North America North of Mexico (FishBase Ref. 5723)"
+   ],
+   "notes": "COSEWIC's 65 mm SL may be Page & Burr's 65 mm TL relabelled; taken as SL so that no real fish is ruled out."
+  }
+ ],
+ "ambiguous_names": [
+  "alburnus rubellus",
+  "notropis cayuga",
+  "notropis deliciosus stramineus",
+  "notropis kanawha",
+  "notropis kendalli",
+  "notropis macdonaldi",
+  "notropis volucellus buchanani",
+  "notropis volucellus wickliffi"
+ ]
+}

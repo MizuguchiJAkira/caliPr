@@ -67,6 +67,8 @@ def _sidecar_payload(fish_id: str) -> dict:
                 "peduncle_narrowest_dorsal": [160, 30],
                 "peduncle_narrowest_ventral": [160, 70],
                 "caudal_base": [165, 50],
+                "caudal_crease_dorsal": [165, 32],
+                "caudal_crease_ventral": [165, 68],
                 "dorsal_base_center": [100, 10],
                 "dorsal_tip": [100, -5],
                 "pelvic_base_center": [95, 90],

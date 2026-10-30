@@ -27,6 +27,8 @@ import numpy as np
 _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 
+from fish_morpho import paths  # noqa: E402
+
 POLY_COLOR = (255, 170, 60)     # BGR, blue — outlines
 KP_COLOR = (80, 90, 255)        # BGR, red  — keypoints
 IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".tif", ".tiff", ".JPEG", ".JPG")
@@ -111,7 +113,7 @@ def render(sidecar: dict, image: Path, width: int = 1400,
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="render_overlays")
     ap.add_argument("--dataset")
-    ap.add_argument("--data-root", type=Path, default=_ROOT / "data")
+    ap.add_argument("--data-root", type=Path, default=paths.WORK / "data")
     ap.add_argument("--images", type=Path, default=None)
     ap.add_argument("--sidecars", type=Path, default=None)
     ap.add_argument("--out", type=Path, default=None)
@@ -126,7 +128,7 @@ def main(argv=None) -> int:
         base = args.data_root / args.dataset
         images, sidecars, name = base / "lateral", base / "sidecars", args.dataset
 
-    out = args.out or (_ROOT / "results" / name / "overlays")
+    out = args.out or (paths.WORK / "results" / name / "overlays")
     out.mkdir(parents=True, exist_ok=True)
     skip = excluded(sidecars.parent)
     if skip:

@@ -25,6 +25,103 @@ python scripts/train_dlc.py --epochs 60 --lr 1e-4 \
     --resume dlc_project/jcalipr-*/dlc-models-pytorch/iteration-0/*/train/snapshot-best-170.pt
 ```
 
+### The cross-species model
+
+The first model was trained on 37 trout photographed on one rig and predicted on
+the whole photograph shrunk by one fixed factor. Its worst failures were not near
+misses but points on the board, a pin or a number card: the TEM series was
+photographed from farther away (about 18 px/mm against 25-29 in training), so
+its fish were a size the model had never seen, and the circles on the number
+cards passed for eyes. The second model is built to make that failure rare and
+visible, and to carry over to fish of other shapes.
+
+```bash
+python scripts/build_union_dataset.py --dataset data/cornell --dataset data/alewife \
+    --dataset data/notropis --dataset data/CUMV_63033 --dataset data/CUMV_24306
+python scripts/train_dlc.py --built dlc_union --profile union --epochs 120 --batch-size 2
+python scripts/eval_landmarks.py --split dlc_union/split.json --dataset data/cornell ... \
+    --model before=dlc_project --model after=dlc_project_union --exclude-trained dlc/split.json
+```
+
+**One model across landmark schemes.** caliPr's own landmarks and BGNN's are put
+under one list (`landmark_union.py`), merged only where both protocols define the
+same point (an orbit's edge, the dentary tip, the end of the vertebral column, the
+fin-base ends). A trout's eye and an alewife's orbit then train the same output,
+and the model learns what an eye is from both a salmonid and a clupeid. Each
+study's prediction comes back under its own scheme's names. Fin tips and base
+centres are left out: where a preserved fin's tip lies records how it dried.
+
+**Two passes, so every fish is seen at one size.** The first pass looks at the
+whole photograph (longest side 1024 px) only to find the fish. The second sees the
+fish cut out and scaled to a standard length (700 px snout to tail) and places the
+points. Training shows the model both views of every fish. A rig that photographs
+from farther away, or a fish in a corner of the frame, then looks to the second
+pass like every fish it was trained on.
+
+**Finding the fish from part of it.** The median fish of the training labels (the
+*template*, snout at (0, 0) and caudal base at (1, 0)) is saved with the model.
+Prediction places it on the first-pass points that agree with one another, trying
+both facings, so a fish whose head was found but not its tail is still framed snout
+to tail, and a point on a pin agrees with nothing. Up to three such placements are
+kept; the second pass looks at each and keeps the one whose eight surest landmarks
+it is surest of. Around a number card it finds a few points at 0.6-0.8; around the
+fish, eight above 0.9.
+
+**Two checks a landmark must pass.** A point more than 35% of the fish's length from
+where its other landmarks put it is dropped (a caudal base beside the eye). A point
+outside Segment Anything's outline of the fish, by more than 3% of its length, is
+dropped (a point on the board). Both are reported with the reason, as the
+anatomy-band check's are.
+
+**Augmentation for other photographs and other fish.** Rotation to 25°, scaling
+0.6-1.4 separately in each direction (a deeper or a longer fish), translation,
+horizontal flips, histogram equalisation, motion blur, cut-out patches, greyscale,
+noise, and brightness and contrast varied on the whole frames. Flips are safe for a
+side view, where no landmark has a left-right twin; they are on because museum
+photographs face either way. The measurement engine still requires a left-facing
+fish, and `validation.check_orientation` still says so.
+
+**Result.** Two runs, each 120 epochs of ResNet-50 at batch 2 on the 8 GB M3
+(2.5 and 3.5 hours with nothing else holding the memory). The second added 113
+alewife whose ImageJ landmarks the first run made usable (see
+`data/alewife/README.md`). Scored by `eval_landmarks.py`, which runs each model
+exactly as Auto-label does, on the 54 held-out fish none of the three trained on,
+and only on points a person placed or moved — a point the old model placed and a
+person accepted unmoved is the old model's own answer, and scored against it the
+old model looked perfect (0.02 mm):
+
+| group | fish | trout-only (2026-08) | run 1 | run 2 (in use) |
+|---|---|---|---|---|
+| trout ASN | 5 | 1.47 mm, 6.7% | 0.68 mm, 0% | 0.70 mm, 0% |
+| trout HRN | 5 | 1.98 mm, 0% | 0.95 mm, 0% | 0.81 mm, 0% |
+| trout LT | 7 | 1.46 mm, 37.0% | 0.53 mm, 5.3% | 0.49 mm, 0% |
+| trout TEM | 7 | 0.70 mm, 3.8% | 0.45 mm, 1.6% | 0.41 mm, 1.6% |
+| trout TXD | 5 | 1.97 mm, 0% | 0.60 mm, 0% | 0.79 mm, 0% |
+| trout, provisional TEM | 1 | 143 mm, 85.7% | 0.55 mm, 0% | 0.38 mm, 0% |
+| alewife | 21 | 3.14 mm, 38.1% | 0.57 mm, 18.0% | 0.66 mm, 4.3% |
+| three other museum lots | 3 | 55-64% of length | 0.3-0.8% of length | 0.5-0.7% of length |
+| **all** | 54 | **1.72 mm (2.08% L), 34.0%** | **0.51 mm (0.80% L), 14.3%** | **0.50 mm (0.52% L), 3.7%** |
+
+Each cell is the median error and the share of points more than 5% of the fish's
+length out. Most trout landmarks in the held-out set were placed by the old model
+and accepted, so HRN and TXD rest on three or four points each; TEM and LT,
+labelled by hand, carry the trout result. Points withheld as impossible: 82, 47 and
+5. Run 1 to run 2 is mostly the fin-base ends, which the extra alewife taught:
+`dorsal_base_posterior` went from 14.5% of length to 1.2%,
+`pelvic_fin_base_posterior` from 9.3% to 1.4%, `anal_base_posterior` from 7.7% to
+under 1%.
+
+Two prediction changes made after run 2 and scored above: the second pass cuts the
+fish from the whole photograph rather than the study's crop of it, and the outline
+and checks then work on a rectangle wide enough to hold the whole fish. On the
+Cornell rig a fish lying against the mirror has its snout past the crop's edge;
+before, its head points were placed and then withheld (14 on seven LT fish).
+
+**Other body shapes.** Mormyrids differ from trout and alewife mostly in the snout
+and braincase. The framing and the checks are built to tolerate that, but the
+landmarks themselves will need a few dozen labelled specimens to fine-tune on
+(`--resume`); no augmentation substitutes for having seen the anatomy.
+
 ### Predicting landmarks on a new photograph
 
 ```bash
@@ -243,11 +340,14 @@ actually weak, rather than uniformly.
 Three plausible-sounding changes that the data argues against, recorded so they
 are not re-attempted:
 
-- **Do not enable horizontal-flip augmentation.** It is off, and must stay off.
-  The whole pipeline assumes the fish faces left — `validation.check_orientation`
+- **Horizontal flips: off for the single-rig model, on for the cross-species one.**
+  The measurement engine assumes the fish faces left — `validation.check_orientation`
   treats a right-facing specimen as an *error* because the engine would swap `Bs`
-  and `CFs`. Flip augmentation would teach the model that mirrored anatomy is
-  acceptable, in a project whose geometry depends on it not being.
+  and `CFs` — and that is unchanged. For a model meant to read other collections'
+  photographs, which face either way, a flipped side view is a correctly labelled
+  example (no lateral landmark has a left-right twin), so the cross-species
+  profile flips. Placing landmarks on a right-facing fish does not make it
+  measurable; the orientation check still stops it.
 - **Widening the scaling augmentation will not fix the small-fish failure.** The
   one large miss (`pectoral_ray_tip`, 104 mm on HRN_46) is the smallest specimen
   in the set. But the observed size range is 0.65–1.21× the median SL, and the

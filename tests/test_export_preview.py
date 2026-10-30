@@ -137,6 +137,7 @@ def srv(tmp_path, monkeypatch):
     repo = tmp_path / "repo"
     repo.mkdir()
     monkeypatch.setattr(ls, "_ROOT", repo)
+    monkeypatch.setattr(ls.paths, "WORK", repo)
     (repo / "scripts").symlink_to(SCRIPTS)
     monkeypatch.setattr(ls, "show_on_this_computer", lambda path, how: (how, None))
     ls.Handler.datasets = {"exportstudy": st}

@@ -217,10 +217,10 @@ def test_user_reference_lines_reference_real_keypoints():
 
 
 def test_trait_counts():
-    """22 MorFishJ traits + 11 Cornell extras = 33 total."""
-    assert len(TRAITS) == 33
+    """22 MorFishJ traits + 12 Cornell extras = 34 total."""
+    assert len(TRAITS) == 34
     assert len(traits_by_source(TraitSource.MORFISHJ)) == 22
-    assert len(traits_by_source(TraitSource.EXTRAS)) == 11
+    assert len(traits_by_source(TraitSource.EXTRAS)) == 12
 
 
 def test_covers_every_photo_measurable_column_the_lab_asks_for():
@@ -406,14 +406,20 @@ def test_a_scheme_keeps_the_protocol_s_numbering():
     assert all(k["description"] and k["hint"] and k["group"] for k in kp)
 
 
-def test_a_scheme_names_no_calipr_landmark():
-    """The two schemes describe different points; sharing a name would imply a
-    mapping between them, which is a claim about anatomy, not a conversion."""
+def test_a_scheme_shares_a_name_only_for_a_point_adopted_from_it():
+    """A name shared between schemes says they mark the same anatomical point, so
+    it is a claim about anatomy, not a convenience. The only shared names are the
+    two ends of the caudal crease, which caliPr takes from BGNN 2D (its 11 and
+    13) with BGNN's definition -- so coordinates carry across as the same point."""
     from fish_morpho import schemes
     from fish_morpho.landmark_config import KEYPOINTS
 
-    assert not {k["name"] for k in schemes.keypoints("bgnn_2d", "lateral")} & {
-        k.name for k in KEYPOINTS}
+    bgnn = {k["name"]: k for k in schemes.keypoints("bgnn_2d", "lateral")}
+    shared = set(bgnn) & {k.name for k in KEYPOINTS}
+    assert shared == {"caudal_crease_dorsal", "caudal_crease_ventral"}
+    for k in KEYPOINTS:
+        if k.name in shared:
+            assert "BGNN 2D landmark" in k.description
 
 
 def test_calipr_is_the_default_and_unknown_schemes_are_not_invented():

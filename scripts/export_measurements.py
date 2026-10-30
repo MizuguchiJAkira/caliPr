@@ -71,7 +71,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
-from fish_morpho import darwin_core, repeatability  # noqa: E402
+from fish_morpho import darwin_core, paths, repeatability  # noqa: E402
 from fish_morpho.landmark_config import traits_requiring  # noqa: E402
 from fish_morpho.pipeline import run  # noqa: E402
 
@@ -149,7 +149,7 @@ def preview(workbook: Path) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="export_measurements")
     ap.add_argument("--dataset", help="Folder name under --data-root, e.g. alewife.")
-    ap.add_argument("--data-root", type=Path, default=_ROOT / "data")
+    ap.add_argument("--data-root", type=Path, default=paths.WORK / "data")
     ap.add_argument("--images", type=Path, default=None,
                     help="Override the image directory.")
     ap.add_argument("--labels", type=Path, default=None,
@@ -185,7 +185,7 @@ def main(argv=None) -> int:
         if not images.is_dir():
             ap.error(f"{images} does not exist")
 
-    out = args.out or (_ROOT / "results" / name / "measurements.xlsx")
+    out = args.out or (paths.WORK / "results" / name / "measurements.xlsx")
     out.parent.mkdir(parents=True, exist_ok=True)
 
     left_out = tuple(c.strip() for c in args.leave_out.split(",") if c.strip())

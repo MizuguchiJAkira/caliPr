@@ -1,0 +1,1213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>caliPr — batch</title>
+<style>
+  /* The labeller's look (index.html): a grey frame of white panes, Lucida Grande
+     for the interface, Monaco for data. The tags and their lists are data, so
+     they are set in Monaco, as the landmark names are. */
+  :root { --frame:#E3E6EA; --panel:#FFFFFF; --panel2:#F7F8FA;
+          --tab1:#F4F5F7; --tab2:#E6E9ED; --line:#D6DADF; --line2:#ECEEF1; --edge:#C3C9D0;
+          --fg:#22262A; --mut:#6B7279; --accent:#3A78B5; --accentsoft:#D8E6F5;
+          --hover:#EEF4FB; --viewer:#EEF0F2;
+          /* the four bands of a match score, best to worst */
+          --s1:#22864D; --s2:#C99A06; --s3:#D9730D; --s4:#C9323F;
+          --ui:"Lucida Grande","Lucida Sans Unicode","Segoe UI",-apple-system,
+               BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+          --mono:Monaco,Menlo,"SF Mono",Consolas,"DejaVu Sans Mono",monospace; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:var(--frame); color:var(--fg);
+    font:12px/1.4 var(--ui); overflow:hidden; }
+  body { display:flex; flex-direction:column; }
+  #topbar { flex:none; min-height:34px; display:flex; flex-wrap:wrap; align-items:center; gap:4px;
+    padding:0 8px; background:linear-gradient(#FCFCFD,#ECEEF1); border-bottom:1px solid var(--edge); }
+  .brand { display:flex; align-items:center; gap:7px; padding:0 8px 0 2px; font-weight:bold;
+    font-size:13px; color:#23384F; white-space:nowrap; }
+  .brand small { font-weight:normal; font-size:11px; color:var(--mut); }
+  .brand .logo { width:20px; height:20px; border-radius:50%; flex:none;
+    background:radial-gradient(circle at 35% 30%,#94C1EA,#3A78B5 72%);
+    box-shadow:inset 0 0 0 1px #2D6197; color:#fff; text-align:center;
+    font:bold italic 13px/20px Georgia,serif; }
+  .tsep { width:1px; height:16px; margin:0 5px; background:#CBD0D6; flex:none; }
+  .spacer { flex:1; }
+  label.fld { display:inline-flex; align-items:center; gap:5px; color:#4E555C; }
+  select, input { font:12px var(--ui); border:1px solid var(--edge); border-radius:3px;
+    background:#fff; padding:2px 4px; height:23px; }
+  input.mm { width:52px; font-family:var(--mono); }
+  #where { width:150px; font-family:var(--mono); }
+  button { font:12px/16px var(--ui); color:var(--fg); cursor:pointer;
+    background:linear-gradient(#FFFFFF,#EDEFF2); border:1px solid var(--edge);
+    border-radius:3px; padding:3px 9px; }
+  button:hover { background:linear-gradient(#FFFFFF,#E3E7EB); border-color:#AAB2BB; }
+  button.on { background:linear-gradient(#E6F0FA,#D3E3F4); border-color:#8DB2D8; color:#1C4E80; font-weight:bold; }
+  button:disabled { opacity:.5; cursor:default; }
+  .tb { height:24px; padding:2px 7px; background:transparent; border-color:transparent; }
+  .tb:hover { background:linear-gradient(#FFFFFF,#E8EBEF); border-color:#C3C9D0; }
+  a.tb { display:inline-flex; align-items:center; color:var(--fg); text-decoration:none;
+    border:1px solid transparent; border-radius:3px; }
+
+  #main { flex:1; min-height:0; display:flex; gap:6px; padding:6px; }
+  .pane { display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--edge);
+    border-radius:4px; min-height:0; overflow:hidden; }
+  .tabs { flex:none; display:flex; align-items:flex-end; height:27px; padding:0 4px;
+    background:linear-gradient(#F4F5F7,#E6E9ED); border-bottom:1px solid var(--line); }
+  .tab { height:24px; padding:4px 12px 0; border:1px solid var(--line); border-bottom:0;
+    border-radius:4px 4px 0 0; background:var(--panel); font-weight:bold; color:#2B3035; }
+  .tab .ct { font:normal 11px var(--mono); color:var(--mut); margin-left:6px; }
+  #left { width:290px; flex:none; }
+  #list { flex:1; overflow:auto; }
+  .row { display:flex; align-items:center; gap:8px; padding:3px 10px; cursor:pointer;
+    font:12px/19px var(--mono); border-bottom:1px solid var(--line2); }
+  .row:hover { background:var(--hover); }
+  .row.on { background:var(--accentsoft); box-shadow:inset 3px 0 0 var(--accent); }
+  .row .no { width:22px; color:var(--mut); text-align:right; flex:none; }
+  .row .sp { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-style:italic; }
+  .row .sp.none { font-style:normal; color:var(--mut); }
+  #foot { flex:none; padding:7px 10px; border-top:1px solid var(--line); background:var(--panel2);
+    color:#4E555C; font-size:11px; line-height:1.5; }
+  #foot b { font:bold 11px var(--mono); color:var(--fg); }
+
+  .key { display:flex; gap:5px; flex-wrap:wrap; margin-top:5px; }
+
+  #viewpane { flex:1; min-width:0; }
+  #viewer { flex:1; position:relative; overflow:hidden; background:var(--viewer); cursor:grab; }
+  #viewer.dragging { cursor:grabbing; }
+  #viewer.scaling { cursor:crosshair; }
+  /* setting the scale: the tags step aside, so a tag over the ruler cannot take the click */
+  #viewer.scaling .tag, #viewer.scaling .pop { pointer-events:none; opacity:.3; }
+  #stage { position:absolute; left:0; top:0; transform-origin:0 0; }
+  #stage img { display:block; user-select:none; -webkit-user-drag:none; }
+  #shapes { position:absolute; left:0; top:0; overflow:visible; pointer-events:none; }
+  #shapes .fish { fill:none; stroke:#3A78B5; stroke-width:1.2; stroke-dasharray:5 3; vector-effect:non-scaling-stroke; }
+  #shapes .fish.on { fill:rgba(58,120,181,.08); stroke:#1C4E80; stroke-width:2; stroke-dasharray:none; }
+  #shapes .pt { fill:#C9323F; stroke:#fff; stroke-width:1; vector-effect:non-scaling-stroke; }
+  #shapes .pt.low { fill:#F1A430; }
+  #shapes .ruler { stroke:#8A55D6; stroke-width:2; vector-effect:non-scaling-stroke; }
+  #shapes .rdot { fill:#8A55D6; stroke:#fff; stroke-width:1; vector-effect:non-scaling-stroke; }
+  #shapes .rnum { fill:none; stroke:#8A55D6; stroke-width:2; vector-effect:non-scaling-stroke; }
+  #overlay { position:absolute; inset:0; pointer-events:none; }
+  #leaders { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; overflow:visible; }
+  #leaders line { stroke:#2B3035; stroke-width:1; opacity:.55; }
+  #leaders circle { fill:#2B3035; opacity:.7; }
+
+  /* a fish's tag: its number and best match; click for the rest */
+  .tag { position:absolute; pointer-events:auto; display:flex; align-items:center; gap:6px;
+    padding:2px 4px 2px 6px; background:rgba(255,255,255,.96); border:1px solid #8E98A3;
+    border-radius:3px; box-shadow:0 1px 3px rgba(0,0,0,.18); font:12px/18px var(--mono);
+    white-space:nowrap; cursor:pointer; user-select:none; }
+  .tag:hover, .tag.on { border-color:var(--accent); box-shadow:0 0 0 2px var(--accentsoft), 0 1px 3px rgba(0,0,0,.2); }
+  .tag .no { font-weight:bold; color:#23384F; }
+  .tag .sp { font-style:italic; }
+  .tag .sp.none { font-style:normal; color:var(--mut); }
+  .score { display:inline-block; min-width:38px; padding:0 5px; border-radius:3px; text-align:center;
+    font:bold 11px/17px var(--mono); color:#fff; font-variant-numeric:tabular-nums; }
+  .score.s1 { background:var(--s1); } .score.s2 { background:var(--s2); }
+  .score.s3 { background:var(--s3); } .score.s4 { background:var(--s4); }
+  .score.na { background:#AEB5BC; }
+  /* corrected by hand; scored without a point that looked misplaced */
+  .ok { color:var(--s1); font-weight:bold; }
+  .lo { color:#8A4B00; font-weight:bold; margin-left:-3px; }
+
+  .pop { position:absolute; pointer-events:auto; min-width:280px; max-width:360px; z-index:5;
+    background:#fff; border:1px solid var(--edge); border-radius:4px;
+    box-shadow:0 6px 18px rgba(20,30,40,.22); font:12px/1.4 var(--mono); }
+  .pop .hd { display:flex; align-items:center; gap:8px; padding:6px 10px; border-bottom:1px solid var(--line);
+    background:linear-gradient(#FAFBFC,#F0F2F4); font-weight:bold; color:#23384F; }
+  .pop .hd .x { cursor:pointer; color:var(--mut); font-weight:normal; }
+  .pop .hd button { margin-left:auto; font-weight:normal; padding:1px 8px; }
+  .pop .note { padding:6px 10px 0; color:#8A4B00; font:11px/1.5 var(--ui); }
+  .pop table { border-collapse:collapse; width:100%; }
+  .pop td { padding:3px 10px; border-bottom:1px solid var(--line2); }
+  .pop td.r { color:var(--mut); width:18px; text-align:right; }
+  .pop td.sp { font-style:italic; }
+  .pop td.n { color:var(--mut); text-align:right; white-space:nowrap; font-size:11px; }
+  .pop td.s { text-align:right; width:52px; }
+  .pop td.here { color:var(--mut); text-align:right; white-space:nowrap; font-size:11px; }
+  .pop tr.absent td.sp { color:var(--mut); }
+  .pop tr.absent td.here { color:#8A4B00; }
+  .pop .warn { color:#8A4B00; font-size:11px; }
+  .pop .ft { padding:6px 10px 7px; color:var(--mut); font:11px/1.5 var(--ui); }
+
+  /* a species' GBIF records on a map, beside the photograph */
+  .mappane { position:absolute; right:10px; top:10px; width:480px; z-index:6; background:#fff;
+    border:1px solid var(--edge); border-radius:4px; box-shadow:0 6px 18px rgba(20,30,40,.22); font:12px/1.4 var(--ui); }
+  .mappane .hd { display:flex; align-items:center; gap:8px; padding:5px 8px 5px 10px; border-bottom:1px solid var(--line);
+    background:linear-gradient(#FAFBFC,#F0F2F4); }
+  .mappane .hd .t { font:bold 12px var(--mono); color:#23384F; }
+  .mappane .hd .t i { font-weight:bold; }
+  .mappane .hd .c { color:var(--mut); font-size:11px; }
+  .mappane .hd .x { margin-left:auto; cursor:pointer; color:var(--mut); }
+  .mappane .bar { display:flex; align-items:center; gap:6px; padding:4px 8px; border-bottom:1px solid var(--line2); font-size:11px; color:#4E555C; }
+  .mappane .bar button { padding:0 7px; height:20px; }
+  .mappane .bar a { margin-left:auto; color:var(--accent); text-decoration:none; }
+  .mappane .tiles { position:relative; height:330px; overflow:hidden; background:#E8E8E8; cursor:grab; }
+  .mappane .tiles.dragging { cursor:grabbing; }
+  .mappane .tiles.pick { cursor:crosshair; }
+  .mappane .tiles img { position:absolute; width:256px; height:256px; user-select:none; -webkit-user-drag:none; }
+  .mappane .tiles svg { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+  .mappane .tiles .outline { fill:rgba(28,78,128,.08); stroke:#1C4E80; stroke-width:1.8; }
+  .mappane .tiles .lot { fill:#C9323F; stroke:#fff; stroke-width:1.5; }
+  .mappane .ft { padding:4px 8px 6px; color:var(--mut); font-size:10px; }
+  /* map or specimens: one control, two buttons */
+  .seg { display:inline-flex; }
+  .seg button { border-radius:0; margin-left:-1px; }
+  .seg button:first-child { border-radius:3px 0 0 3px; margin-left:0; }
+  .seg button:last-child { border-radius:0 3px 3px 0; }
+  /* the museum specimens of a species, photographed */
+  .mappane .gallery { height:400px; overflow:auto; padding:6px; background:var(--panel2); }
+  .mappane .gallery[hidden], .mappane .tiles[hidden] { display:none; }
+  .gallery .gnote { padding:2px 2px 6px; color:#4E555C; font-size:11px; }
+  .gallery .grid { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; }
+  .gallery figure { margin:0; background:#fff; border:1px solid var(--line); border-radius:3px; cursor:pointer; overflow:hidden; }
+  .gallery figure:hover { border-color:var(--accent); box-shadow:0 0 0 2px var(--accentsoft); }
+  .gallery figure img { display:block; width:100%; height:92px; object-fit:contain; background:#fff; }
+  .gallery figcaption { padding:3px 5px 4px; font:10px/1.35 var(--mono); color:#33383D; border-top:1px solid var(--line2); }
+  .gallery figcaption span { display:block; font:10px/1.35 var(--ui); color:var(--mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .gallery .big { position:relative; }
+  /* the specimen's photograph: zoomed and moved as the photographs are */
+  .gallery .big .frame { position:relative; height:270px; margin:0 0 6px; overflow:hidden; background:#fff;
+    border:1px solid var(--line); cursor:grab; }
+  .gallery .big .frame.dragging { cursor:grabbing; }
+  .gallery .big .frame img { position:absolute; left:0; top:0; transform-origin:0 0; max-width:none;
+    user-select:none; -webkit-user-drag:none; }
+  .mappane.wide { width:min(920px, calc(100% - 20px)); }
+  .mappane.wide .gallery { height:min(640px, 72vh); }
+  .mappane.wide .gallery .big .frame { height:min(520px, 58vh); }
+  .gallery .big .cap { font-size:11px; line-height:1.5; color:#33383D; }
+  .gallery .big .cap b { font:bold 11px var(--mono); }
+  .gallery .big .cap a { color:var(--accent); text-decoration:none; margin-right:10px; }
+  .gallery figure { position:relative; }
+  .gallery figure .keep { position:absolute; top:3px; right:3px; width:20px; height:20px; padding:0; border-radius:3px;
+    border:1px solid var(--line); background:rgba(255,255,255,.92); font:bold 12px/18px var(--mono); color:var(--accent); cursor:pointer; }
+  .gallery figure .keep.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  /* museum specimens kept to compare: side by side under the photograph */
+  #shelf { flex:none; display:flex; flex-direction:column; height:250px; border-top:1px solid var(--line); background:var(--panel2); }
+  #shelf.tall { height:min(52vh, 560px); }
+  #shelf[hidden] { display:none; }
+  #shelf .shd { display:flex; align-items:center; gap:8px; padding:3px 8px; font-size:11px; color:#4E555C; border-bottom:1px solid var(--line2); }
+  #shelf .shd b { color:var(--fg); }
+  #shelf .shd button { height:20px; padding:0 7px; }
+  #shelf .cards { flex:1; min-height:0; display:flex; gap:6px; padding:6px; overflow-x:auto; overflow-y:hidden; }
+  #shelf .empty { margin:auto; color:var(--mut); font-size:11px; }
+  #shelf .card { flex:none; width:340px; display:flex; flex-direction:column; background:#fff; border:1px solid var(--line); border-radius:3px; }
+  #shelf.tall .card { width:540px; }
+  #shelf .card .ch { display:flex; gap:6px; align-items:baseline; padding:3px 6px; font-size:11px; border-bottom:1px solid var(--line2); white-space:nowrap; }
+  #shelf .card .ch i { font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+  #shelf .card .ch .cat { font:10px var(--mono); color:var(--mut); }
+  #shelf .card .ch .x { margin-left:auto; cursor:pointer; color:var(--mut); }
+  #shelf .card .frame { flex:1; min-height:0; position:relative; overflow:hidden; cursor:grab; }
+  #shelf .card .frame.dragging { cursor:grabbing; }
+  #shelf .card .frame img { position:absolute; left:0; top:0; transform-origin:0 0; max-width:none; user-select:none; -webkit-user-drag:none; }
+  #shelf .card .cf { padding:2px 6px 3px; font-size:10px; color:var(--mut); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-top:1px solid var(--line2); }
+  .pop td.sp a, #foot a.sp { color:inherit; text-decoration:none; border-bottom:1px dotted #8E98A3; cursor:pointer; }
+  .pop td.sp a:hover, #foot a.sp:hover { color:var(--accent); border-bottom-color:var(--accent); }
+  .pop .was { font:normal 10px var(--ui); color:var(--mut); }
+
+  /* pane tabs: the one shown, and the others as RStudio draws them */
+  .tabs .tab { cursor:default; }
+  .tabs .tab + .tab { margin-left:2px; }
+  .tabs .tab.off { background:transparent; border-color:transparent; font-weight:normal; color:var(--mut); cursor:pointer; }
+  .tabs .tab.off:hover { color:var(--fg); background:rgba(255,255,255,.5); }
+  .tabbody { flex:1; min-height:0; display:flex; flex-direction:column; }
+  .tabbody[hidden] { display:none; }
+  /* a pane's own toolbar, under its tabs */
+  .ptools { flex:none; display:flex; align-items:center; gap:4px; min-height:30px; padding:2px 6px;
+    background:var(--panel2); border-bottom:1px solid var(--line); flex-wrap:nowrap; }
+  .ptools input[type=search], #where { flex:1; min-width:0; font-family:var(--mono); }
+  #status { color:var(--mut); font-size:11px; padding:0 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
+  /* the fish recorded from the drainage */
+  #dinfo { flex:none; padding:7px 10px; border-bottom:1px solid var(--line); color:#4E555C; font-size:11px; line-height:1.5; }
+  #dinfo b { font:bold 11px var(--mono); color:var(--fg); }
+  #dlist { flex:1; overflow:auto; }
+  .drow { display:flex; align-items:flex-start; gap:8px; padding:4px 10px; border-bottom:1px solid var(--line2); cursor:pointer; }
+  .drow:hover { background:var(--hover); }
+  .drow .dn { flex:1; min-width:0; font:12px/17px var(--mono); }
+  .drow .dn i { font-style:italic; }
+  .drow .dc { font:11px/15px var(--ui); color:var(--mut); }
+  .drow .dr { font:11px/17px var(--mono); color:var(--mut); white-space:nowrap; }
+  .drow .ref { margin-left:6px; padding:0 4px; border-radius:3px; background:var(--accentsoft); color:#1C4E80; font:bold 10px/15px var(--ui); }
+  .drow.cand .dn i { font-weight:bold; }
+  /* introduced to the drainage, as iNaturalist marks it */
+  .intro { display:inline-block; min-width:14px; height:14px; padding:0 3px; margin-left:5px; border-radius:7px;
+    background:#E0457B; color:#fff; font:bold 10px/14px var(--ui); text-align:center; vertical-align:1px; font-style:normal; }
+  /* the key to the scores, bottom right of the photograph */
+  .scorekey { position:absolute; right:10px; bottom:10px; width:262px; z-index:4; background:rgba(255,255,255,.96);
+    border:1px solid var(--edge); border-radius:4px; box-shadow:0 2px 8px rgba(20,30,40,.15); font:10.5px/1.4 var(--ui); color:#4E555C; }
+  .scorekey .hd { display:flex; align-items:center; padding:4px 8px; border-bottom:1px solid var(--line2); cursor:pointer;
+    font-weight:bold; color:#23384F; background:linear-gradient(#FAFBFC,#F0F2F4); border-radius:4px 4px 0 0; }
+  .scorekey .hd .tw { margin-left:auto; color:var(--mut); font-weight:normal; }
+  .scorekey.shut .bd { display:none; }
+  .scorekey.shut .hd { border-bottom:0; border-radius:4px; }
+  .scorekey .bd { padding:6px 8px 7px; }
+  .scorekey .bands { display:grid; grid-template-columns:auto 1fr auto 1fr; gap:3px 6px; align-items:center; margin-bottom:6px; font:11px var(--mono); }
+  .scorekey p { margin:0 0 5px; }
+  .scorekey .marks { display:grid; grid-template-columns:38px 1fr; gap:2px 6px; align-items:start; }
+  .scorekey .marks > :nth-child(odd) { text-align:center; }
+
+  /* the labeller's icons for adding photographs */
+  [data-ico] { display:inline-flex; align-items:center; gap:5px; }
+  [data-ico]::before { content:''; width:14px; height:14px; flex:none; background:center/contain no-repeat; }
+  [data-ico=newfolder]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M.8 2.8h4l1.3 1.4h5.4v6.4H.8z' fill='%23F3C969' stroke='%23B8912F'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
+  [data-ico=addphotos]::before { background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Crect x='.8' y='1.8' width='10.4' height='8.4' rx='1' fill='%23fff' stroke='%23707780'/%3E%3Cpath d='M1.3 9.7l3.1-3.2 2.1 2 1.5-1.3 2.6 2.5z' fill='%2398C379'/%3E%3Ccircle cx='8.3' cy='4.6' r='1' fill='%23F0B12B'/%3E%3Ccircle cx='10.6' cy='10.4' r='3' fill='%2339A845' stroke='%23fff' stroke-width='.8'/%3E%3Cpath d='M10.6 8.8V12M9 10.4h3.2' stroke='%23fff' stroke-width='1.2'/%3E%3C/svg%3E"); }
+  #dropzone { position:fixed; inset:0; z-index:9999; display:none; align-items:center; justify-content:center;
+    text-align:center; background:#EAF2FBEE; border:3px dashed var(--accent); color:var(--fg); font-size:20px; pointer-events:none; }
+  #dropzone.on { display:flex; }
+  #dropwhere { font-size:13px; color:var(--mut); margin-top:8px; }
+
+  #msg { position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); background:#fff;
+    border:1px solid var(--edge); border-radius:4px; padding:12px 16px; box-shadow:0 4px 14px rgba(0,0,0,.15);
+    color:#33383D; max-width:460px; text-align:center; display:none; }
+  #msg.on { display:block; }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <div class="brand"><span class="logo">c</span>caliPr <small>batch</small></div>
+  <span class="tsep"></span>
+  <label class="fld">Study <select id="study"></select></label>
+  <label class="fld">Photograph <select id="photo"></select></label>
+  <button class="tb" id="refind" title="Find the fish and place their landmarks again">↻ Find fish again</button>
+  <span class="tsep"></span>
+  <button class="tb" id="addfolderbtn" data-ico="newfolder" title="Add a folder of photographs of several fish to this study">Add folder</button>
+  <button class="tb" id="addphotosbtn" data-ico="addphotos" title="Add photographs of several fish to this study — or drop them on the page">Add photos</button>
+  <span class="spacer"></span>
+  <a class="tb" id="back" href="/">← Labeller</a>
+</div>
+<div id="main">
+  <div class="pane" id="left">
+    <div class="tabs">
+      <div class="tab" data-tab="fish">Fish<span class="ct" id="count"></span></div>
+      <div class="tab off" data-tab="drainage">Drainage<span class="ct" id="dcount"></span></div>
+    </div>
+    <div class="tabbody" id="fishtab">
+      <div id="list"></div>
+      <div id="foot"></div>
+    </div>
+    <div class="tabbody" id="draintab" hidden>
+      <div class="ptools">
+        <input id="where" placeholder="lat, lon or HUC8" title="Where the lot was caught: latitude and longitude, or the 8-digit HUC8 code of its drainage. Left empty, the lot's own GBIF record is used, or you click the map.">
+        <button class="tb" id="drainbtn" title="Look up the drainage and the fish museums have recorded from it (GBIF), on a map">Find drainage</button>
+      </div>
+      <div id="dinfo"></div>
+      <div class="ptools">
+        <input id="dq" type="search" placeholder="Search the fish recorded here" title="By current or former name, common name or family">
+        <label class="fld" title="Only the shiner genera the identification is between"><input type="checkbox" id="dshiners"> shiners</label>
+      </div>
+      <div id="dlist"></div>
+    </div>
+  </div>
+  <div class="pane" id="viewpane">
+    <div class="tabs"><div class="tab" id="phototab">Photograph</div></div>
+    <div class="ptools">
+      <button class="tb" id="scalebtn" title="Click the two ends of a known span on the ruler">📏 Set scale</button>
+      <label class="fld">span <input class="mm" id="mm" value="10"> mm</label>
+      <span class="tsep"></span>
+      <button class="tb" id="pts" title="Show the landmarks placed on each fish">Points</button>
+      <button class="tb" id="fit" title="Fit the photograph to the pane">Fit</button>
+      <span class="tsep"></span>
+      <button class="tb" id="shelfbtn" title="Museum specimens kept to compare, side by side under the photograph">Compare<span id="shelfct"></span></button>
+      <span class="spacer"></span>
+      <span id="status"></span>
+    </div>
+    <div id="viewer">
+      <div id="stage"><img id="img" alt=""><svg id="shapes"></svg></div>
+      <div id="overlay"><svg id="leaders"></svg></div>
+      <div id="msg"></div>
+      <div id="mappane" class="mappane" hidden></div>
+      <div id="scorekey" class="scorekey"></div>
+    </div>
+    <div id="shelf" hidden>
+      <div class="shd"><b>Compare</b><span id="shelfn"></span><span class="spacer"></span>
+        <button class="tb" id="shelftall">Taller</button><button class="tb" id="shelfhide">Hide</button></div>
+      <div class="cards"></div>
+    </div>
+  </div>
+</div>
+<div id="dropzone"><div><b>Drop photographs of several fish to add them</b><div id="dropwhere"></div></div></div>
+<input id="addimgs" type="file" accept="image/*" multiple hidden>
+<input id="addfolder" type="file" webkitdirectory directory multiple hidden>
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const qs = new URLSearchParams(location.search);
+let STUDY = qs.get('dataset') || '', PHOTO = qs.get('photo') || '';
+let data = null, sel = null, open = null, showPts = false, scaling = null;
+const view = { s: 1, tx: 0, ty: 0 };
+
+// ------------------------------------------------------------------- helpers
+// Where a fish is, as a box around what was found of it. The outline it is taken
+// from only roughly follows the fish -- pale fins fall outside it -- so it is not
+// drawn; the server uses it only to paint neighbouring fish out of each fish's crop.
+const extent = f => {
+  const xs = f.outline.map(p => p[0]), ys = f.outline.map(p => p[1]);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys), x1 = Math.max(...xs), y1 = Math.max(...ys);
+  const pad = 0.04 * (x1 - x0);                      // for the fins the outline missed
+  return [x0 - pad, y0 - pad, x1 + pad, y1 + pad];
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const spName = s => String(s).replace(/_/g, ' ');
+const short = s => { const [g, ...r] = spName(s).split(' '); return r.length ? `${g[0]}. ${r.join(' ')}` : g; };
+// green best, then yellow, orange, red
+const band = v => v >= 0.75 ? 's1' : v >= 0.5 ? 's2' : v >= 0.25 ? 's3' : 's4';
+const chip = v => v == null ? '<span class="score na">—</span>'
+                            : `<span class="score ${band(v)}">${v.toFixed(2)}</span>`;
+async function api(path, opts) {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch(`${path}${sep}dataset=${encodeURIComponent(STUDY)}`, opts);
+  return r.json();
+}
+// What a fish's tag says: its best match, or why there is none worth showing. A fish
+// like no species on the model's points has, nearly always, a point in the wrong place.
+// A species by its current name (FishBase, following the Catalog of Fishes), and
+// the names it went by: the label's, then GBIF's.
+const taxon = sp => (data && data.taxa && data.taxa[sp]) || null;
+const cur = sp => { const t = taxon(sp); return t && t.current ? t.current : spName(sp); };
+const chainOf = sp => { const t = taxon(sp); return (t && t.chain) ? t.chain : [{ name: spName(sp), via: 'label' }]; };
+const chainTitle = chain => chain.map(c => `${c.name} (${c.via})`).join(' → ');
+// a pink "!" for a fish USGS records as not native to the drainage
+const introBadge = e => e ? `<span class="intro" title="Introduced here: not native to this drainage. USGS Nonindigenous Aquatic Species: ${esc(e.status)}, ${e.records} record${e.records === 1 ? '' : 's'}. (USGS records introduction, not harm.)">!</span>` : '';
+
+function verdict(f) {
+  const m = f.match;
+  if (!m.ok) return { text: 'no match', none: true, score: null };
+  const b = m.matches[0];
+  // On corrected points the nearest species is still named, marked as unlike them all:
+  // a score just under the line is not a different answer from one just over it.
+  if (m.no_match) return f.checked ? { names: [b.species], score: b.score, unlike: true }
+                                   : { text: 'check points', none: true, score: null };
+  // species scoring within TIE of the best are named together: shape cannot choose
+  const tied = (m.tied && m.tied.length) ? m.tied : [b.species];
+  return { names: tied, score: b.score, left: (m.left_out || []).length > 0, elsewhere: m.better_elsewhere };
+}
+function verdictHtml(f, name) {
+  const v = verdict(f);
+  const shown = v.none ? esc(v.text)
+    : v.names.slice(0, 2).map(n => esc(name(cur(n)))).join(' / ') + (v.names.length > 2 ? ` +${v.names.length - 2}` : '');
+  const title = v.none ? '' : ` title="${esc(v.names.map(cur).join(', '))}${v.names.length > 1 ? ' — tied: within 0.10 of each other' : ''}${v.unlike ? ' — the nearest; no species scores 0.05' : ''}"`;
+  return (f.checked ? '<span class="ok" title="points corrected by hand">✓</span>' : '') +
+    `<span class="sp${v.none ? ' none' : ''}"${title}>${shown}</span>` +
+    (v.unlike ? '<span class="lo" title="no species scores 0.05 or more: this is only the nearest">?</span>' : '') +
+    chip(v.score) +
+    (v.left ? '<span class="lo" title="scored without a point that looks misplaced">*</span>' : '') +
+    (v.elsewhere ? `<span class="lo" title="its shape fits ${esc(cur(v.elsewhere.species))} (${v.elsewhere.score.toFixed(2)}) better, which has no museum record from this drainage">†</span>` : '');
+}
+const lmName = n => String(n).replace(/_/g, ' ');
+const listing = a => a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`;
+
+const scaleText = d => d.scale_from === 'hand' ? `scale set by hand, ${d.px_per_mm.toFixed(2)} px/mm`
+  : d.scale_from === 'ruler' ? `scale read from the ruler, ${d.px_per_mm.toFixed(2)} px/mm (${d.ruler.numbers.length} numbers)`
+  : 'no scale: the ruler could not be read — set it by hand';
+
+function say(html) { const m = $('#msg'); m.innerHTML = html || ''; m.classList.toggle('on', !!html); }
+function status(t) { $('#status').textContent = t || ''; }
+
+// --------------------------------------------------------------- loading
+async function loadStudies() {
+  const d = await fetch('/api/datasets').then(r => r.json());
+  const names = (d.datasets || []).map(x => x.name);
+  if (!STUDY) STUDY = d.default || names[0] || '';
+  $('#study').innerHTML = names.map(n => `<option${n === STUDY ? ' selected' : ''}>${esc(n)}</option>`).join('');
+  $('#back').href = '/?dataset=' + encodeURIComponent(STUDY);
+}
+async function loadPhotos() {
+  const d = await api('/api/batch/photos');
+  const ph = d.photos || [];
+  if (!ph.length) {
+    $('#photo').innerHTML = '';
+    say(`No photographs of several fish in <b>${esc(STUDY)}</b> yet. <b>Add photos</b> or <b>Add folder</b> above, or drop them on the page.`);
+    return;
+  }
+  if (!ph.some(p => p.name === PHOTO)) {
+    const byStem = ph.find(p => p.name.replace(/\.[^.]+$/, '') === PHOTO);
+    PHOTO = byStem ? byStem.name : ph[0].name;
+  }
+  $('#photo').innerHTML = ph.map(p =>
+    `<option value="${esc(p.name)}"${p.name === PHOTO ? ' selected' : ''}>${esc(p.name)}${p.fish != null ? ` (${p.fish})` : ''}</option>`).join('');
+  await loadPhoto();
+}
+// Each load takes a ticket. An answer that comes back after another photograph was
+// opened -- a first landmarking takes many seconds -- is for that one and is dropped.
+let loadTicket = 0;
+const stillOpen = (photo, ticket) => photo === PHOTO && (ticket == null || ticket === loadTicket);
+async function loadPhoto(refresh) {
+  const photo = PHOTO, ticket = ++loadTicket;
+  data = null; sel = null; open = null; render();
+  history.replaceState(null, '', `/batch?dataset=${encodeURIComponent(STUDY)}&photo=${encodeURIComponent(PHOTO)}`);
+  $('#phototab').textContent = PHOTO;
+  const img = $('#img');
+  img.onload = () => fit();               // fitted while the fish are still being found
+  img.src = `/img/batch/${encodeURIComponent(PHOTO)}?dataset=${encodeURIComponent(STUDY)}`;
+  const t0 = performance.now(), base = `/api/batch/fish/${encodeURIComponent(PHOTO)}`;
+  // The landmarks saved for this photograph first: the model runs only when there
+  // are none, or when they are asked for again.
+  status('loading…');
+  let d = refresh ? null : await api(base + '?cache=only');
+  if (!stillOpen(photo, ticket)) return;
+  if (!d || (!d.ok && d.cached === false)) {
+    say('Finding the fish and placing their landmarks — about two seconds a fish.');
+    status('working…');
+    d = await api(base + (refresh ? '?refresh=1' : ''));
+    if (!stillOpen(photo, ticket)) return;
+  }
+  status(d.ok ? `${d.fish.length} fish · ${scaleText(d)} · ${d.cached ? 'saved landmarks' : 'landmarked now'}`
+              + ` · ${((performance.now() - t0) / 1000).toFixed(1)} s` : '');
+  if (!d.ok) { say(esc(d.error || 'the fish could not be found')); return; }
+  say(d.fish.length ? '' : 'No fish were found in this photograph.');
+  data = d;
+  fit();
+}
+
+// -------------------------------------------------------------- view
+function fit() {
+  const img = $('#img');
+  const W = data ? data.width : img.naturalWidth, H = data ? data.height : img.naturalHeight;
+  if (!W || !H) return;
+  const v = $('#viewer').getBoundingClientRect();
+  const s = Math.min(v.width / W, v.height / H) * 0.97;
+  view.s = s; view.tx = (v.width - W * s) / 2; view.ty = (v.height - H * s) / 2;
+  render();
+}
+function toScr(x, y) { return [x * view.s + view.tx, y * view.s + view.ty]; }
+function toImg(sx, sy) { return [(sx - view.tx) / view.s, (sy - view.ty) / view.s]; }
+
+function render() {
+  const stage = $('#stage'), shapes = $('#shapes'), ov = $('#overlay');
+  ov.querySelectorAll('.tag,.pop').forEach(e => e.remove());
+  $('#leaders').innerHTML = '';
+  stage.style.transform = `translate(${view.tx}px,${view.ty}px) scale(${view.s})`;
+  if (!data) { shapes.innerHTML = ''; $('#list').innerHTML = ''; $('#foot').innerHTML = ''; $('#count').textContent = ''; return; }
+  shapes.setAttribute('width', data.width); shapes.setAttribute('height', data.height);
+  shapes.setAttribute('viewBox', `0 0 ${data.width} ${data.height}`);
+  const r = 3.2 / view.s;
+  let svg = '';
+  for (const f of data.fish) {
+    const [x0, y0, x1, y1] = extent(f);
+    svg += `<rect class="fish${f.n === sel ? ' on' : ''}" x="${x0}" y="${y0}" width="${x1 - x0}" height="${y1 - y0}"/>`;
+    if (showPts) for (const [n, p] of Object.entries(f.keypoints))
+      svg += `<circle class="pt${f.low_confidence.includes(n) ? ' low' : ''}" cx="${p[0]}" cy="${p[1]}" r="${r}"><title>${esc(n)}</title></circle>`;
+  }
+  // the ruler's numbers the scale was read from, when it was not set by hand
+  if (data.scale_from === 'ruler' && data.ruler && data.ruler.numbers)
+    for (const [x, y] of data.ruler.numbers)
+      svg += `<circle class="rnum" cx="${x}" cy="${y}" r="${7 / view.s}"><title>1 cm apart</title></circle>`;
+  const sc = data.scale || (scaling && scaling.a ? { point_a: scaling.a } : null);
+  if (sc && sc.point_a) {
+    if (sc.point_b) svg += `<line class="ruler" x1="${sc.point_a[0]}" y1="${sc.point_a[1]}" x2="${sc.point_b[0]}" y2="${sc.point_b[1]}"/>`;
+    for (const p of [sc.point_a, sc.point_b].filter(Boolean))
+      svg += `<circle class="rdot" cx="${p[0]}" cy="${p[1]}" r="${4 / view.s}"/>`;
+  }
+  shapes.innerHTML = svg;
+  placeTags();
+  renderList();
+}
+
+// A tag sits just above each fish's back, joined to it by a short line. Where that
+// spot is taken by another tag, or would put the tag out of the pane, the nearest
+// free spot is used -- beside it, or below the fish.
+function placeTags() {
+  const ov = $('#overlay'), lead = $('#leaders'), placed = [];
+  const V = $('#viewer').getBoundingClientRect();
+  let lines = '';
+  const order = [...data.fish].sort((a, b) => a.box[1] - b.box[1] || a.box[0] - b.box[0]);
+  for (const f of order) {
+    const [x0, y0, x1, y1] = extent(f);
+    const [ax, ay] = toScr((x0 + x1) / 2, y0);
+    const by = toScr(x0, y1)[1];
+    const el = document.createElement('div');
+    el.className = 'tag' + (f.n === sel ? ' on' : '');
+    el.innerHTML = `<span class="no">${f.n}</span>` + verdictHtml(f, short);
+    ov.appendChild(el);
+    const w = el.offsetWidth, h = el.offsetHeight;
+    const free = (x, y) => x >= 4 && x + w <= V.width - 4 && y >= 4 && y + h <= V.height - 4 &&
+      !placed.some(b => x < b.x + b.w + 4 && x + w + 4 > b.x && y < b.y + b.h + 3 && y + h + 3 > b.y);
+    const want = [ax - 14, ay - h - 14];
+    const spots = [];
+    for (const yy of [ay - h - 14, ay - 2 * h - 18, by + 10])
+      for (let dx = -3; dx <= 3; dx++) spots.push([ax - 14 + dx * (w / 2 + 6), yy]);
+    spots.sort((p, q) => Math.hypot(p[0] - want[0], p[1] - want[1]) - Math.hypot(q[0] - want[0], q[1] - want[1]));
+    let [x, y] = spots.find(([sx, sy]) => free(sx, sy)) ||
+                 [Math.min(Math.max(4, want[0]), V.width - w - 4), Math.max(4, want[1])];
+    el.style.left = x + 'px'; el.style.top = y + 'px';
+    placed.push({ x, y, w, h, f });
+    lines += `<line x1="${x + 12}" y1="${y + h}" x2="${ax}" y2="${ay}"/><circle cx="${ax}" cy="${ay}" r="2.2"/>`;
+    el.onclick = e => { e.stopPropagation(); select(f.n, true); };
+    if (open === f.n) showPop(f, x, y + h + 4);
+  }
+  lead.innerHTML = lines;
+}
+
+function showPop(f, x, y) {
+  const ov = $('#overlay'), m = f.match;
+  const el = document.createElement('div');
+  el.className = 'pop';
+  let body = '';
+  const notes = [];
+  if (m.ok && m.no_match) notes.push(f.checked
+    ? `No species scores 0.05 or more: this fish's shape is unusual for every reference species. The nearest is ${cur(m.matches[0].species)} (${m.matches[0].score.toFixed(2)})${m.matches[1] ? `, then ${cur(m.matches[1].species)} (${m.matches[1].score.toFixed(2)})` : ''}.`
+    : 'No species scores 0.05 or more. With the points as the model placed them, this fish is like none of the reference species, which nearly always means a point is in the wrong place. Correct them and it is scored again.');
+  if ((m.tied || []).length > 1) notes.push(`Tied: ${listing(m.tied.map(cur))} score within 0.10 of each other, which is less than leaving one reference fish out can move a score. Shape does not choose between them.`);
+  if (m.better_elsewhere) notes.push(`† Its shape fits ${cur(m.better_elsewhere.species)} (${m.better_elsewhere.score.toFixed(2)}) better than any species recorded from this drainage, but there is no museum record of it there: a range extension, an introduction or an old misidentification are all possible.`);
+  if (m.none_here) notes.push('None of the reference species has a museum record from this drainage, so they are ranked by shape alone.');
+  const lo = (m.left_out || []);
+  if (lo.length) notes.push(`* Scored without the ${listing(lo.map(x => lmName(x.landmark)))}: ` +
+    `${listing(lo.map(x => x.times + '×'))} the usual distance from where the rest of the fish puts ${lo.length > 1 ? 'them' : 'it'}. ` +
+    `With ${lo.length > 1 ? 'them' : 'it'}, the best score is ${m.with_all == null ? 'none' : m.with_all.toFixed(2)}. Until the points are corrected, take this score as provisional.`);
+  const unscored = (data.drainage && data.drainage.others) || [];
+  if (m.ok && unscored.length) notes.push(`Recorded here, but no reference fish, so not scored: ${unscored.slice(0, 6).map(o => `${short(o.species)} ${o.records}`).join(', ')}${unscored.length > 6 ? ` and ${unscored.length - 6} more` : ''}.`);
+  if (f.too_small) notes.push(`Only ${f.sl_px} px from snout to caudal base; below about ${data.smallest_sl_px} px the model's points are not to be relied on. Photograph the fish larger.`);
+  body += notes.map(t => `<div class="note">${esc(t)}</div>`).join('');
+  if (!m.ok) {
+    body += `<div class="ft">${esc(m.error)}</div>`;
+  } else {
+    const dr = data.drainage;
+    body += '<table>' + m.matches.slice(0, 6).map((s, i) => {
+      const here = dr ? (s.drainage_records
+          ? `<td class="here" title="museum specimens from this drainage (GBIF)">${s.drainage_records} here</td>`
+          : '<td class="here" title="no museum specimen of it from this drainage (GBIF)">none here</td>') : '';
+      const t = taxon(s.species), ch = chainOf(s.species);
+      const was = ch.length > 1 ? `<div class="was">was ${ch.slice(0, -1).map(c => `<i>${esc(c.name)}</i>`).join(', ')}</div>` : '';
+      const common = t && t.common ? ` <span class="was">${esc(t.common)}</span>` : '';
+      return `<tr${dr && !s.drainage_records ? ' class="absent"' : ''}><td class="r">${i + 1}</td>` +
+        `<td class="sp"><a data-map="${esc(s.species)}" title="${esc(chainTitle(ch))} — click for its GBIF records on a map">${esc(cur(s.species))}</a>${introBadge(s.introduced)}${common}${was}` +
+        (s.size_note ? `<div class="warn">${esc(s.size_note)}</div>` : '') +
+        (s.size && s.size.factor < 1 ? `<div class="warn" title="${esc(s.size.source || '')}">near or past its longest recorded, ${s.size.max_sl_mm} mm SL (${s.size.max_tl_mm} mm TL): score ×${s.size.factor < 0.01 ? s.size.factor.toExponential(0) : s.size.factor.toFixed(2)}</div>` : '') +
+        `</td><td class="n" title="reference fish">n=${s.n}</td>${here}<td class="s">${chip(s.score)}</td></tr>`;
+    }).join('') + '</table>';
+    const size = m.size_matched ? `${f.sl_mm} mm SL, compared at that length (scale ${data.scale_from === 'hand' ? 'set by hand' : 'read from the ruler'})`
+               : (f.sl_mm ? 'size not matched: the reference fish lack a scale'
+                          : 'the ruler could not be read, so size is not matched — set the scale by hand');
+    const meas = (m.traits || []).length ? ` and ${m.traits.map(esc).join(', ')}` : '';
+    body += `<div class="ft">${m.landmarks.length} landmarks${meas}; ${esc(size)}.` +
+            (f.low_confidence.length ? ` ${f.low_confidence.length} landmark${f.low_confidence.length > 1 ? 's' : ''} placed with low confidence.` : '') + '</div>';
+  }
+  el.innerHTML = `<div class="hd">Fish ${f.n}${f.checked ? ' <span class="ok">✓</span>' : ''}` +
+    `<button class="fix" title="Open this fish in the labeller, with these points on it, to put them right">${f.checked ? 'Edit points' : 'Correct points'}</button>` +
+    `<span class="x" title="close">✕</span></div>` + body;
+  ov.appendChild(el);
+  const v = $('#viewer').getBoundingClientRect();
+  x = Math.min(x, v.width - el.offsetWidth - 6);
+  if (y + el.offsetHeight > v.height - 6) y = Math.max(6, y - el.offsetHeight - 30);
+  el.style.left = Math.max(6, x) + 'px'; el.style.top = y + 'px';
+  el.onclick = e => e.stopPropagation();
+  el.querySelector('.x').onclick = () => { open = null; render(); };
+  el.querySelector('.fix').onclick = () => correct(f);
+  el.querySelectorAll('a[data-map]').forEach(a => a.onclick = e => {
+    e.stopPropagation();
+    const sp = a.dataset.map, t = taxon(sp);
+    const x = (m.matches || []).find(y => y.species === sp);
+    openMap(t && t.gbif_key, cur(sp), t && t.common, chainOf(sp), x && x.introduced);
+  });
+}
+
+function renderList() {
+  $('#count').textContent = data.fish.length;
+  $('#list').innerHTML = data.fish.map(f =>
+    `<div class="row${f.n === sel ? ' on' : ''}" data-n="${f.n}"><span class="no">${f.n}</span>` +
+    verdictHtml(f, spName) + '</div>').join('');
+  $('#list').querySelectorAll('.row').forEach(r => r.onclick = () => select(+r.dataset.n, true));
+  const ref = data.reference, sp = Object.entries(ref.species).sort();
+  $('#foot').innerHTML =
+    `Compared with <b>${ref.fish}</b> hand-labelled fish in <b>${esc(ref.study)}</b>` +
+    (sp.length ? `: ${sp.map(([s, n]) => `<i title="${esc(chainTitle(chainOf(s)))}">${esc(short(cur(s)))}</i> ${n}`).join(', ')}` : '') + '.';
+  renderDrainage();
+}
+
+// What the scores mean, once, in the photograph's corner -- not in every popover.
+function renderKey() {
+  let shut = false;
+  try { shut = localStorage.getItem('calipr_batch_key') === 'shut'; } catch (e) {}
+  const k = $('#scorekey');
+  k.classList.toggle('shut', shut);
+  k.innerHTML = `<div class="hd">Key to the scores<span class="tw">${shut ? '▸' : '▾'}</span></div><div class="bd">` +
+    `<div class="bands">${chip(0.9)}<span>0.75–1</span>${chip(0.6)}<span>0.50–0.75</span>${chip(0.4)}<span>0.25–0.50</span>${chip(0.1)}<span>under 0.25</span></div>` +
+    `<p>How typical the fish's shape is of each species' reference fish: 1.00 as typical as they are, 0.25 further out ` +
+    `than three in four. Each species is scored alone, so scores do not add to one: look-alikes can both be high.</p>` +
+    `<p>Compared at its own length; marked down near or past a species' longest recorded. With the drainage found, the species recorded from it are ranked first and the others greyed; the scores stay the shape's.</p>` +
+    `<div class="marks"><span class="ok">✓</span><span>points corrected by hand</span>` +
+    `<span class="lo">*</span><span>a misplaced point left out: provisional</span>` +
+    `<span>A / B</span><span>tied, within 0.10</span>` +
+    `<span class="lo">†</span><span>fits a species not recorded from the drainage better</span>` +
+    `<span><span class="intro" style="margin:0">!</span></span><span>introduced to the drainage (USGS)</span>` +
+    `<span class="lo">?</span><span>corrected, but no species scores 0.05: the nearest</span>` +
+    `<span><span class="score na" style="min-width:0">—</span></span><span><i>check points</i>: like no species</span></div></div>`;
+  k.querySelector('.hd').onclick = () => {
+    try { localStorage.setItem('calipr_batch_key', shut ? 'open' : 'shut'); } catch (e) {}
+    renderKey();
+  };
+}
+
+// The drainage tab: where the lot was caught, and every fish museums have recorded
+// from there -- searchable, each with its GBIF records a click away.
+function renderDrainage() {
+  const d = data && data.drainage;
+  const fishes = (d && d.fishes) || [];
+  $('#dcount').textContent = fishes.length || '';
+  if (!d) {
+    $('#dinfo').innerHTML = 'Not looked up yet. Type where the lot was caught, or press <b>Find drainage</b>: the lot\'s GBIF record is used if it has coordinates, or click the map where it was caught.';
+    $('#dlist').innerHTML = '';
+    return;
+  }
+  const where = `HUC8 <b>${esc(d.huc8)}</b>${d.name ? ' ' + esc(d.name) : ''}${d.states ? ' (' + esc(d.states) + ')' : ''}`;
+  $('#dinfo').innerHTML = `${where}, from ${esc(d.source || '')}. ` +
+    (fishes.length ? `<b>${fishes.length}</b> species of fish with museum specimens from it (GBIF); in bold, the shiners the identification is between. ` : '') +
+    (d.approximate ? `Its outline was too long for GBIF, so its ${esc(d.approximate)} was searched, which takes in some of its neighbours. ` : '') +
+    `<a class="sp" id="dmap">Show it on the map</a>`;
+  $('#dmap').onclick = () => openDrainageMap();
+  if (!fishes.length) {
+    $('#dlist').innerHTML = '<div id="dinfo">Looked up before every fish was listed: press <b>Find drainage</b> again.</div>';
+    return;
+  }
+  const q = $('#dq').value.trim().toLowerCase(), only = $('#dshiners').checked;
+  const shown = fishes.filter(f => (!only || f.shiner) &&
+    (!q || [f.species, f.common, f.family, ...(f.chain || [])].some(x => x && x.toLowerCase().includes(q))));
+  $('#dlist').innerHTML = shown.map(f => {
+    const i = fishes.indexOf(f);
+    const was = (f.chain || []).filter(n => n !== f.species);
+    return `<div class="drow${f.shiner ? ' cand' : ''}" data-i="${i}" title="click for its GBIF records on a map">` +
+      `<span class="dn"><i>${esc(f.species)}</i>${introBadge(f.introduced)}${f.reference ? '<span class="ref" title="among the reference species">reference</span>' : ''}` +
+      `<div class="dc">${esc([f.common, f.family].filter(Boolean).join(' · '))}${was.length ? ` · was <i>${was.map(esc).join(', ')}</i>` : ''}</div></span>` +
+      (f.usgs_only ? '<span class="dr" title="no museum specimen from here on GBIF; recorded by USGS">USGS</span></div>'
+                   : `<span class="dr" title="museum specimens from this drainage">${f.records}</span></div>`);
+  }).join('') || '<div id="dinfo">No fish recorded here matches.</div>';
+  $('#dlist').querySelectorAll('.drow').forEach(r => r.onclick = () => {
+    const f = fishes[+r.dataset.i];
+    openMap(f.key, f.species, f.common, (f.chain || [f.species]).map(n => ({ name: n, via: '' })), f.introduced);
+  });
+}
+function showTab(t) {
+  document.querySelectorAll('#left .tabs .tab').forEach(e => e.classList.toggle('off', e.dataset.tab !== t));
+  $('#fishtab').hidden = t !== 'fish';
+  $('#draintab').hidden = t !== 'drainage';
+}
+
+// ------------------------------------------------------------------- map
+// GBIF's own map: its light base tiles, and the density of a species' occurrence
+// records over them in GBIF's purple-to-yellow hexagons (api.gbif.org/v2/map), the
+// way gbif.org shows a species. Web Mercator tiles, 256 px; the lot's point and its
+// drainage outline drawn on top.
+const TILE = 256;
+let gmap = null;                     // { key, z, cx, cy, specimens, ... }
+let mapDrag = null;
+window.addEventListener('mousemove', e => {
+  if (!mapDrag || !gmap) return;
+  if (Math.abs(e.clientX - mapDrag.x) + Math.abs(e.clientY - mapDrag.y) > 4) mapDrag.moved = true;
+  if (!mapDrag.moved) return;
+  gmap.cx = mapDrag.cx - (e.clientX - mapDrag.x); gmap.cy = mapDrag.cy - (e.clientY - mapDrag.y); drawMap();
+});
+window.addEventListener('mouseup', e => {
+  if (!mapDrag) return;
+  if (!mapDrag.moved && gmap && gmap.drainage) pickPlace(e);
+  mapDrag = null; const t = $('#mappane .tiles'); if (t) t.classList.remove('dragging');
+});
+const lon2x = (lon, z) => (lon + 180) / 360 * TILE * 2 ** z;
+const lat2y = (lat, z) => { const r = lat * Math.PI / 180; return (1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * TILE * 2 ** z; };
+function outlineRings(geom) {
+  if (!geom) return [];
+  const polys = geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
+  return polys.map(p => p[0]);
+}
+// The map shows either a species' GBIF records, or -- for finding the drainage --
+// where the lot was caught: click the map there and its drainage is looked up.
+function openMap(key, name, common, chain, introduced) {
+  if (!key) { status(`GBIF has no key for ${name}, so it has no map`); return; }
+  showMap({ key, name, common, chain: chain || [], introduced });
+}
+function openDrainageMap(note) { showMap({ drainage: true, note }); }
+// the view that holds the drainage and the lot, widened by `out` zoom levels
+function fitView(W, H, out) {
+  const d = data && data.drainage;
+  const pts = (d ? outlineRings(d.outline).flat() : []).concat(d && d.lat != null ? [[d.lon, d.lat]] : []);
+  if (!pts.length) return { z: 4, lon: -85, lat: 41 };          // eastern North America
+  const lons = pts.map(p => p[0]), lats = pts.map(p => p[1]);
+  const lo0 = Math.min(...lons), lo1 = Math.max(...lons), la0 = Math.min(...lats), la1 = Math.max(...lats);
+  let z = 10;
+  while (z > 2 && (lon2x(lo1, z) - lon2x(lo0, z) > W * 0.6 || lat2y(la0, z) - lat2y(la1, z) > H * 0.6)) z--;
+  return { z: Math.max(2, z - out), lon: (lo0 + lo1) / 2, lat: (la0 + la1) / 2 };
+}
+function showMap(o) {
+  const pane = $('#mappane');
+  pane.hidden = false;
+  pane.classList.remove('wide');
+  const d = data && data.drainage;
+  const specimens = gmap ? gmap.specimens : false;
+  let head, bar, foot;
+  if (o.drainage) {
+    head = `<span class="t">Where the lot was caught</span><span class="c">${d ? `HUC8 ${esc(d.huc8)} ${esc(d.name || '')}` : ''}</span>`;
+    bar = '<button class="zin" title="zoom in">+</button><button class="zout" title="zoom out">−</button>' +
+          '<span>Click the map where the lot was caught to look up its drainage.</span>';
+    foot = (o.note ? `<b>${esc(o.note)}</b><br>` : '') + (d ? 'Red: the lot · blue: its drainage (USGS Watershed Boundary Dataset, HUC8). ' : '') +
+           'Map tiles GBIF, © OpenMapTiles © OpenStreetMap contributors.';
+  } else {
+    const was = o.chain.length > 1 ? ` · was ${o.chain.slice(0, -1).map(c => `<i>${esc(c.name)}</i>`).join(', ')}` : '';
+    head = `<span class="t"><i>${esc(o.name)}</i>${introBadge(o.introduced)}</span><span class="c">${o.common ? esc(o.common) : ''}${was}</span>`;
+    bar = '<span class="seg"><button class="vmap" title="where its records are">Map</button>' +
+          '<button class="vgal" title="photographs of its museum specimens">Specimens</button></span>' +
+          '<span class="mapctl"><button class="zin" title="zoom in">+</button><button class="zout" title="zoom out">−</button>' +
+          `<label><input type="checkbox" class="spec"${specimens ? ' checked' : ''}> museum specimens only</label></span>` +
+          (d ? `<label class="galctl" hidden><input type="checkbox" class="here"> this drainage only</label>` : '') +
+          `<a href="https://www.gbif.org/species/${o.key}" target="_blank" rel="noopener">GBIF ↗</a>`;
+    foot = `GBIF occurrence records, purple few to yellow many${d ? ' · red: the lot · blue: its drainage' : ''}. ` +
+           'Map tiles GBIF, © OpenMapTiles © OpenStreetMap contributors.';
+  }
+  pane.innerHTML = `<div class="hd">${head}<span class="x" title="close">✕</span></div><div class="bar">${bar}</div>` +
+                   `<div class="tiles${o.drainage ? ' pick' : ''}"></div><div class="gallery" hidden></div><div class="ft">${foot}</div>`;
+  const tiles = pane.querySelector('.tiles');
+  const v = fitView(tiles.clientWidth || 478, tiles.clientHeight || 330, o.drainage ? 1 : 3);
+  gmap = { ...o, specimens, z: v.z, cx: lon2x(v.lon, v.z), cy: lat2y(v.lat, v.z) };
+  pane.querySelector('.x').onclick = () => { pane.hidden = true; pane.classList.remove('wide'); gmap = null; };
+  pane.querySelector('.zin').onclick = () => zoomMap(1);
+  pane.querySelector('.zout').onclick = () => zoomMap(-1);
+  const spec = pane.querySelector('.spec');
+  if (spec) spec.onchange = e => { gmap.specimens = e.target.checked; drawMap(); };
+  if (!o.drainage) {
+    pane.querySelector('.vmap').onclick = () => setMapView('map');
+    pane.querySelector('.vgal').onclick = () => setMapView('gallery');
+    const here = pane.querySelector('.here');
+    if (here) here.onchange = e => { gmap.galleryHere = e.target.checked; loadGallery(); };
+    gmap.view = o.view || 'map';
+    setMapView(gmap.view);
+  }
+  tiles.onmousedown = e => {
+    e.stopPropagation(); e.preventDefault();
+    const r = tiles.getBoundingClientRect();
+    mapDrag = { x: e.clientX, y: e.clientY, cx: gmap.cx, cy: gmap.cy, moved: false, rx: r.left, ry: r.top, W: r.width, H: r.height };
+    tiles.classList.add('dragging');
+  };
+  // one zoom step per deliberate scroll: a trackpad sends dozens of small wheel events
+  let acc = 0, last = 0, stepped = 0;
+  tiles.addEventListener('wheel', e => {
+    e.preventDefault(); e.stopPropagation();
+    const now = performance.now();
+    if (now - last > 300) acc = 0;
+    last = now; acc += e.deltaY;
+    if (Math.abs(acc) < 100 || now - stepped < 350) return;
+    const r = tiles.getBoundingClientRect();
+    zoomMap(acc < 0 ? 1 : -1, e.clientX - r.left - r.width / 2, e.clientY - r.top - r.height / 2);
+    acc = 0; stepped = now;
+  }, { passive: false });
+  pane.onmousedown = e => e.stopPropagation();
+  pane.onclick = e => e.stopPropagation();
+  drawMap();
+}
+// Map, or the species' museum specimens photographed, in the same panel.
+function setMapView(v) {
+  const pane = $('#mappane');
+  gmap.view = v;
+  pane.querySelector('.vmap').classList.toggle('on', v === 'map');
+  pane.querySelector('.vgal').classList.toggle('on', v === 'gallery');
+  pane.querySelector('.mapctl').hidden = v !== 'map';
+  const gc = pane.querySelector('.galctl'); if (gc) gc.hidden = v !== 'gallery';
+  pane.querySelector('.tiles').hidden = v !== 'map';
+  pane.querySelector('.gallery').hidden = v !== 'gallery';
+  pane.querySelector('.ft').innerHTML = v === 'map'
+    ? `GBIF occurrence records, purple few to yellow many${data && data.drainage ? ' · red: the lot · blue: its drainage' : ''}. Map tiles GBIF, © OpenMapTiles © OpenStreetMap contributors.`
+    : 'Photographs served by GBIF from the museums that hold the specimens, under the licence shown with each; nothing is downloaded.';
+  if (v === 'gallery') loadGallery(); else drawMap();
+}
+async function loadGallery() {
+  const g = $('#mappane .gallery'), want = gmap;
+  g.innerHTML = '<div class="gnote">Asking GBIF for photographed specimens…</div>';
+  const here = !!(gmap.galleryHere && data && data.drainage);
+  const r = await api(`/api/batch/specimens?taxonKey=${gmap.key}&photo=${encodeURIComponent(PHOTO)}${here ? '&here=1' : ''}`);
+  if (gmap !== want || gmap.view !== 'gallery') return;                 // moved on meanwhile
+  if (!r.ok) { g.innerHTML = `<div class="gnote">${esc(r.error || 'GBIF could not be asked')}</div>`; return; }
+  const items = r.items || [];
+  gmap.gallery = items;
+  g.innerHTML = `<div class="gnote">${items.length ? `${items.length} museum specimens, one a lot` : 'No photographed museum specimen'}` +
+    `${here ? ' from this drainage' : ''}${r.count > items.length ? `, of ${r.count} photographed records` : ''}. Click one to see it larger.</div>` +
+    '<div class="grid">' + items.map((it, i) =>
+      `<figure data-i="${i}" title="${esc(it.identified_as || '')}"><img loading="lazy" src="${esc(it.thumb)}" alt="">` +
+      `<button class="keep${kept(it) ? ' on' : ''}" data-keep="${i}" title="keep beside the photograph to compare">${kept(it) ? '✓' : '+'}</button>` +
+      `<figcaption>${esc(it.institution)} ${esc(it.catalog)}<span>${esc([it.year, it.place].filter(Boolean).join(' · '))}</span></figcaption></figure>`).join('') + '</div>';
+  g.querySelectorAll('figure').forEach(f => f.onclick = () => showSpecimen(+f.dataset.i));
+  wireKeep(g);
+}
+function showSpecimen(i) {
+  const it = gmap.gallery[i], g = $('#mappane .gallery'), pane = $('#mappane');
+  g.innerHTML = `<div class="gnote"><a class="sp" id="gback">← all specimens</a> · ` +
+    `<a class="sp" id="gwide">${pane.classList.contains('wide') ? 'smaller' : 'larger'}</a> · ` +
+    `<a class="sp" data-keep="${i}"></a> · ` +
+    `scroll to zoom, drag to move, double-click to fit</div><div class="big">` +
+    `<div class="frame"><img src="${esc(it.large)}" alt=""></div>` +
+    `<div class="cap"><b>${esc(it.institution)} ${esc(it.catalog)}</b>` +
+    `${it.year ? ` · ${esc(it.year)}` : ''}${it.identified_as ? ` · identified as <i>${esc(it.identified_as)}</i>` : ''}<br>` +
+    `${esc(it.place || '')}<br>© ${esc(it.credit || '')}${it.license ? ` · ${esc(it.license)}` : ''}<br>` +
+    `<a href="https://www.gbif.org/occurrence/${it.occurrence}" target="_blank" rel="noopener">GBIF record ↗</a>` +
+    `<a href="${esc(it.original)}" target="_blank" rel="noopener">full photograph ↗</a></div></div>`;
+  $('#gback').onclick = () => { pane.classList.remove('wide'); loadGallery(); };
+  $('#gwide').onclick = () => { pane.classList.toggle('wide'); showSpecimen(i); };
+  attachZoom(g.querySelector('.frame'), it.original, it.original, it.thumb);
+  wireKeep(g);
+}
+// The photograph zooms about the cursor and moves with a drag, as the batch
+// photograph and the labeller's do; a double-click fits it again. Zoomed past what
+// GBIF's 1200 px copy holds, the museum's own full-resolution photograph takes its
+// place, the view kept where it was.
+function attachZoom(box, hiSrc, ...fallbacks) {
+  const img = box.querySelector('img'), v = { s: 1, tx: 0, ty: 0 };
+  // GBIF's copy is sometimes not made: then the museum's own photograph, then the thumbnail
+  const next = fallbacks.filter(u => u && u !== img.getAttribute('src'));
+  img.onerror = () => { const u = next.shift(); if (u) img.src = u; };
+  let fitted = false, swapping = false, drag = null;
+  const apply = () => { img.style.transform = `translate(${v.tx}px,${v.ty}px) scale(${v.s})`; };
+  const fit = () => {
+    const W = box.clientWidth, H = box.clientHeight, w = img.naturalWidth, h = img.naturalHeight;
+    if (!w || !h) return;
+    v.s = Math.min(W / w, H / h); v.tx = (W - w * v.s) / 2; v.ty = (H - h * v.s) / 2;
+    fitted = true; apply();
+  };
+  const sharpen = () => {                          // past 1:1 on GBIF's copy: the original
+    if (swapping || img.src === hiSrc || !hiSrc || v.s <= 1) return;
+    swapping = true;
+    const hi = new Image();
+    hi.onload = () => {
+      const k = img.naturalWidth / hi.naturalWidth;  // same place on screen, more pixels
+      img.src = hiSrc; v.s *= k; apply();
+    };
+    hi.src = hiSrc;
+  };
+  img.onload = () => { if (!fitted) fit(); };
+  if (img.complete) { if (img.naturalWidth) fit(); else img.onerror(); }   // failed before we were listening
+  box.addEventListener('wheel', e => {
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;     // a sideways swipe scrolls what holds it
+    e.preventDefault(); e.stopPropagation();
+    const r = box.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+    const k = Math.exp(-e.deltaY * 0.0015);
+    v.tx = mx - (mx - v.tx) * k; v.ty = my - (my - v.ty) * k; v.s *= k;
+    apply(); sharpen();
+  }, { passive: false });
+  box.onmousedown = e => {
+    e.preventDefault(); e.stopPropagation();
+    drag = { x: e.clientX, y: e.clientY, tx: v.tx, ty: v.ty };
+    box.classList.add('dragging');
+    const move = ev => { v.tx = drag.tx + ev.clientX - drag.x; v.ty = drag.ty + ev.clientY - drag.y; apply(); };
+    const up = () => { box.classList.remove('dragging'); window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+  box.ondblclick = e => { e.stopPropagation(); fit(); };
+}
+
+// ----------------------------------------------------------- compare shelf
+// Museum specimens kept to compare with the fish of whichever photograph is open:
+// saved with the study (where GBIF serves each photograph, never the photograph),
+// shown side by side under it, each zoomed and moved on its own.
+let shelf = [];
+const kept = it => shelf.some(x => +x.occurrence === +it.occurrence);
+async function loadShelf() {
+  const r = await api('/api/batch/compare');
+  shelf = (r && r.ok && r.items) || [];
+  let open = shelf.length > 0;
+  try { const s = localStorage.getItem('calipr_batch_shelf'); if (s) open = s === 'open' && shelf.length > 0; } catch (e) {}
+  shelfShow(open, false);
+}
+async function keep(it, on) {
+  const add = { ...it, taxon: it.taxon || (gmap && gmap.key), name: it.name || (gmap && gmap.name), common: it.common || (gmap && gmap.common) };
+  const r = await api('/api/batch/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(on ? { add } : { remove: it.occurrence }) });
+  if (!r.ok) { status(r.error || 'not kept'); return; }
+  shelf = r.items;
+  if (on && $('#shelf').hidden) shelfShow(true); else renderShelf();
+  syncKeep();
+}
+function shelfShow(on, remember = true) {
+  $('#shelf').hidden = !on;
+  $('#shelfbtn').classList.toggle('on', on);
+  if (remember) try { localStorage.setItem('calipr_batch_shelf', on ? 'open' : 'shut'); } catch (e) {}
+  renderShelf();
+}
+function renderShelf() {
+  $('#shelfct').textContent = shelf.length ? ` ${shelf.length}` : '';
+  $('#shelfn').textContent = shelf.length
+    ? `${shelf.length} museum specimen${shelf.length === 1 ? '' : 's'} · scroll on one to zoom it, drag to move, double-click to fit`
+    : '';
+  const c = $('#shelf .cards');
+  if ($('#shelf').hidden) { c.innerHTML = ''; return; }        // fitted when shown: a hidden frame has no size
+  if (!shelf.length) {
+    c.innerHTML = '<div class="empty">Open a species, then Specimens, and press + on a museum specimen to keep it here.</div>';
+    return;
+  }
+  c.innerHTML = shelf.map((it, i) =>
+    `<div class="card" data-i="${i}"><div class="ch"><i title="${esc(it.common || '')}">${esc(it.name || it.identified_as || '')}</i>` +
+    `<span class="cat">${esc(it.institution || '')} ${esc(it.catalog || '')}</span><span class="x" title="take it off">✕</span></div>` +
+    `<div class="frame"><img src="${esc(it.large || it.thumb)}" alt=""></div>` +
+    `<div class="cf" title="${esc(it.place || '')}">${esc([it.year, it.place].filter(Boolean).join(' · '))}` +
+    `${it.identified_as && it.identified_as !== it.name ? ` · identified as ${esc(it.identified_as)}` : ''}` +
+    `${it.credit ? ` · © ${esc(it.credit)}` : ''}${it.license ? ` ${esc(it.license)}` : ''}</div></div>`).join('');
+  c.querySelectorAll('.card').forEach(card => {
+    const it = shelf[+card.dataset.i];
+    card.querySelector('.x').onclick = () => keep(it, false);
+    attachZoom(card.querySelector('.frame'), it.original, it.original, it.thumb);
+  });
+}
+// the gallery's + buttons and the large view's link: kept or not
+function wireKeep(root) {
+  root.querySelectorAll('[data-keep]').forEach(b => b.onclick = e => {
+    e.stopPropagation(); e.preventDefault();
+    const it = gmap && gmap.gallery && gmap.gallery[+b.dataset.keep];
+    if (it) keep(it, !kept(it));
+  });
+  syncKeep();
+}
+function syncKeep() {
+  document.querySelectorAll('#mappane [data-keep]').forEach(b => {
+    const it = gmap && gmap.gallery && gmap.gallery[+b.dataset.keep]; if (!it) return;
+    const on = kept(it);
+    if (b.tagName === 'BUTTON') { b.textContent = on ? '✓' : '+'; b.classList.toggle('on', on); }
+    else b.textContent = on ? 'kept to compare ✓ (take it off)' : 'keep to compare';
+  });
+}
+$('#shelfbtn').onclick = () => shelfShow($('#shelf').hidden);
+$('#shelfhide').onclick = () => shelfShow(false);
+$('#shelftall').onclick = () => {
+  const tall = $('#shelf').classList.toggle('tall');
+  $('#shelftall').textContent = tall ? 'Shorter' : 'Taller';
+  renderShelf();
+};
+
+// a click (not a drag) on the drainage map: the drainage of that place
+function pickPlace(e) {
+  const g = gmap, m = mapDrag;
+  const x = g.cx - m.W / 2 + (e.clientX - m.rx), y = g.cy - m.H / 2 + (e.clientY - m.ry);
+  const n = TILE * 2 ** g.z;
+  const lon = x / n * 360 - 180, lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * y / n))) * 180 / Math.PI;
+  $('#where').value = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  lookupDrainage({ lat: +lat.toFixed(5), lon: +lon.toFixed(5), source: 'clicked on the map' });
+}
+function zoomMap(dz, ox = 0, oy = 0) {
+  const z = Math.max(1, Math.min(12, gmap.z + dz));
+  if (z === gmap.z) return;
+  const k = 2 ** (z - gmap.z);
+  gmap.cx = (gmap.cx + ox) * k - ox; gmap.cy = (gmap.cy + oy) * k - oy; gmap.z = z;
+  drawMap();
+}
+function drawMap() {
+  const tiles = $('#mappane .tiles'); if (!tiles || !gmap) return;
+  const W = tiles.clientWidth, H = tiles.clientHeight, { z, key } = gmap, n = 2 ** z;
+  const left = gmap.cx - W / 2, top = gmap.cy - H / 2;
+  const filt = gmap.specimens ? '&basisOfRecord=PRESERVED_SPECIMEN' : '';
+  let html = '';
+  for (let x = Math.floor(left / TILE); x <= Math.floor((left + W) / TILE); x++)
+    for (let y = Math.floor(top / TILE); y <= Math.floor((top + H) / TILE); y++) {
+      if (y < 0 || y >= n) continue;
+      const xx = ((x % n) + n) % n, pos = `left:${x * TILE - left}px;top:${y * TILE - top}px`;
+      // finding a place wants towns and rivers; a species' records want a plain ground
+      html += `<img style="${pos}" src="https://tile.gbif.org/3857/omt/${z}/${xx}/${y}@1x.png?style=${gmap.drainage ? 'osm-bright' : 'gbif-light'}" alt="">` +
+              `<img style="${pos}" src="https://api.gbif.org/v2/map/occurrence/density/${z}/${xx}/${y}@1x.png?srs=EPSG:3857&taxonKey=${key}&style=purpleYellow-noborder.poly&bin=hex&hexPerTile=60${filt}" alt="">`;
+    }
+  const d = data && data.drainage;
+  if (gmap.drainage) html = html.replace(/<img [^>]*api\.gbif\.org[^>]*>/g, '');   // no records: just where
+  let svg = '';
+  if (d && d.outline)
+    for (const ring of outlineRings(d.outline))
+      svg += `<polygon class="outline" points="${ring.map(([lo, la]) => `${(lon2x(lo, z) - left).toFixed(1)},${(lat2y(la, z) - top).toFixed(1)}`).join(' ')}"/>`;
+  if (d && d.lat != null) svg += `<circle class="lot" cx="${lon2x(d.lon, z) - left}" cy="${lat2y(d.lat, z) - top}" r="5"/>`;
+  tiles.innerHTML = html + `<svg>${svg}</svg>`;
+}
+
+function select(n, toggle) {
+  open = (toggle && open === n) ? null : n;
+  sel = n;
+  render();
+}
+
+// ----------------------------------------------------------- interaction
+const vw = $('#viewer');
+vw.addEventListener('wheel', e => {
+  if (e.target.closest('.mappane')) return;
+  e.preventDefault();
+  const r = vw.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top;
+  const k = Math.exp(-e.deltaY * 0.0015);
+  view.tx = mx - (mx - view.tx) * k; view.ty = my - (my - view.ty) * k; view.s *= k;
+  render();
+}, { passive: false });
+let drag = null;
+vw.addEventListener('mousedown', e => {
+  if (e.target.closest('.tag,.pop,.mappane')) return;
+  drag = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty, moved: false };
+});
+window.addEventListener('mousemove', e => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) { drag.moved = true; vw.classList.add('dragging'); }
+  if (drag.moved) { view.tx = drag.tx + dx; view.ty = drag.ty + dy; render(); }
+});
+window.addEventListener('mouseup', e => {
+  const d = drag; drag = null; vw.classList.remove('dragging');
+  if (!d || d.moved || !data || e.target.closest('.tag,.pop,.mappane')) return;
+  const r = vw.getBoundingClientRect();
+  const [x, y] = toImg(e.clientX - r.left, e.clientY - r.top);
+  if (scaling) return scaleClick(x, y);
+  // a click on a fish opens its tag; anywhere else closes it. Where boxes overlap,
+  // the fish whose middle is nearer.
+  const mid = f => { const [x0, y0, x1, y1] = extent(f); return Math.hypot(x - (x0 + x1) / 2, y - (y0 + y1) / 2); };
+  const hit = data.fish.filter(f => { const [x0, y0, x1, y1] = extent(f); return x >= x0 && x <= x1 && y >= y0 && y <= y1; })
+                       .sort((a, b) => mid(a) - mid(b))[0];
+  if (hit) select(hit.n, true); else { open = null; sel = null; render(); }
+});
+
+// Every fish of the photograph goes into the batch study, so the labeller can step
+// through them; this one opens, the model's points on it, to be put right.
+async function correct(f) {
+  status('opening it in the labeller…');
+  const d = await api('/api/batch/correct', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ photo: PHOTO, n: f.n }) });
+  if (!d.ok) { status(d.error || 'could not be opened'); return; }
+  location.href = `/?dataset=${encodeURIComponent(d.dataset)}&fish=${encodeURIComponent(d.fish)}`;
+}
+
+async function scaleClick(x, y) {
+  if (!scaling.a) { scaling.a = [x, y]; status('now click the other end of the span'); render(); return; }
+  const mm = parseFloat($('#mm').value), a = scaling.a;
+  scaling = null; vw.classList.remove('scaling'); $('#scalebtn').classList.remove('on');
+  if (!(mm > 0)) { status('give the span in millimetres'); render(); return; }
+  const photo = PHOTO;
+  const d = await api('/api/batch/scale', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ photo, point_a: a, point_b: [x, y], known_mm: mm }) });
+  if (!stillOpen(photo)) return;
+  if (d.ok && d.fish) { data = d; status(`scale set: ${mm} mm`); } else status(d.error || 'scale not saved');
+  render();
+}
+$('#scalebtn').onclick = () => {
+  if (scaling) { scaling = null; vw.classList.remove('scaling'); $('#scalebtn').classList.remove('on'); status(''); render(); return; }
+  scaling = {}; vw.classList.add('scaling'); $('#scalebtn').classList.add('on');
+  status('click one end of a known span on the ruler');
+};
+$('#pts').onclick = () => { showPts = !showPts; $('#pts').classList.toggle('on', showPts); render(); };
+$('#fit').onclick = fit;
+$('#refind').onclick = () => loadPhoto(true);
+// Find drainage: from what is typed, or else the lot's own GBIF record -- on a map,
+// where a click looks up the drainage of the place clicked instead.
+async function lookupDrainage(where) {
+  status('looking up the drainage and its records on GBIF — the first time takes up to a minute…');
+  const photo = PHOTO;
+  const d = await api('/api/batch/drainage', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                              body: JSON.stringify({ photo, ...where }) });
+  if (!stillOpen(photo)) return;
+  if (d.ok && d.fish) { data = d; status(`drainage HUC8 ${d.drainage.huc8} ${d.drainage.name || ''}`); render(); showTab('drainage'); openDrainageMap(); }
+  else { status(d.error || 'drainage not found'); openDrainageMap(d.error); }
+}
+$('#drainbtn').onclick = () => {
+  const t = $('#where').value.trim();
+  const ll = t.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+  if (/^\d{8}$/.test(t)) return lookupDrainage({ huc8: t });
+  if (ll) return lookupDrainage({ lat: +ll[1], lon: +ll[2] });
+  if (t) { status('give latitude, longitude or an 8-digit HUC8 — or click the map'); return openDrainageMap(); }
+  openDrainageMap();
+  if (!(data && data.drainage)) lookupDrainage({});              // the lot's GBIF record, if it has one
+};
+$('#photo').onchange = e => { PHOTO = e.target.value; loadPhoto(); };
+$('#study').onchange = async e => { STUDY = e.target.value; PHOTO = ''; $('#back').href = '/?dataset=' + encodeURIComponent(STUDY); loadShelf(); await loadPhotos(); };
+window.addEventListener('resize', () => data && render());
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { open = null; scaling = null; vw.classList.remove('scaling'); $('#scalebtn').classList.remove('on'); render(); } });
+
+// ------------------------------------------------------- adding photographs
+// As the labeller adds them: one file a request, copied into the study's batch/
+// folder; a name already there with the same bytes is a duplicate, with other bytes
+// refused, so nothing is overwritten.
+const IMG_RE = /\.(jpe?g|png|tiff?)$/i;
+const prefixed = (name, parts) => { const p = parts.filter(Boolean); return p.length ? p.join('_') + '_' + name : name; };
+async function walkEntry(entry, out, depth = 0, parts = []) {
+  if (!entry || depth > 8) return;
+  if (entry.isFile) {
+    await new Promise(res => entry.file(f => {
+      if (IMG_RE.test(f.name)) { const nm = prefixed(f.name, parts); out.push(nm === f.name ? f : new File([f], nm, { type: f.type })); }
+      res();
+    }, () => res()));
+    return;
+  }
+  if (entry.isDirectory) {
+    const reader = entry.createReader();
+    for (;;) {                                   // readEntries gives ~100 at a time
+      const batch = await new Promise(res => reader.readEntries(res, () => res([])));
+      if (!batch.length) break;
+      const next = depth === 0 ? parts : [...parts, entry.name];
+      for (const e of batch) await walkEntry(e, out, depth + 1, next);
+    }
+  }
+}
+async function uploadFiles(files) {
+  files = [...files].filter(f => IMG_RE.test(f.name));
+  if (!files.length) { status('no photographs in that selection'); return; }
+  if (!confirm(`Add ${files.length} photograph${files.length > 1 ? 's' : ''} of several fish to “${STUDY}”?\n\n` +
+               'They are copied into its batch folder. Nothing is overwritten.')) return;
+  let added = 0, dup = 0, first = null;
+  const failed = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    status(`adding ${i + 1}/${files.length} — ${f.name}`);
+    try {
+      const r = await fetch(`/api/upload?dataset=${encodeURIComponent(STUDY)}`,
+        { method: 'POST', headers: { 'X-Filename': encodeURIComponent(f.name), 'X-View': 'batch' }, body: f });
+      const j = await r.json().catch(() => ({}));
+      if (j.ok) { if (j.status === 'duplicate') dup++; else added++; first = first || j.name; }
+      else failed.push(`${f.name}: ${j.error || r.status}`);
+    } catch (e) { failed.push(`${f.name}: ${e}`); }
+  }
+  status(`added ${added}${dup ? `, ${dup} already here` : ''}${failed.length ? `, ${failed.length} not added` : ''}`);
+  if (failed.length) alert('These were not added:\n\n' + failed.slice(0, 12).join('\n') + (failed.length > 12 ? `\n…and ${failed.length - 12} more` : ''));
+  if (first) PHOTO = first;
+  await loadPhotos();
+}
+$('#addphotosbtn').onclick = () => $('#addimgs').click();
+$('#addfolderbtn').onclick = () => $('#addfolder').click();
+$('#addimgs').onchange = e => { const f = [...e.target.files]; e.target.value = ''; uploadFiles(f); };
+$('#addfolder').onchange = e => {
+  const f = [...e.target.files].map(x => {
+    const rel = (x.webkitRelativePath || '').split('/').slice(1, -1);          // drop the folder itself and the file
+    const nm = prefixed(x.name, rel);
+    return nm === x.name ? x : new File([x], nm, { type: x.type });
+  });
+  e.target.value = '';
+  uploadFiles(f);
+};
+(function wireDrop() {
+  const zone = $('#dropzone');
+  let depth = 0;
+  const isFiles = e => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+  window.addEventListener('dragenter', e => {
+    if (!isFiles(e)) return;
+    e.preventDefault(); depth++;
+    $('#dropwhere').textContent = `into “${STUDY}”, photographs of several fish`;
+    zone.classList.add('on');
+  });
+  window.addEventListener('dragover', e => { if (isFiles(e)) e.preventDefault(); });
+  window.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; zone.classList.remove('on'); } });
+  window.addEventListener('drop', async e => {
+    if (!e.dataTransfer) return;
+    e.preventDefault(); depth = 0; zone.classList.remove('on');
+    const entries = [...(e.dataTransfer.items || [])].map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (entries.length) { const out = []; for (const en of entries) await walkEntry(en, out); return uploadFiles(out); }
+    uploadFiles(e.dataTransfer.files || []);
+  });
+})();
+
+document.querySelectorAll('#left .tabs .tab').forEach(t => t.onclick = () => showTab(t.dataset.tab));
+$('#dq').oninput = () => renderDrainage();
+$('#dshiners').onchange = () => renderDrainage();
+renderKey();
+// Batch identification is downloaded apart from the labeler. Without it the page
+// says what it needs, rather than failing request by request.
+async function notInstalled(c) {
+  const a = c.autolabel, b = c.batch, why = ['<b>Batch identification is not installed.</b>'];
+  if (b.needs_autolabel)
+    why.push('It finds and landmarks the fish with Auto-label, ' +
+             (a.released ? 'which the labeller\'s Auto-label button can install.' : 'which is not available to download yet.'));
+  if (!(b.reference_sets || []).length)
+    why.push('It compares them with a reference set of identified, landmarked specimens, ' +
+             (b.released ? 'which the labeller\'s Batch button can download.' : 'which is not available to download yet.'));
+  why.push('Hand labelling and export work without it.');
+  say(why.join('<br><br>'));
+  status('not installed');
+}
+(async () => {
+  let c = null;
+  try { c = await api('/api/components'); } catch (e) {}
+  if (c && c.batch && !c.batch.installed) return notInstalled(c);
+  await loadStudies(); loadShelf(); await loadPhotos();
+})();
+</script>
+</body>
+</html>

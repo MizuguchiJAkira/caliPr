@@ -45,7 +45,7 @@ _ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
-from fish_morpho import auth, schemes  # noqa: E402
+from fish_morpho import auth, components, paths, schemes  # noqa: E402
 from fish_morpho import image_identity  # noqa: E402
 from fish_morpho import darwin_core  # noqa: E402
 from fish_morpho import repeatability  # noqa: E402
@@ -116,6 +116,14 @@ def current_fingerprint(path: Path | None) -> dict | None:
         if key not in _FP_CACHE:
             _FP_CACHE[key] = image_identity.fingerprint(path)
         return _FP_CACHE[key]
+
+
+def _version(path: Path | None) -> int | None:
+    """The file's modification time in nanoseconds, or None if it is absent."""
+    try:
+        return path.stat().st_mtime_ns if path is not None else None
+    except OSError:
+        return None
 
 
 _SIZE_CACHE: dict[tuple, list | None] = {}
@@ -211,6 +219,202 @@ def _lot_of(fish_id: str) -> str:
     return m.group(1) or m.group(2) or ""
 
 
+def _read_json(path: Path):
+    """A JSON file's contents, or None if it is missing or unreadable."""
+    try:
+        return json.loads(path.read_text()) if path.is_file() else None
+    except Exception:
+        return None
+
+
+def _read_ruler(photo: Path) -> dict:
+    """The photograph's scale, from the numbers along its ruler: ``{"px_per_mm",
+    "numbers", "notes"}``, or ``{"error"}`` where none is found."""
+    try:
+        import cv2
+
+        from fish_morpho.ruler_calibration import detect_numbered_scale
+
+        r = detect_numbered_scale(cv2.imread(str(photo)))
+        return {"px_per_mm": r["px_per_mm"], "numbers": r["numbers"], "notes": r["notes"]}
+    except Exception as exc:                       # no numbered ruler: the scale is set by hand
+        return {"error": str(exc)}
+
+
+#: GBIF's backbone hangs the fish orders straight from the phylum, with no class
+#: (Actinopterygii's own key, 204, matches no occurrence), so a fish order is a
+#: chordate order with no class -- or, should GBIF give them one, one of these.
+CHORDATA = 44
+FISH_CLASSES = {"Actinopterygii", "Petromyzonti", "Cephalaspidomorphi", "Myxini", "Elasmobranchii", "Holocephali"}
+
+
+def _drainage_fishes(web, dc, wkt: str, names) -> list[dict]:
+    """Every fish species with museum specimens inside the outline (GBIF,
+    preserved specimens), by its current name, with its family, common name, the
+    names it went by and how many specimens: ``[{"key", "species", "gbif_name",
+    "common", "family", "chain", "records"}]``, most records first."""
+    import concurrent.futures
+
+    search = f"{dc.GBIF}/occurrence/search"
+    base = [("geometry", wkt), ("basisOfRecord", "PRESERVED_SPECIMEN"), ("limit", "0")]
+    d = web.get(dc.url(search, base + [("phylumKey", str(CHORDATA)), ("facet", "orderKey"), ("facetLimit", "300")]))
+    orders = [c["name"] for c in (d.get("facets") or [{}])[0].get("counts", [])]
+
+    def is_fish(order_key):
+        o = web.get(f"{dc.GBIF}/species/{order_key}")
+        return o.get("class") is None or o.get("class") in FISH_CLASSES
+
+    with concurrent.futures.ThreadPoolExecutor(6) as pool:
+        fish_orders = [o for o, fish in zip(orders, pool.map(is_fish, orders)) if fish]
+    if not fish_orders:
+        return []
+    d = web.get(dc.url(search, base + [("facet", "speciesKey"), ("facetLimit", "1000")]
+                       + [("orderKey", o) for o in fish_orders]))
+    counts = (d.get("facets") or [{}])[0].get("counts", [])
+
+    def one(c):
+        sp = web.get(f"{dc.GBIF}/species/{c['name']}")
+        gbif_name = sp.get("canonicalName") or sp.get("scientificName") or str(c["name"])
+        t = names.resolve(gbif_name)
+        return {"key": int(c["name"]), "species": t.get("current") or gbif_name, "gbif_name": gbif_name,
+                "common": t.get("common"), "family": t.get("family") or sp.get("family"),
+                "chain": [x["name"] for x in t.get("chain") or []], "records": c["count"]}
+
+    with concurrent.futures.ThreadPoolExecutor(6) as pool:
+        return sorted(pool.map(one, counts), key=lambda f: -f["records"])
+
+
+#: One read-and-rewrite of a study's small JSON files at a time.
+_FILE_LOCK = threading.Lock()
+
+
+def _update_json(path: Path, change, indent: int | None = 2) -> dict:
+    """Read a JSON file, ``change`` its contents in place, write them back: under one
+    lock, re-read just before the write, so two requests at once cannot each write
+    over the other's entry (two drainages looked up together kept only the second)."""
+    with _FILE_LOCK:
+        d = _read_json(path) or {}
+        change(d)
+        path.write_text(json.dumps(d, indent=indent) + ("\n" if indent else ""))
+        return d
+
+
+#: One script loaded at a time: a request that found a half-loaded module in
+#: sys.modules used it before its functions were defined (two drainages looked up
+#: at once, and one failed with "no attribute 'Web'").
+_SCRIPT_LOCK = threading.Lock()
+
+
+def _script(name: str):
+    """scripts/<name>.py as a module, loaded once."""
+    import importlib.util
+
+    with _SCRIPT_LOCK:
+        if name not in sys.modules:
+            spec = importlib.util.spec_from_file_location(name, Path(__file__).resolve().parent / f"{name}.py")
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[name] = mod
+            try:
+                spec.loader.exec_module(mod)
+            except BaseException:
+                del sys.modules[name]
+                raise
+        return sys.modules[name]
+
+
+def _harvester():
+    """scripts/harvest_gbif_photos.py, whose rules say which photograph of a
+    specimen is usable."""
+    return _script("harvest_gbif_photos")
+
+
+#: What each USGS status says of a fish in a drainage it is not native to, the
+#: strongest first: a fish both stocked and established there is established.
+NAS_STATUS = ("established", "stocked", "collected", "unknown", "failed")
+
+
+def _drainage_introduced(web, dc, huc8: str, names) -> dict:
+    """The fish USGS records as not native to a drainage (Nonindigenous Aquatic
+    Species database, by HUC8): current name -> ``{"status", "records",
+    "nas_name", "common"}``, the status the strongest any record gives. USGS says
+    whether a fish was introduced, not whether it does harm."""
+    d = web.get(dc.url(dc.NAS, {"huc8": huc8}))
+    by: dict[str, dict] = {}
+    for r in d.get("results") or []:
+        if r.get("group") != "Fishes" or not r.get("scientificName"):
+            continue
+        e = by.setdefault(r["scientificName"], {"statuses": set(), "records": 0, "common": r.get("commonName")})
+        e["statuses"].add((r.get("status") or "unknown").lower())
+        e["records"] += 1
+    out = {}
+    for nas_name, e in by.items():
+        t = names.resolve(nas_name)
+        cur = t.get("current") or nas_name
+        status = next((st for st in NAS_STATUS if st in e["statuses"]), sorted(e["statuses"])[0])
+        out[cur] = {"status": status, "records": e["records"], "nas_name": nas_name,
+                    "common": t.get("common") or e["common"], "gbif_key": t.get("gbif_key"),
+                    "chain": [c["name"] for c in t.get("chain") or []]}
+    return out
+
+
+def _drainage_tool():
+    """scripts/drainage_candidates.py, which looks drainages and their species up."""
+    return _script("drainage_candidates")
+
+
+#: What a batch photograph's kept fish hold; older ones are found and landmarked
+#: again. 2: each point's confidence, which the labeller reviews by.
+BATCH_CACHE_VERSION = 2
+#: Two boxes overlapping this much (intersection over union) are the same fish.
+SAME_FISH = 0.7
+
+
+def _overlap(a, b) -> float:
+    """Intersection over union of two [x0, y0, x1, y1] boxes; 0 for anything else."""
+    try:
+        ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
+        iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
+        inter = ix * iy
+        union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
+        return inter / union if union > 0 else 0.0
+    except (TypeError, IndexError):
+        return 0.0
+
+
+def _isolate_fish(photo: Path, fish: list[dict], i: int, out: Path) -> None:
+    """Fish ``i``'s rectangle of a batch photograph, with every other fish in it
+    painted over in the background's colour, so the landmark model -- which looks
+    for one fish -- cannot take a point from the fish beside it."""
+    import numpy as np
+    from PIL import Image, ImageDraw
+
+    with Image.open(photo) as im:
+        im = im.convert("RGB")
+        x0, y0, x1, y1 = fish[i]["box"]
+        crop = im.crop((x0, y0, x1, y1))
+    w, h = crop.size
+    shift = lambda poly: [(x - x0, y - y0) for x, y in poly]  # noqa: E731
+    pad = max(2, round(0.01 * max(w, h)))                     # fins reach past the outline
+    every = Image.new("L", (w, h), 0)
+    draw_every = ImageDraw.Draw(every)
+    for f in fish:
+        draw_every.polygon(shift(f["outline"]), fill=255, outline=255, width=pad)
+    px = np.asarray(crop)
+    bg = tuple(int(v) for v in np.median(px[np.asarray(every) == 0], axis=0)) \
+        if (np.asarray(every) == 0).any() else (255, 255, 255)
+    others = Image.new("L", (w, h), 0)
+    draw_others = ImageDraw.Draw(others)
+    for j, f in enumerate(fish):
+        if j != i:
+            draw_others.polygon(shift(f["outline"]), fill=255, outline=255, width=pad)
+    mine = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mine).polygon(shift(fish[i]["outline"]), fill=255, outline=255, width=pad)
+    hide = np.logical_and(np.asarray(others) > 0, np.asarray(mine) == 0)
+    px = px.copy()
+    px[hide] = bg
+    Image.fromarray(px).save(out, quality=92)
+
+
 def suggested_subset(ids: list[str], n: int = SUGGESTED_N) -> set[str]:
     """Pick ``n`` specimens spread round-robin across lots.
 
@@ -270,6 +474,11 @@ def load_profile(images_dir: Path) -> dict:
         # "we do not collect this" and "the model is not good enough at it yet".
         "exclude_predicted_polygons": set(
             prof.get("exclude_predicted_polygons") or []),
+        # The same for landmarks: collected, placed by hand, never offered by
+        # Auto-label -- for points where the model's guesses cost more to check
+        # than to click.
+        "exclude_predicted_keypoints": set(
+            prof.get("exclude_predicted_keypoints") or []),
         # Landmarks this study adds to the master schema. They are coordinates
         # only: every trait is defined in code against a fixed name, so nothing is
         # computed from them -- they are labelled, saved, and exported.
@@ -294,6 +503,27 @@ def load_profile(images_dir: Path) -> dict:
         # rotation over lot numbers, which a study without lot numbers in its
         # filenames cannot use.
         "label_first": [f for f in (prof.get("label_first") or []) if isinstance(f, str)],
+        # Specimens the model is never run on, so their landmarks are placed with no
+        # guess to accept. Set beside fish that are corrected from the model's points,
+        # they show how far accepting those points moves the shapes.
+        "hand_only": [f for f in (prof.get("hand_only") or []) if isinstance(f, str)],
+        # The study a batch photograph's fish are compared with: whose hand-labelled
+        # fish are the reference species. This study's own when not named.
+        "reference_study": str(prof.get("reference_study") or ""),
+        # A study made of fish cut from another study's batch photographs, to have
+        # their landmarks put right: that study's name.
+        "batch_of": str(prof.get("batch_of") or ""),
+        # A set of identified, hand-landmarked specimens that batch photographs are
+        # compared with -- downloaded as a part of caliPr, or made by a study of its own.
+        "reference_set": bool(prof.get("reference_set")),
+        # Groups (by the start of their name) whose mouth is terminal: the premaxilla
+        # tip and the dentary tip are one point, so a reference fish without the
+        # first takes the second.
+        "terminal_mouth": [g for g in (prof.get("terminal_mouth") or []) if isinstance(g, str)],
+        # Counts this study takes on each fish -- scales along a row, fin rays -- as
+        # whole numbers typed in, beside the landmarks: [{"name", "label", "hint"}].
+        "counts": [c for c in (prof.get("counts") or [])
+                   if isinstance(c, dict) and re.fullmatch(r"[a-z0-9_]+", str(c.get("name", "")))],
         "note": prof.get("note", ""),
     }
 
@@ -403,6 +633,12 @@ def build_schema(profile: dict | None = None) -> dict:
         # the labeler zooms to the head-on view rather than opening a crop.
         "single_photo": bool(profile.get("single_photo")),
         "known_mm_default": dict(profile.get("known_mm_default") or {}),
+        "counts": [{"name": c["name"], "label": str(c.get("label") or c["name"]),
+                    "hint": str(c.get("hint") or "")} for c in profile.get("counts") or []],
+        "batch_of": profile.get("batch_of", ""),
+        # Landmarks placed by hand here: Auto-label does not offer them, and a
+        # guess for one still sitting unreviewed in a draft is dropped on opening.
+        "exclude_predicted_keypoints": sorted(profile.get("exclude_predicted_keypoints") or ()),
         "scheme": scheme,
         "scheme_title": (schemes.get(scheme) or {}).get("title", "caliPr"),
         "schemes": schemes.listing(),
@@ -484,12 +720,9 @@ OUTLINED_FINS = ("pectoral", "anal")
 
 #: Hand labelling works without any of this, so it is installed separately.
 NO_TRAINING_STACK = (
-    "Auto-label needs the training stack, which is installed separately from the "
-    "labeler. In the caliPr folder:\n\n"
-    "    python3.11 -m venv .venv-train\n"
-    "    .venv-train/bin/pip install \"deeplabcut==3.0.1\" transformers\n"
-    "    .venv/bin/python scripts/fetch_model.py\n\n"
-    "then restart the labeler. Hand labelling works without it.")
+    "Auto-label needs PyTorch, DeepLabCut and the trained models, which are installed "
+    "separately from the labeler: about 2.3 GB to download. Hand labelling and export "
+    "work without them.")
 
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -580,7 +813,7 @@ class Predictor:
 
     #: Interpreters to try, most specific first. A machine without the training
     #: environment simply reports Auto-label as unavailable.
-    _PYTHONS = (_ROOT / ".venv-train" / "bin" / "python",
+    _PYTHONS = (paths.TRAINING_PYTHON,
                 _ROOT / ".venv" / "bin" / "python")
 
     @classmethod
@@ -588,7 +821,7 @@ class Predictor:
         worker = _ROOT / "scripts" / "predict_worker.py"
         exe = next((p for p in cls._PYTHONS if p.is_file()), None)
         if exe is None or not worker.is_file():
-            return {"error": NO_TRAINING_STACK}
+            return {"error": NO_TRAINING_STACK, "install": True}
         try:
             proc = subprocess.Popen(
                 [str(exe), str(worker)], stdin=subprocess.PIPE,
@@ -611,8 +844,10 @@ class Predictor:
             # Saying which package is absent helps nobody; saying what to install
             # does.
             if "ModuleNotFoundError" in err or "ImportError" in err:
-                return {"error": NO_TRAINING_STACK}
-            return {"error": err, "missing_model": bool(info.get("missing_model"))}
+                return {"error": NO_TRAINING_STACK, "install": True}
+            # A missing model is what the installer's last step fetches.
+            return {"error": err, "missing_model": bool(info.get("missing_model")),
+                    "install": bool(info.get("missing_model"))}
         cls._proc, cls._info = proc, info
         return info
 
@@ -620,32 +855,181 @@ class Predictor:
     def predict(cls, image: Path, polygons: bool = False,
                 emit_polygons: bool = True, view: str = "lateral",
                 crop: list[int] | None = None,
-                fins: list[str] | None = None) -> dict:
+                fins: list[str] | None = None,
+                landmarks: list[str] | None = None) -> dict:
         with cls._lock:                      # one request at a time down one pipe
+            # A model pinned since the worker started is used from the next
+            # request on, without restarting the labeler.
+            now = current_model_label("lateral")
+            if (cls._proc is not None and cls._proc.poll() is None and now
+                    and cls._info.get("model") not in (None, now)):
+                cls._proc.kill()
+                cls._proc = None
             if cls._proc is None or cls._proc.poll() is not None:
                 started = cls._start()
                 if "error" in started:
                     return {"ok": False, **started}
-            try:
-                cls._proc.stdin.write(json.dumps({"image": str(image),
-                                                  "polygons": polygons,
-                                                  "emit_polygons": emit_polygons,
-                                                  "view": view, "crop": crop,
-                                                  "fins": fins or []})
-                                      + "\n")
-                cls._proc.stdin.flush()
-                line = cls._proc.stdout.readline()
-            except Exception as exc:
-                cls._proc = None
-                return {"ok": False, "error": f"predictor died: {exc}"}
-            if not line:
-                cls._proc = None
-                return {"ok": False, "error": "predictor closed unexpectedly"}
-            try:
-                return json.loads(line)
-            except Exception as exc:
-                return {"ok": False, "error": f"bad predictor reply: {exc}"}
+            return cls._ask({"image": str(image), "polygons": polygons,
+                             "emit_polygons": emit_polygons, "view": view, "crop": crop,
+                             "fins": fins or [], "landmarks": landmarks})
 
+    @classmethod
+    def detect(cls, image: Path) -> dict:
+        """Every fish in a photograph of several: a rectangle and an outline each."""
+        with cls._lock:
+            if cls._proc is None or cls._proc.poll() is not None:
+                started = cls._start()
+                if "error" in started:
+                    return {"ok": False, **started}
+            return cls._ask({"detect": True, "image": str(image)})
+
+    @classmethod
+    def _ask(cls, request: dict) -> dict:
+        """One request down the pipe and its answer. The caller holds the lock."""
+        try:
+            cls._proc.stdin.write(json.dumps(request) + "\n")
+            cls._proc.stdin.flush()
+            line = cls._proc.stdout.readline()
+        except Exception as exc:
+            cls._proc = None
+            return {"ok": False, "error": f"predictor died: {exc}"}
+        if not line:
+            cls._proc = None
+            return {"ok": False, "error": "predictor closed unexpectedly"}
+        try:
+            return json.loads(line)
+        except Exception as exc:
+            return {"ok": False, "error": f"bad predictor reply: {exc}"}
+
+
+def current_model(view: str = "lateral"):
+    """(project, label) of the model Auto-label would load now, or None."""
+    import predict_landmarks as pl
+    return pl.current_model(view)
+
+
+def current_model_label(view: str = "lateral") -> str | None:
+    found = current_model(view)
+    return found[1] if found else None
+
+
+def union_model_in_use() -> bool:
+    """Whether Auto-label's side-view model is the cross-species one."""
+    import predict_landmarks as pl
+    found = current_model("lateral")
+    return bool(found) and found[0].parent.name == pl.UNION_PROJECT
+
+
+class AutolabelInstall:
+    """``install_autolabel.py``, run from the page and watched by it.
+
+    One install at a time, whichever tab asked. Its output goes to a log beside
+    the environment it builds, and the page shows the latest line as progress.
+    """
+
+    _proc = None
+    _lock = threading.Lock()
+    LOG = "autolabel-install.log"
+
+    @classmethod
+    def log_path(cls) -> Path:
+        return paths.MODELS / cls.LOG
+
+    @classmethod
+    def command(cls) -> list[str]:
+        return [sys.executable, "-u", str(_ROOT / "scripts" / "install_autolabel.py")]
+
+    @staticmethod
+    def installed() -> bool:
+        return paths.TRAINING_PYTHON.is_file()
+
+    @classmethod
+    def start(cls) -> dict:
+        with cls._lock:
+            if cls._proc is not None and cls._proc.poll() is None:
+                return cls.status()
+            paths.MODELS.mkdir(parents=True, exist_ok=True)
+            log = open(cls.log_path(), "w")
+            cls._proc = subprocess.Popen(
+                cls.command(), stdout=log, stderr=subprocess.STDOUT, cwd=str(paths.MODELS))
+            log.close()
+            # The predictor that failed to start is retried on the next request.
+            Predictor._proc = None
+        return cls.status()
+
+    @classmethod
+    def status(cls) -> dict:
+        proc = cls._proc
+        lines = []
+        try:
+            lines = [ln for ln in cls.log_path().read_text(errors="replace").splitlines()
+                     if ln.strip()]
+        except OSError:
+            pass
+        running = proc is not None and proc.poll() is None
+        return {"installed": cls.installed(),
+                "running": running,
+                "finished": proc is not None and not running,
+                "ok": proc is not None and not running and proc.returncode == 0,
+                "line": lines[-1].strip() if lines else "",
+                "tail": lines[-12:] if proc is not None and not running else []}
+
+
+
+class BatchInstall(AutolabelInstall):
+    """``install_component.py batch``: the reference set batch identification compares
+    fish with, downloaded into the data folder and watched the same way."""
+
+    _proc = None
+    _lock = threading.Lock()
+    LOG = "batch-install.log"
+
+    @classmethod
+    def command(cls) -> list[str]:
+        return [sys.executable, "-u", str(_ROOT / "scripts" / "install_component.py"), "batch",
+                "--data", str(Handler.data_root or paths.WORK / "data")]
+
+    @staticmethod
+    def installed() -> bool:
+        return batch_installed()
+
+
+def autolabel_installed() -> bool:
+    """The environment the model runs in, and a trained side-view model."""
+    return paths.TRAINING_PYTHON.is_file() and current_model("lateral") is not None
+
+
+def reference_sets() -> list[str]:
+    """Studies marked as a reference set (``"reference_set": true`` in schema.json),
+    with photographs or without: a downloaded set holds landmarks and credits only."""
+    dirs = dict(Handler.datasets)
+    root = Handler.data_root
+    if root is not None and root.is_dir():
+        dirs.update({d.name: d for d in root.iterdir() if d.is_dir()})
+    return sorted(n for n, d in dirs.items()
+                  if (d / "schema.json").is_file() and load_profile(d).get("reference_set"))
+
+
+def batch_installed() -> bool:
+    """Batch identification runs on Auto-label and a reference set to compare with."""
+    return autolabel_installed() and bool(reference_sets())
+
+
+def components_state() -> dict:
+    """Each optional part: installed on this machine, and released for download."""
+    auto = autolabel_installed()
+    refs = reference_sets()
+    return {
+        "autolabel": {"installed": auto, "released": components.released("autolabel")},
+        "batch": {"installed": auto and bool(refs), "released": components.released("batch"),
+                  "needs_autolabel": not auto, "reference_sets": refs},
+    }
+
+
+#: What the batch routes answer on a machine without batch identification.
+BATCH_MISSING = ("Batch identification is not installed. It needs Auto-label and a reference "
+                 "set of identified, landmarked specimens, which are downloaded separately "
+                 "from the labeler.")
 
 def specimen_gaps(data: dict, schema: dict, size, recorded) -> dict:
     """What a saved fish still lacks, measured against what its study collects."""
@@ -687,6 +1071,39 @@ def specimen_gaps(data: dict, schema: dict, size, recorded) -> dict:
         "misaligned": bool(recorded and size and started
                            and [recorded.get("width"), recorded.get("height")] != list(size)),
     }
+
+
+# What identifies a calibration: while these are unchanged it is the same scale.
+_CAL_IDENTITY = ("mode", "px_per_mm", "point_a", "point_b", "known_mm")
+
+
+def _carry_unmanaged(data: dict, before: dict) -> None:
+    """Keep what other tools wrote inside the records the labeler rebuilds.
+
+    The page rebuilds each review record (metadata.assist, assist_frontal) and
+    each calibration from the fields it knows, so a field another tool added
+    inside one was erased by the next save of that fish: 61 head-on records say
+    their mouth corners were approved in bulk, and at what confidence, and 61
+    head-on scales that the ruler detector placed them. Every change saving
+    itself would erase them from every fish touched. They are carried across
+    while the record is the same one -- the same prediction, the same scale. A
+    new prediction or a re-placed ruler is a new record, and starts clean.
+    """
+    meta, had = data.get("metadata") or {}, before.get("metadata") or {}
+    for key in ("assist", "assist_frontal"):
+        new, old = meta.get(key), had.get(key)
+        if (isinstance(new, dict) and isinstance(old, dict)
+                and (new.get("model"), new.get("predicted_at"))
+                == (old.get("model"), old.get("predicted_at"))):
+            for k, v in old.items():
+                new.setdefault(k, v)
+    for view in ("lateral", "frontal"):
+        new = (data.get(view) or {}).get("calibration")
+        old = (before.get(view) or {}).get("calibration")
+        if (isinstance(new, dict) and isinstance(old, dict)
+                and all(new.get(k) == old.get(k) for k in _CAL_IDENTITY)):
+            for k, v in old.items():
+                new.setdefault(k, v)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -745,6 +1162,7 @@ class Handler(BaseHTTPRequestHandler):
             all_ids.append(m0.group(1) if m0 else Path(name).stem)
         suggested = (set(profile["label_first"]) & set(all_ids) if profile.get("label_first")
                      else suggested_subset(all_ids))
+        hand_only = set(profile.get("hand_only") or ())
 
         out = []
         for name, path in sorted(lat.items()):
@@ -802,11 +1220,18 @@ class Handler(BaseHTTPRequestHandler):
                 "gaps": gaps,
                 "heldout": fid in HELDOUT,
                 "suggested": fid in suggested,
+                "hand_only": fid in hand_only,
                 # Size of each view's image as it is on disk now. A draft records
                 # the size it was made on; the labeler discards any draft whose
                 # size no longer matches, because its coordinates cannot fit.
                 "sizes": {"lateral": current_size(path),
                           "frontal": current_size(path if single else fro.get(fname))},
+                # When each view's image file last changed. The labeler puts it in
+                # the image's address: a browser reuses an image it has already
+                # shown at the same address, whatever the cache headers say, so a
+                # photograph turned in place would otherwise go on showing the old.
+                "image_version": {"lateral": _version(path),
+                                  "frontal": _version(path if single else fro.get(fname))},
                 # A prediction is cached for this fish. The labeler applies it on
                 # open, so a batch run actually reaches the fish it predicted.
                 "predicted": (self.images_dir / "sidecars_auto"
@@ -1402,7 +1827,7 @@ class Handler(BaseHTTPRequestHandler):
         import zipfile
 
         ds = self.images_dir.name
-        root = _ROOT / "results" / ds
+        root = paths.WORK / "results" / ds
 
         def run(args: list[str], timeout: int) -> None:
             r = subprocess.run([sys.executable, *args], capture_output=True, text=True,
@@ -1570,7 +1995,7 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             return self._send(500, {"ok": False, "error": str(exc)})
         try:
-            rel = str(out["show"].relative_to(_ROOT))
+            rel = str(out["show"].relative_to(paths.WORK))
         except ValueError:
             rel = str(out["show"])
         try:
@@ -1693,6 +2118,276 @@ class Handler(BaseHTTPRequestHandler):
                                 "moved_to": str(target.relative_to(root))
                                 if root in target.parents else str(target)})
 
+    #: What a specimen may be called: it names files, so no path, no leading dot,
+    #: and not ending in the rig's _L / _F view suffix, which would be read off it.
+    _NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,119}$")
+
+    def _rename_specimen(self):
+        """Give a photograph's specimen a new name, and everything of it with it.
+
+        ``{"id": old, "new_id": new}``. Renamed together, or not at all: the
+        photograph (and a separate head-on crop), the saved labels (whose fish_id
+        changes too), the cached predictions, and every table that names the fish
+        -- its Darwin Core record, groups.csv, the image fingerprints, the study's
+        worked example, and any re-label round it is in. The name carries the
+        strain (``..._TEM_18``), so a rename can move a fish between groups.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            old, new = str(body.get("id") or ""), str(body.get("new_id") or "").strip()
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        study = self.images_dir
+        if repeatability.read_round(study):
+            return self._send(400, {"ok": False, "error": (
+                "Codes in a blind re-label round are not renamed: the round finds its fish "
+                "by them. Rename the fish in the study itself.")})
+        if not old or old != Path(old).name or old.startswith("."):
+            return self._send(400, {"ok": False, "error": f"no such specimen “{old}”"})
+        if new == old:
+            return self._send(400, {"ok": False, "error": "that is its name already"})
+        if not self._NAME_RE.match(new) or re.search(r"_[LF]$", new):
+            return self._send(400, {"ok": False, "error": (
+                f"“{new}” cannot be a name: letters, digits, _ . - only, starting with a letter "
+                "or digit, and not ending in _L or _F (those mark the view).")})
+        if view_image(study, new, "lateral") or (self.out_dir / f"{new}.json").exists():
+            return self._send(409, {"ok": False, "error": f"“{new}” is already a specimen here"})
+
+        moves: list[tuple[Path, Path]] = []
+        for view, suffix in (("lateral", "_L"), ("frontal", "_F")):
+            p = view_image(study, old, view)
+            if p is None or p.parent != study / view:
+                continue
+            stem = new + suffix if p.stem == old + suffix else new
+            if (p, p.with_name(stem + p.suffix)) not in moves:
+                moves.append((p, p.with_name(stem + p.suffix)))
+        if not moves:
+            return self._send(404, {"ok": False, "error": f"no photograph for “{old}”"})
+        sidecar = self.out_dir / f"{old}.json"
+        for cache in (study / "sidecars_auto" / f"{old}.json",
+                      study / "sidecars_auto" / "frontal" / f"{old}.json"):
+            if cache.is_file():
+                moves.append((cache, cache.with_name(f"{new}.json")))
+        if any(dst.exists() for _, dst in moves):
+            return self._send(409, {"ok": False, "error": f"a file named for “{new}” is already here"})
+
+        done: list[tuple[Path, Path]] = []
+        try:
+            for src, dst in moves:
+                src.rename(dst)
+                done.append((src, dst))
+            if sidecar.is_file():
+                doc = json.loads(sidecar.read_text())
+                doc["fish_id"] = new
+                (self.out_dir / f"{new}.json").write_text(json.dumps(doc, indent=2))
+                sidecar.unlink()
+        except Exception as exc:
+            for src, dst in reversed(done):                 # put back what moved
+                try:
+                    dst.rename(src)
+                except OSError:
+                    pass
+            return self._send(500, {"ok": False, "error": f"nothing renamed: {exc}"})
+
+        updated = []
+        # the tables that name it
+        recs = darwin_core.load(study)
+        if old in recs:
+            recs[new] = recs.pop(old)
+            darwin_core.save(study, recs)
+            updated.append("Darwin Core record")
+        groups = study / "groups.csv"
+        if groups.is_file():
+            import csv
+            import io
+            rows = list(csv.reader(io.StringIO(groups.read_text(encoding="utf-8-sig"))))
+            if any(r and r[0].strip() == old for r in rows):
+                buf = io.StringIO()
+                csv.writer(buf).writerows([[new, *r[1:]] if r and r[0].strip() == old else r
+                                           for r in rows])
+                groups.write_text(buf.getvalue(), encoding="utf-8")
+                updated.append("groups.csv")
+        manifest = study / image_identity.MANIFEST
+        if manifest.is_file():
+            m = image_identity.load_manifest(study)
+            if old in m:
+                m[new] = m.pop(old)
+                manifest.write_text(json.dumps(m, indent=2, sort_keys=True))
+                updated.append("image fingerprints")
+        ref = study / "reference" / "reference.json"
+        if ref.is_file():
+            try:
+                r = json.loads(ref.read_text())
+                if r.get("specimen") == old:
+                    r["specimen"] = new
+                    ref.write_text(json.dumps(r))
+                    updated.append("the study's example")
+            except Exception:
+                pass
+        for rnd in repeatability.rounds_of(study):
+            if old in rnd["fish"].values():
+                f = rnd["folder"] / repeatability.ROUND_FILE
+                doc = json.loads(f.read_text())
+                doc["fish"] = {c: (new if x == old else x) for c, x in doc["fish"].items()}
+                f.write_text(json.dumps(doc, indent=2) + "\n")
+                updated.append(f"re-label round {rnd.get('round')}")
+        return self._send(200, {"ok": True, "id": new, "was": old, "files": len(moves)
+                                + (1 if (self.out_dir / f"{new}.json").is_file() else 0),
+                                "updated": updated})
+
+    _ORIENT_LOCK = threading.Lock()
+    #: The net turn of each photograph turned in the labeler, by its path in the
+    #: study, and the folder that keeps each one as it was before its first turn.
+    ORIENTATION_FILE = "orientation.json"
+    UNTURNED_DIR = "unturned"
+
+    def _orient_specimen(self):
+        """Turn a photograph a quarter turn, or mirror it, with every point on it.
+
+        ``{"id": fish, "view": "lateral" | "frontal", "op": "rotate_cw" |
+        "rotate_ccw" | "mirror" | "flip"}``. For photographs that came in on their
+        side, upside down or facing right: every study is labelled head left, back
+        up, which is the orientation the landmark model and the exports expect.
+
+        Turned together, or not at all: the image file; the saved labels of every
+        view drawn on it (both views, where one photograph holds both); the
+        fingerprints that record which image the labels were placed on; and the
+        cached Auto-label predictions. Nothing is lost: the photograph as it was
+        before its first turn is kept under ``unturned/``, and each new image is
+        cut from that original by the net turn recorded in ``orientation.json``,
+        so a JPEG is re-encoded once however many times it is turned, and turning
+        it back to the start puts the original file back exactly. A mirrored
+        photograph is recorded as mirrored in its labels' metadata: a mirror shows
+        the fish's other side, which matters for anything left-right.
+        """
+        if self.demo_mode:
+            return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            fid = str(body.get("id") or "")
+            view = str(body.get("view") or "lateral")
+            op = str(body.get("op") or "")
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        study = self.images_dir
+        if repeatability.read_round(study):
+            return self._send(400, {"ok": False, "error": (
+                "Photographs in a blind re-label round are not turned. Turn the fish in the "
+                "study itself.")})
+        if not fid or fid != Path(fid).name or fid.startswith("."):
+            return self._send(400, {"ok": False, "error": f"no such specimen “{fid}”"})
+        if op not in image_identity.ORIENT_OPS or view not in ("lateral", "frontal"):
+            return self._send(400, {"ok": False, "error": f"cannot turn by “{op}”"})
+        photo = view_image(study, fid, view)
+        if photo is None or photo.parent not in (study / "lateral", study / "frontal"):
+            return self._send(404, {"ok": False, "error": f"no {view} photograph for “{fid}”"})
+        views = [v for v in ("lateral", "frontal") if view_image(study, fid, v) == photo]
+
+        from PIL import Image, ImageOps
+
+        with self._ORIENT_LOCK:
+            sidecar = self.out_dir / f"{fid}.json"
+            doc = json.loads(sidecar.read_text()) if sidecar.is_file() else None
+            if doc is not None:
+                misfit = {v: a for v, a in alignment(study, fid, doc).items()
+                          if v in views and a["status"] == image_identity.SIZE_CHANGED}
+                if misfit:
+                    return self._send(409, {"ok": False, "error": (
+                        f"The saved {', '.join(misfit)} labels of {fid} no longer fit its "
+                        f"photograph ({next(iter(misfit.values()))['detail']}). Turning would "
+                        f"move them further; they need repairing first.")})
+            record_file = study / self.ORIENTATION_FILE
+            try:
+                records = json.loads(record_file.read_text()) if record_file.is_file() else {}
+            except Exception:
+                records = {}
+            key = f"{photo.parent.name}/{photo.name}"
+            state = image_identity.orientation_after(records.get(key), op)
+            original = study / self.UNTURNED_DIR / photo.parent.name / photo.name
+            with Image.open(photo) as im:
+                w, h = ImageOps.exif_transpose(im).size       # as the page shows it
+            new_w, new_h = image_identity.oriented_size(op, w, h)
+
+            # the new image, written beside the old and swapped in once all is ready
+            tmp = photo.with_name(f".{photo.name}.turning")     # no image suffix: never listed
+            restored = state == {"turns": 0, "mirrored": False}
+            try:
+                if not original.is_file():
+                    original.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(photo, original)
+                if restored:
+                    shutil.copy2(original, tmp)
+                else:
+                    with Image.open(original) as im:
+                        out = image_identity.apply_orientation(ImageOps.exif_transpose(im), state)
+                        if out.size != (new_w, new_h):
+                            raise RuntimeError(f"turned image is {out.size}, expected {(new_w, new_h)}")
+                        fmt = "PNG" if photo.suffix.lower() == ".png" else "JPEG"
+                        out.convert("RGB" if fmt == "JPEG" else out.mode).save(
+                            tmp, fmt, **({"quality": 95} if fmt == "JPEG" else {}))
+            except Exception as exc:
+                tmp.unlink(missing_ok=True)
+                return self._send(500, {"ok": False, "error": f"the photograph was not turned: {exc}"})
+
+            # every coordinate drawn on it, in memory first
+            moved = 0
+            writes: list[tuple[Path, dict]] = []
+            fp = image_identity.fingerprint(tmp)
+            if doc is not None:
+                meta = doc.setdefault("metadata", {})
+                for v in views:
+                    moved += image_identity.orient_view(doc, v, op, w, h)
+                    if image_identity.has_labels(doc, v) or (meta.get("images") or {}).get(v):
+                        meta.setdefault("images", {})[v] = fp
+                    if restored:
+                        (meta.get("orientation") or {}).pop(v, None)
+                    else:
+                        meta.setdefault("orientation", {})[v] = dict(state)
+                if meta.get("orientation") == {}:
+                    meta.pop("orientation")
+                writes.append((sidecar, doc))
+            auto = study / "sidecars_auto"
+            for v in views:
+                cache = (auto if v == "lateral" else auto / "frontal") / f"{fid}.json"
+                if cache.is_file():
+                    try:
+                        c = json.loads(cache.read_text())
+                        image_identity.orient_view(c, v, op, w, h)
+                        writes.append((cache, c))
+                    except Exception:
+                        cache.unlink(missing_ok=True)       # unreadable: predicted afresh
+            manifest = image_identity.load_manifest(study)
+            if fid in manifest and any(v in manifest[fid] for v in views):
+                for v in views:
+                    if v in manifest[fid]:
+                        manifest[fid][v] = fp
+                writes.append((study / image_identity.MANIFEST, manifest))
+
+            os.replace(tmp, photo)
+            for path, data in writes:
+                part = path.with_name(f".{path.name}.turning")
+                part.write_text(json.dumps(data, indent=2,
+                                           sort_keys=path.name == image_identity.MANIFEST))
+                os.replace(part, path)
+            if restored:
+                records.pop(key, None)
+                original.unlink(missing_ok=True)
+                for d in (original.parent, original.parent.parent):    # unturned/<view>, unturned
+                    try:
+                        d.rmdir()
+                    except OSError:
+                        break                                          # not empty: others kept
+            else:
+                records[key] = state
+            record_file.write_text(json.dumps(records, indent=2, sort_keys=True) + "\n")
+        return self._send(200, {"ok": True, "id": fid, "op": op, "views": views,
+                                "size": [new_w, new_h], "mirrored": state["mirrored"],
+                                "turns": state["turns"], "restored": restored, "moved": moved})
+
     def _new_dataset(self):
         """Create an empty study directory so a folder of photographs has
         somewhere to land without touching a terminal."""
@@ -1734,7 +2429,8 @@ class Handler(BaseHTTPRequestHandler):
         return self._send(200, {"ok": True, "name": name, "settings_copied": copied})
 
     def _upload(self):
-        """Accept one photograph into the current dataset's lateral/ folder.
+        """Accept one photograph into the current dataset's lateral/ folder -- or,
+        with ``X-View: batch``, its batch/ folder of photographs of several fish.
 
         One file per request rather than a single multipart batch: it keeps the
         parsing trivial, lets the browser show real progress across a folder of
@@ -1746,7 +2442,7 @@ class Handler(BaseHTTPRequestHandler):
                                     "error": "demo mode — nothing is written"})
         raw_name = self.headers.get("X-Filename", "")
         view = (self.headers.get("X-View") or "lateral").lower()
-        if view not in ("lateral", "frontal"):
+        if view not in ("lateral", "frontal", "batch"):
             return self._send(400, {"ok": False, "error": "bad view"})
 
         # Basename only, and a conservative character set: an uploaded name is
@@ -1772,8 +2468,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(415, {"ok": False, "name": name,
                                     "error": "contents are not a JPEG, PNG or TIFF"})
 
-        whole = load_profile(self.images_dir).get("single_photo")
-        if (self.headers.get("X-Split") or "").lower() == "mirror" and not whole:
+        whole = load_profile(self.images_dir).get("single_photo") and view != "batch"
+        if (self.headers.get("X-Split") or "").lower() == "mirror" and not whole and view != "batch":
             if view != "lateral":
                 return self._send(400, {"ok": False, "name": name,
                                         "error": "a mirror split applies to lateral photographs"})
@@ -1947,8 +2643,16 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": False, "error": ("This is a blind re-label round: every landmark is placed "
                                        "by hand, so the model's guesses cannot shape the "
                                        "measurement error it is here to find.")})
+        if fid in (load_profile(self.images_dir).get("hand_only") or ()):
+            return self._send(403, {
+                "ok": False, "hand_only": True, "error": (
+                    f"{fid} is kept from the model: every landmark is placed by hand, so it "
+                    f"can show how far accepting the model's points moves the shapes.")})
         scheme = load_profile(self.images_dir).get("scheme")
-        if schemes.get(scheme):
+        # The cross-species model learned BGNN's landmarks as well as caliPr's and
+        # answers under whichever names the study uses; the older model knows only
+        # caliPr's.
+        if schemes.get(scheme) and not union_model_in_use():
             return self._send(400, {
                 "ok": False, "error":
                     f"This study collects the {schemes.get(scheme)['title']} landmarks, and the "
@@ -1977,6 +2681,11 @@ class Handler(BaseHTTPRequestHandler):
         auto = self.images_dir / "sidecars_auto"
         cache = (auto if view == "lateral" else auto / "frontal") / f"{fid}.json"
         want_cache = query.get("cache", ["1"])[0] != "0"
+        # ?cache=only: what has already been predicted, or nothing -- never a model
+        # run. Opening a fish asks this way: it must not wait seconds (minutes, on a
+        # machine short of memory) for a model, and a cached guess made by a model
+        # since replaced is not served either; the Auto-label button predicts afresh.
+        cache_only = query.get("cache", [""])[0] == "only"
         res = None
         if want_cache and cache.is_file():
             try:
@@ -1994,6 +2703,9 @@ class Handler(BaseHTTPRequestHandler):
                 # forever that this fish has no fins.
                 asked = meta.get("fins_asked")
                 stale = asked is not None and not set(self._wanted_fins(view)) <= set(asked)
+                # Made by a model since replaced: predicted again by the one in use.
+                now = current_model_label(view)
+                stale = stale or bool(now and meta.get("model") != now)
                 if meta.get("source") == "predicted" and "implausible" in meta and not stale:
                     res = {
                         "ok": True, "fish_id": fid, "cached": True, "view": view,
@@ -2007,6 +2719,10 @@ class Handler(BaseHTTPRequestHandler):
                         "elapsed": 0.0}
             except Exception:
                 res = None                 # a corrupt cache entry just re-predicts
+        if res is None and cache_only:
+            return self._send(200, {"ok": False, "cached": False, "fish_id": fid, "view": view,
+                                    "error": "no prediction by the current model is saved "
+                                             "for this fish"})
         if res is None:
             res = self._run_model(fid, view, match, cache, want_cache)
             if not res.get("ok"):
@@ -2059,8 +2775,11 @@ class Handler(BaseHTTPRequestHandler):
                                           "cannot be framed — place the two mouth "
                                           "corners by hand"}
         want_fins = self._wanted_fins(view)
+        # The names this study collects its landmarks under, which the
+        # cross-species model answers in; the older model ignores them.
+        wanted = list(schemes.study_landmarks(self.images_dir)[0]) if view == "lateral" else None
         res = Predictor.predict(match, polygons=want_body, emit_polygons=emit_body,
-                                view=view, crop=crop, fins=want_fins)
+                                view=view, crop=crop, fins=want_fins, landmarks=wanted)
         if not res.get("ok"):
             return res
 
@@ -2086,10 +2805,17 @@ class Handler(BaseHTTPRequestHandler):
         return res
 
     def _excluded(self, res: dict) -> dict:
-        # Never offer a point for a landmark this study has excluded.
+        # Never offer a point for a landmark this study has excluded -- nor for
+        # one it collects but places by hand (``exclude_predicted_keypoints``):
+        # where the model's guesses are poor, reviewing them costs more than
+        # clicking, and an accepted poor guess reads as a checked one.
         prof = load_profile(self.images_dir)
-        drop = set(prof.get("exclude_keypoints") or ())
-        drop_poly = set(prof.get("exclude_polygons") or ())
+        drop = set(prof.get("exclude_keypoints") or ()) | set(
+            prof.get("exclude_predicted_keypoints") or ())
+        # The same for outlines, and for one cached before the study stopped
+        # wanting it: a run only withholds what the study refuses at that moment.
+        drop_poly = set(prof.get("exclude_polygons") or ()) | set(
+            prof.get("exclude_predicted_polygons") or ())
         if drop_poly and res.get("polygons"):
             res["polygons"] = {k: v for k, v in res["polygons"].items()
                                if k not in drop_poly}
@@ -2101,6 +2827,501 @@ class Handler(BaseHTTPRequestHandler):
             res["low_confidence"] = [k for k in res["low_confidence"]
                                      if k not in drop]
         return res
+
+    # -- photographs of several fish --------------------------------------
+
+    def _batch_reference_dir(self) -> Path:
+        """The study whose hand-labelled fish the batch is compared with: the one
+        schema.json names as ``reference_study``, or this one."""
+        name = load_profile(self.images_dir).get("reference_study")
+        if not name:
+            return self.images_dir
+        root = Handler.data_root
+        beside = root / name if root is not None and "/" not in name else None
+        return Handler.datasets.get(name) or (beside if beside and beside.is_dir() else self.images_dir)
+
+    def _batch_photos(self):
+        out = []
+        cache = self.images_dir / "batch_cache"
+        for name, path in list_images(self.images_dir / "batch").items():
+            doc = _read_json(cache / f"{path.stem}.json")
+            out.append({"name": name, "fish": len(doc["fish"]) if doc else None})
+        return self._send(200, {"ok": True, "photos": out,
+                                "reference": self._batch_reference_dir().name})
+
+    def _batch_fish(self, name: str):
+        """Every fish in one batch photograph, its landmarks, and how typical its
+        shape is of each reference species, best first.
+
+        Finding the fish and placing their landmarks is slow and is kept, beside
+        the photograph, until the photograph or the model changes. The scores are
+        not kept: they are worked out again on every request, so a fish labelled in
+        the reference study since counts at once.
+        """
+        path = self.images_dir / "batch" / name
+        if "/" in name or ".." in name or not path.is_file():
+            return self._send(404, {"ok": False, "error": f"no batch photograph {name!r}"})
+        query = parse_qs(urlparse(self.path).query)
+        refresh = query.get("refresh", ["0"])[0] == "1"
+        cache = self.images_dir / "batch_cache" / f"{path.stem}.json"
+        st = path.stat()
+        key = {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "model": current_model_label("lateral"),
+               "version": BATCH_CACHE_VERSION}
+        doc = None if refresh else _read_json(cache)
+        fresh = not doc or doc.get("key") != key
+        # ?cache=only: the saved landmarks, scored, or nothing -- never a model run.
+        # The page asks this way first, so it says it is finding and landmarking
+        # fish only when it is.
+        if fresh and query.get("cache", [""])[0] == "only":
+            return self._send(200, {"ok": False, "cached": False})
+        if fresh:
+            if self._locked():
+                return self._send(401, {"ok": False, "locked": True,
+                                        "error": "automated landmarking is locked on this machine"})
+            found = Predictor.detect(path)
+            if not found.get("ok"):
+                return self._send(503, found)
+            ref_dir = self._batch_reference_dir()
+            wanted = list(schemes.study_landmarks(ref_dir)[0])
+            crops = cache.parent / path.stem
+            crops.mkdir(parents=True, exist_ok=True)
+            fish = []
+            for i, f in enumerate(found["fish"]):
+                crop_path = crops / f"fish_{i + 1}.jpg"
+                _isolate_fish(path, found["fish"], i, crop_path)
+                res = Predictor.predict(crop_path, polygons=False, emit_polygons=False,
+                                        landmarks=wanted)
+                x0, y0 = f["box"][:2]
+                kps = {n: [p[0] + x0, p[1] + y0] for n, p in (res.get("keypoints") or {}).items() if p}
+                fish.append({**f, "keypoints": kps,
+                             "confidence": res.get("confidence") or {},
+                             "low_confidence": res.get("low_confidence") or [],
+                             "error": None if res.get("ok") else res.get("error")})
+            doc = {"key": key, "width": found["width"], "height": found["height"], "fish": fish}
+            cache.write_text(json.dumps(doc))
+        if "ruler" not in doc:
+            doc["ruler"] = _read_ruler(path)
+            cache.write_text(json.dumps(doc))
+        return self._send(200, {**self._batch_scored(name, doc), "cached": not fresh})
+
+    def _batch_scored(self, name: str, doc: dict) -> dict:
+        from fish_morpho import batch_fish, grouping, species_match, taxonomy
+
+        ref_dir = self._batch_reference_dir()
+        pattern = grouping.filename_pattern(ref_dir)
+        table = grouping.load_group_table(ref_dir)
+        present = {Path(n).stem for n in list_images(ref_dir / "lateral")}
+        # A fish whose photograph has left the study is not compared -- except in a
+        # downloaded reference set, which carries landmarks and credits, no photographs.
+        landmarks_only = load_profile(ref_dir).get("reference_set") and not present
+        ref = [r for r in species_match.load_reference(
+                   ref_dir, lambda fid: grouping.resolve(fid, table=table, pattern=pattern),
+                   load_profile(ref_dir).get("terminal_mouth"))
+               if landmarks_only or r.fid in present]
+        # a scale set by hand wins; else the one read from the ruler's numbers
+        scale = (_read_json(self.images_dir / "batch_scale.json") or {}).get(name)
+        ruler = doc.get("ruler") or {}
+        ppm = species_match.px_per_mm(scale) or ruler.get("px_per_mm")
+        scale_from = "hand" if species_match.px_per_mm(scale) else ("ruler" if ruler.get("px_per_mm") else None)
+        # each reference species by its current name, and the names it went by
+        names = taxonomy.Names(self._taxonomy_cache())
+        taxa = {sp: names.resolve(sp) for sp in sorted({r.species for r in ref})}
+        sizes = species_match.sizes_for(taxa)
+        for sp, t in taxa.items():                     # a table entry under the current name will do
+            if sp not in sizes and t.get("current"):
+                hit = species_match.sizes_for([t["current"]]).get(t["current"])
+                if hit:
+                    sizes[sp] = hit
+        fish = []
+        for i, (f, (fid, fixed)) in enumerate(zip(doc["fish"], self._batch_corrections(name, doc))):
+            kps = fixed or f["keypoints"]
+            m = (species_match.identify(kps, ref, ppm, sizes=sizes) if fixed or not f.get("error")
+                 else {"ok": False, "error": f["error"]})
+            sl_px = species_match.standard_length_px(kps)
+            fish.append({"n": i + 1, "box": f["box"], "outline": f["outline"],
+                         "keypoints": kps, "low_confidence": [] if fixed else f.get("low_confidence", []),
+                         "sl_mm": m.get("sl_mm"),
+                         "sl_px": round(sl_px) if sl_px else None,
+                         "too_small": bool(sl_px and sl_px < batch_fish.SMALLEST_SL_PX),
+                         "fid": fid, "checked": bool(fixed), "match": m})
+        counts: dict[str, int] = {}
+        for r in ref:
+            counts[r.species] = counts.get(r.species, 0) + 1
+        drainage = (_read_json(self.images_dir / "batch_drainage.json") or {}).get(name)
+        if drainage:
+            by_key = {s["key"]: s for s in drainage["species"]}
+            keys = drainage.get("reference_keys") or {}
+            # the species recorded from the drainage first: see species_match.with_drainage
+            records = {sp: (by_key.get(keys.get(sp)) or {}).get("records", 0) for sp in counts}
+            for f in fish:
+                species_match.with_drainage(f["match"], records)
+            mine = {keys.get(sp) for sp in counts}
+            shiner_keys = {s["key"] for s in drainage["species"]}
+            intro = drainage.get("introduced") or {}
+            fishes = [{**f, "reference": f["key"] in mine, "shiner": f["key"] in shiner_keys,
+                       "introduced": intro.get(f["species"]) or intro.get(f["gbif_name"])}
+                      for f in drainage.get("fishes") or []]
+            # introduced fish USGS records there that no museum specimen on GBIF does
+            listed = {f["species"] for f in fishes} | {f["gbif_name"] for f in fishes}
+            fishes += [{"key": e.get("gbif_key"), "species": cur, "gbif_name": e["nas_name"], "common": e.get("common"),
+                        "family": None, "chain": e.get("chain") or [cur], "records": 0, "reference": False,
+                        "shiner": False, "introduced": e, "usgs_only": True}
+                       for cur, e in intro.items() if cur not in listed and e["nas_name"] not in listed]
+            for f in fish:                             # the reference species' own status there
+                for x in f["match"].get("matches") or []:
+                    t = taxa.get(x["species"]) or {}
+                    x["introduced"] = intro.get(t.get("current")) or intro.get(x["species"].replace("_", " "))
+            drainage = {**{k: v for k, v in drainage.items() if k not in ("species", "reference_keys", "fishes")},
+                        "fishes": fishes,
+                        "others": sorted(({"species": s.get("current") or s["species"], "gbif_name": s["species"],
+                                           "common": s.get("common"), "chain": s.get("chain") or [s["species"]],
+                                           "key": s["key"], "records": s["records"]}
+                                          for s in drainage["species"] if s["key"] not in mine),
+                                         key=lambda s: -s["records"])}
+        return {"ok": True, "photo": name, "width": doc["width"], "height": doc["height"],
+                "scale": scale, "ruler": ruler, "scale_from": scale_from, "px_per_mm": ppm,
+                "drainage": drainage, "taxa": taxa,
+                "fish": fish, "smallest_sl_px": batch_fish.SMALLEST_SL_PX,
+                "reference": {"study": ref_dir.name, "fish": len(ref), "species": counts}}
+
+    # -- where a batch photograph's lot was caught ------------------------
+
+    def _batch_drainage(self):
+        """The drainage a batch photograph's lot comes from -- from coordinates, a
+        HUC8 code, or the lot's own GBIF record -- and the shiners museums have
+        recorded from it (GBIF, preserved specimens). Shown beside the shape scores,
+        never folded into them: a range record is itself a past identification.
+        Every answer from the web is kept in ``drainage_cache.json``."""
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+            name = str(data["photo"])
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        path = self.images_dir / "batch_drainage.json"
+        doc = _read_json(self.images_dir / "batch_cache" / f"{Path(name).stem}.json")
+        if data.get("clear"):
+            _update_json(path, lambda known: known.pop(name, None))
+            return self._send(200, self._batch_scored(name, doc) if doc else {"ok": True})
+        dc = _drainage_tool()
+        web = dc.Web(self.images_dir / "drainage_cache.json")
+        try:
+            huc8, where = str(data.get("huc8") or "").strip(), {}
+            if not huc8:
+                lat, lon = data.get("lat"), data.get("lon")
+                source = "clicked on the map" if data.get("source") == "clicked on the map" else "typed in"
+                if lat is None or lon is None:
+                    lat, lon, source = self._lot_coordinates(web, dc, name)
+                h = dc.huc8_of(web, float(lat), float(lon))
+                if not h:
+                    return self._send(404, {"ok": False, "error": f"{lat}, {lon} is in no US drainage (HUC8)"})
+                huc8 = h["huc8"]
+                where = {"lat": float(lat), "lon": float(lon), "source": source,
+                         "name": h.get("name"), "states": h.get("states")}
+            elif not re.fullmatch(r"\d{8}", huc8):
+                return self._send(400, {"ok": False, "error": "a HUC8 code is eight digits"})
+            else:
+                where = {"source": "HUC8 typed in"}
+            wkt, outline, stand_in = dc.huc8_outline(web, huc8)
+            keys = dc.genus_keys(web, (*dc.SHINER_GENERA, "Hudsonius"))
+            species = dc.drainage_species(web, wkt, keys.values())
+            from fish_morpho import taxonomy
+
+            names = taxonomy.Names(self._taxonomy_cache())
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor(4) as pool:
+                resolved = list(pool.map(lambda sp: names.resolve(sp["species"]), species))
+            for sp, t in zip(species, resolved):
+                sp["current"], sp["common"] = t.get("current") or sp["species"], t.get("common")
+                sp["chain"] = [c["name"] for c in t.get("chain") or []]
+            fishes = _drainage_fishes(web, dc, wkt, names)
+            introduced = _drainage_introduced(web, dc, huc8, names)
+            ref = self._batch_reference_dir()
+            names = sorted(self._reference_species(ref))
+            ref_keys = {}
+            for sp in names:
+                m = web.get(dc.url(f"{dc.GBIF}/species/match", {"name": sp.replace("_", " ")}))
+                if m.get("usageKey"):
+                    ref_keys[sp] = m.get("acceptedUsageKey") or m["usageKey"]
+        except Exception as exc:
+            web.save()
+            return self._send(503, {"ok": False, "error": f"the drainage could not be looked up: {exc}"})
+        web.save()
+        entry = {"huc8": huc8, **where, "approximate": stand_in or None, "species": species, "fishes": fishes,
+                 "introduced": introduced, "reference_keys": ref_keys, "outline": outline}
+        _update_json(path, lambda known: known.__setitem__(name, entry))
+        return self._send(200, self._batch_scored(name, doc) if doc else {"ok": True})
+
+    def _batch_specimens(self):
+        """Museum specimens of a species with a photograph, for the gallery: GBIF's
+        preserved-specimen records with a still image, one per lot, by the same rules
+        as the reference set's (no fresh tissue vouchers, no NEON or BOLD field
+        images). ``?taxonKey=`` the species' GBIF key; ``&here=1&photo=`` only from
+        the drainage of that batch photograph's lot.
+
+        Nothing is downloaded: the page shows each photograph from GBIF's image
+        service. What is kept (``gallery_cache.json``) is the list -- museum, number,
+        year, place, licence and the photograph's address -- a few hundred bytes a
+        specimen."""
+        import hashlib
+
+        q = parse_qs(urlparse(self.path).query)
+        try:
+            key = int(q["taxonKey"][0])
+        except (KeyError, ValueError):
+            return self._send(400, {"ok": False, "error": "taxonKey is a GBIF species key"})
+        here = q.get("here", ["0"])[0] == "1"
+        huc8 = None
+        if here:
+            known = (_read_json(self.images_dir / "batch_drainage.json") or {}).get(q.get("photo", [""])[0])
+            if not known:
+                return self._send(404, {"ok": False, "error": "no drainage looked up for this photograph"})
+            huc8 = known["huc8"]
+        path = self.images_dir / "gallery_cache.json"
+        cache = _read_json(path) or {}
+        ck = f"{key}|{huc8 or 'all'}"
+        if ck not in cache:
+            dc, hv = _drainage_tool(), _harvester()
+            web = dc.Web(None)
+            params = [("taxonKey", str(key)), ("basisOfRecord", "PRESERVED_SPECIMEN"),
+                      ("mediaType", "StillImage"), ("limit", "300")]
+            try:
+                if huc8:
+                    wkt, _, _ = dc.huc8_outline(dc.Web(self.images_dir / "drainage_cache.json"), huc8)
+                    params.append(("geometry", wkt))
+                d = web.get(dc.url(f"{dc.GBIF}/occurrence/search", params))
+            except Exception as exc:
+                return self._send(503, {"ok": False, "error": f"GBIF could not be asked: {exc}"})
+            lots, items = set(), []
+            for r in d.get("results") or []:
+                m = hv.photograph(r)
+                lot = ((r.get("institutionCode") or "").upper(), r.get("catalogNumber") or str(r["key"]))
+                if not m or lot in lots:
+                    continue
+                lots.add(lot)
+                h = hashlib.md5(m["identifier"].encode()).hexdigest()
+                img = f"{dc.GBIF}/image/cache/{{size}}/occurrence/{r['key']}/media/{h}"
+                items.append({
+                    "occurrence": r["key"], "institution": lot[0], "catalog": lot[1], "year": r.get("year"),
+                    "place": ", ".join(v for v in (r.get("locality"), r.get("county"), r.get("stateProvince"),
+                                                   r.get("countryCode")) if v),
+                    "identified_as": r.get("scientificName"),
+                    "thumb": img.format(size="300x"), "large": img.format(size="1200x"),
+                    "original": m["identifier"], "license": m.get("license"),
+                    "credit": m.get("rightsHolder") or m.get("creator") or lot[0]})
+                if len(items) >= 60:
+                    break
+            cache[ck] = {"count": d.get("count", 0), "items": items,
+                         "fetched": datetime.date.today().isoformat()}
+            _update_json(path, lambda c: c.__setitem__(ck, cache[ck]), indent=None)
+        return self._send(200, {"ok": True, **cache[ck], "here": bool(huc8)})
+
+    def _taxonomy_cache(self) -> Path:
+        """One cache of resolved names for every study: a name means the same fish in each."""
+        return (Handler.data_root or self.images_dir.parent) / "taxonomy_cache.json"
+
+    def _lot_coordinates(self, web, dc, name: str):
+        """Where the lot in a batch photograph was caught, from its GBIF record:
+        the study's photo_manifest.csv row for the photograph (its name less
+        ``_lot``) gives the occurrence."""
+        import csv
+
+        fid = re.sub(r"_lot$", "", Path(name).stem)
+        man = self.images_dir / "photo_manifest.csv"
+        row = next((r for r in csv.DictReader(man.open()) if r.get("fish_id") == fid), None) if man.is_file() else None
+        if not row or not row.get("gbif_occurrence"):
+            raise ValueError("no coordinates given and no GBIF record for this photograph's lot")
+        occ = web.get(f"{dc.GBIF}/occurrence/{row['gbif_occurrence']}")
+        if occ.get("decimalLatitude") is None:
+            where = ", ".join(v for v in (occ.get("locality") or row.get("locality"), occ.get("county") or row.get("county"),
+                                          occ.get("stateProvince") or row.get("state")) if v)
+            raise ValueError(f"the lot's GBIF record ({row['gbif_occurrence']}) has no coordinates; it says "
+                             f"\"{where}\" -- click the map where that is, or type its latitude and longitude")
+        return occ["decimalLatitude"], occ["decimalLongitude"], f"GBIF record {row['gbif_occurrence']} of the lot"
+
+    def _reference_species(self, ref_dir: Path) -> set[str]:
+        from fish_morpho import grouping
+
+        pattern, table = grouping.filename_pattern(ref_dir), grouping.load_group_table(ref_dir)
+        out = set()
+        for img in list_images(ref_dir / "lateral"):
+            sp = grouping.resolve(Path(img).stem, table=table, pattern=pattern)
+            if sp:
+                out.add(sp)
+        return out
+
+    # -- putting a batch fish's points right ------------------------------
+
+    def _batch_study_dir(self) -> Path:
+        """Where this study's batch fish go to have their points put right: a study
+        of their own beside it. What is corrected there scores the fish and trains
+        the landmark model, and never becomes a reference fish."""
+        return self.images_dir.parent / f"{self.images_dir.name}_batch"
+
+    def _batch_corrections(self, name: str, doc: dict) -> list[tuple]:
+        """For each fish found in batch photograph ``name``: its id in the batch
+        study and its saved points there, in the photograph's coordinates -- or
+        ``(None, None)``, ``(id, None)`` while it has none. A fish is known by where
+        it lies, not by its number, so finding the fish again cannot hand one
+        fish's corrected points to another."""
+        bdir = self._batch_study_dir()
+        mine = {fid: e for fid, e in (_read_json(bdir / "batch_fish.json") or {}).items()
+                if isinstance(e, dict) and e.get("photo") == name}
+        out = []
+        for f in doc["fish"]:
+            fid = next((k for k, e in mine.items() if _overlap(e.get("box"), f["box"]) >= SAME_FISH), None)
+            fixed = None
+            if fid:
+                kp = ((_read_json(bdir / "sidecars" / f"{fid}.json") or {}).get("lateral") or {}).get("keypoints")
+                if kp:
+                    x0, y0 = mine[fid]["box"][:2]
+                    fixed = {n: [p[0] + x0, p[1] + y0] for n, p in kp.items() if p}
+            out.append((fid, fixed))
+        return out
+
+    def _batch_correct(self):
+        """Put every fish of a batch photograph into the batch study -- cut out,
+        with the model's points waiting on it -- so they can be opened in the
+        labeller one after another; answers with the study and the fish asked for.
+
+        Nothing already there is replaced: not a fish's photograph, which its saved
+        points are placed on, and not a guess from the model in use."""
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+            name, want = str(data["photo"]), int(data["n"])
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        photo = self.images_dir / "batch" / name
+        doc = _read_json(self.images_dir / "batch_cache" / f"{Path(name).stem}.json")
+        if "/" in name or ".." in name or not photo.is_file() or not doc:
+            return self._send(404, {"ok": False, "error": f"no fish found yet in {name!r}"})
+        if not 1 <= want <= len(doc["fish"]):
+            return self._send(400, {"ok": False, "error": f"no fish {want} in {name}"})
+        bdir = self._ensure_batch_study()
+        manifest = _read_json(bdir / "batch_fish.json") or {}
+        model = (doc.get("key") or {}).get("model")
+        ids = []
+        for i, (f, (fid, _)) in enumerate(zip(doc["fish"], self._batch_corrections(name, doc))):
+            if fid is None:
+                k = i + 1
+                while f"{photo.stem}_fish_{k}" in manifest:
+                    k += 1
+                fid = f"{photo.stem}_fish_{k}"
+                manifest[fid] = {"photo": name, "box": f["box"]}
+            img = bdir / "lateral" / f"{fid}.jpg"
+            if not img.is_file():
+                _isolate_fish(photo, doc["fish"], i, img)
+            auto = bdir / "sidecars_auto" / f"{fid}.json"
+            had = (_read_json(auto) or {}).get("metadata") or {}
+            if f["keypoints"] and (had.get("model") != model or not had.get("keypoint_confidence")):
+                x0, y0 = manifest[fid]["box"][:2]
+                auto.parent.mkdir(parents=True, exist_ok=True)
+                # In the labeller's own cache form, so the fish opens with these
+                # points on it -- the ones it was scored on -- waiting for review.
+                auto.write_text(json.dumps({
+                    "fish_id": fid,
+                    "metadata": {"source": "predicted", "model": model, "image": img.name,
+                                 "from": f"batch photograph {name}", "fins_asked": [],
+                                 # what the labeller counts as waiting for review
+                                 "keypoint_confidence": f.get("confidence") or {},
+                                 "low_confidence": f.get("low_confidence") or [],
+                                 "implausible": {}, "frame_warning": None},
+                    "lateral": {"keypoints": {k: [p[0] - x0, p[1] - y0] for k, p in f["keypoints"].items()},
+                                "polygons": {},
+                                "calibration": {"mode": "none", "notes": "predicted; not a label"}},
+                }, indent=2))
+            ids.append(fid)
+        _update_json(bdir / "batch_fish.json", lambda d: d.update(manifest))
+        Handler.datasets = discover_datasets(Handler.data_root) if Handler.data_root else Handler.datasets
+        Handler.datasets.setdefault(bdir.name, bdir)
+        return self._send(200, {"ok": True, "dataset": bdir.name, "fish": ids[want - 1]})
+
+    def _ensure_batch_study(self) -> Path:
+        """The batch study, made the first time it is wanted: the reference study's
+        settings -- its landmarks, its counts -- with each fish's group being the
+        photograph it came from. Fins and outlines are not offered: what is put
+        right here is the landmarks."""
+        bdir = self._batch_study_dir()
+        (bdir / "lateral").mkdir(parents=True, exist_ok=True)
+        (bdir / "sidecars").mkdir(exist_ok=True)
+        if not (bdir / "schema.json").is_file():
+            ref = self._batch_reference_dir()
+            prof = _read_json(ref / "schema.json") or {}
+            for key in ("label_first", "reference_study", "batch_of"):
+                prof.pop(key, None)
+            prof.update({
+                "note": (f"Fish cut from the batch photographs of {self.images_dir.name}, to have "
+                         f"the model's landmarks put right. Their corrected points score them on "
+                         f"the batch page and train the landmark model; they are never reference fish."),
+                "batch_of": self.images_dir.name,
+                "group_from_filename": r"^(.+)_fish_\d+$",
+                "exclude_predicted_polygons": sorted(
+                    set(prof.get("exclude_predicted_polygons") or ()) | {"body_plus_caudal", *OUTLINED_FINS}),
+            })
+            (bdir / "schema.json").write_text(json.dumps(prof, indent=2) + "\n")
+            if (ref / "plausibility.json").is_file() and not (bdir / "plausibility.json").exists():
+                shutil.copyfile(ref / "plausibility.json", bdir / "plausibility.json")
+        return bdir
+
+    def _batch_scale(self):
+        """Set a batch photograph's ruler -- two points and the millimetres between
+        them -- or clear it; answers with the photograph scored again."""
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+            name = str(data["photo"])
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        path = self.images_dir / "batch_scale.json"
+        if data.get("clear"):
+            scales = _update_json(path, lambda d: d.pop(name, None))
+        else:
+            try:
+                cal = {"mode": "manual", "point_a": [float(v) for v in data["point_a"]],
+                       "point_b": [float(v) for v in data["point_b"]],
+                       "known_mm": float(data["known_mm"])}
+            except Exception as exc:
+                return self._send(400, {"ok": False, "error": f"bad ruler: {exc}"})
+            if cal["known_mm"] <= 0 or cal["point_a"] == cal["point_b"]:
+                return self._send(400, {"ok": False, "error": "the ruler needs two points and a span"})
+            scales = _update_json(path, lambda d: d.__setitem__(name, cal))
+        doc = _read_json(self.images_dir / "batch_cache" / f"{Path(name).stem}.json")
+        if not doc:
+            return self._send(200, {"ok": True, "scale": scales.get(name)})
+        return self._send(200, self._batch_scored(name, doc))
+
+    #: What is kept of a museum specimen put beside the batch photograph: where GBIF
+    #: serves its photograph and how it is cited. Never the photograph itself.
+    COMPARE_FIELDS = ("occurrence", "taxon", "name", "common", "institution", "catalog", "year",
+                      "place", "identified_as", "credit", "license", "thumb", "large", "original")
+
+    def _batch_compare(self):
+        """The museum specimens kept to compare with the batch photographs, in the
+        order they were kept. GET lists them; POST ``{"add": specimen}`` or
+        ``{"remove": occurrence}`` changes the list and answers with it."""
+        path = self.images_dir / "batch_compare.json"
+        if self.command == "GET":
+            return self._send(200, {"ok": True, "items": (_read_json(path) or {}).get("items", [])})
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            data = json.loads(self.rfile.read(n) or b"{}")
+            if "add" in data:
+                it = {k: data["add"][k] for k in self.COMPARE_FIELDS if data["add"].get(k) not in (None, "")}
+                it["occurrence"] = int(it["occurrence"])
+                if not all(str(it.get(k, "")).startswith(("https://", "http://"))
+                           for k in ("thumb", "large", "original") if k in it):
+                    raise ValueError("photograph addresses must be web addresses")
+                change = lambda d: d.__setitem__("items", [x for x in d.get("items", [])
+                                                           if x.get("occurrence") != it["occurrence"]] + [it])
+            else:
+                gone = int(data["remove"])
+                change = lambda d: d.__setitem__("items", [x for x in d.get("items", [])
+                                                           if x.get("occurrence") != gone])
+        except Exception as exc:
+            return self._send(400, {"ok": False, "error": f"bad payload: {exc}"})
+        return self._send(200, {"ok": True, "items": _update_json(path, change)["items"]})
 
     def _send_bytes(self, data: bytes, filename: str, ctype: str):
         self.send_response(200)
@@ -2115,8 +3336,20 @@ class Handler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path
         self._use(urlparse(self.path).query)
 
+        if route.startswith("/api/batch/") and not batch_installed():
+            return self._send(409, {"ok": False, "not_installed": "batch", "error": BATCH_MISSING})
+
         if route == "/api/authstate":
             return self._authstate()
+
+        if route == "/api/components":
+            return self._send(200, components_state())
+
+        if route == "/api/autolabel/install":
+            return self._send(200, AutolabelInstall.status())
+
+        if route == "/api/install/batch":
+            return self._send(200, BatchInstall.status())
 
         if route == "/api/dwc":
             return self._dwc()
@@ -2159,6 +3392,16 @@ class Handler(BaseHTTPRequestHandler):
         if route == "/" or route == "/index.html":
             html = (UI_DIR / "index.html").read_text()
             return self._send(200, html, "text/html; charset=utf-8")
+        if route == "/batch":
+            return self._send(200, (UI_DIR / "batch.html").read_text(), "text/html; charset=utf-8")
+        if route == "/api/batch/photos":
+            return self._batch_photos()
+        if route == "/api/batch/specimens":
+            return self._batch_specimens()
+        if route == "/api/batch/compare":
+            return self._batch_compare()
+        if route.startswith("/api/batch/fish/"):
+            return self._batch_fish(unquote(route[len("/api/batch/fish/"):]))
         if route == "/api/schema":
             return self._send(200, {**build_schema(load_profile(self.images_dir)),
                                     "relabel": self._round_brief(self.images_dir)})
@@ -2270,11 +3513,19 @@ class Handler(BaseHTTPRequestHandler):
         route = urlparse(self.path).path
         self._use(urlparse(self.path).query)
 
+        if route.startswith("/api/batch/") and not batch_installed():
+            return self._send(409, {"ok": False, "not_installed": "batch", "error": BATCH_MISSING})
+
         if route == "/api/dataset/new":
             return self._new_dataset()
 
         if route == "/api/specimen/remove":
             return self._remove_specimen()
+
+        if route == "/api/specimen/rename":
+            return self._rename_specimen()
+        if route == "/api/specimen/orient":
+            return self._orient_specimen()
 
         if route == "/api/dataset/remove":
             return self._remove_dataset()
@@ -2287,6 +3538,24 @@ class Handler(BaseHTTPRequestHandler):
 
         if route == "/api/unlock":
             return self._unlock()
+
+        if route in ("/api/autolabel/install", "/api/install/batch"):
+            # Only the labeler's own page may start a 2 GB download, not any
+            # site the browser happens to have open.
+            origin = self.headers.get("Origin")
+            if origin and urlparse(origin).netloc != self.headers.get("Host"):
+                return self._send(403, {"ok": False, "error": "not from this page"})
+            name = "autolabel" if route == "/api/autolabel/install" else "batch"
+            # A part not released yet has nothing to download.
+            if not components.released(name):
+                title = (components.manifest().get(name) or {}).get("title", name)
+                return self._send(403, {"ok": False, "not_released": name,
+                                        "error": f"{title} is not available to download yet."})
+            if name == "batch" and not autolabel_installed():
+                return self._send(409, {"ok": False, "error": "Install Auto-label first: "
+                                        "batch identification finds and landmarks the fish with it."})
+            installer = AutolabelInstall if name == "autolabel" else BatchInstall
+            return self._send(200, {"ok": True, **installer.start()})
 
         if route == "/api/lock":
             self.session.lock()
@@ -2314,6 +3583,22 @@ class Handler(BaseHTTPRequestHandler):
             return self._set_reference()
         if route == "/api/schemes/new":
             return self._new_scheme()
+        if route == "/api/batch/compare":
+            if self.demo_mode:
+                return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+            return self._batch_compare()
+        if route == "/api/batch/scale":
+            if self.demo_mode:
+                return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+            return self._batch_scale()
+        if route == "/api/batch/drainage":
+            if self.demo_mode:
+                return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+            return self._batch_drainage()
+        if route == "/api/batch/correct":
+            if self.demo_mode:
+                return self._send(403, {"ok": False, "error": "demo mode — nothing is written"})
+            return self._batch_correct()
 
         if route != "/api/save":
             return self._send(404, {"error": "unknown route"})
@@ -2397,12 +3682,14 @@ class Handler(BaseHTTPRequestHandler):
         # with nothing saying they did, or why.
         if existing.is_file():
             try:
-                had = (json.loads(existing.read_text()).get("metadata") or {})
+                before = json.loads(existing.read_text())
             except Exception:
-                had = {}
+                before = {}
+            had = before.get("metadata") or {}
             for key, was in had.items():
                 if key not in meta:
                     meta[key] = was
+            _carry_unmanaged(data, before)
         self.out_dir.mkdir(parents=True, exist_ok=True)
         target = self.out_dir / f"{safe}.json"
         target.write_text(json.dumps(data, indent=2))
@@ -2412,8 +3699,9 @@ class Handler(BaseHTTPRequestHandler):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="label_server")
-    ap.add_argument("--port", type=int, default=8765)
-    ap.add_argument("--data-root", type=Path, default=_ROOT / "data",
+    ap.add_argument("--port", type=int, default=int(os.environ.get("PORT", 8765)),
+                    help="Port to serve on (default: $PORT, else 8765).")
+    ap.add_argument("--data-root", type=Path, default=paths.WORK / "data",
                     help="Directory whose subfolders are datasets (each holding a "
                          "lateral/). Offered in the UI's dataset dropdown.")
     ap.add_argument("--dataset", default="",

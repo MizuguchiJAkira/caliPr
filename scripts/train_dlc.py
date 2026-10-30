@@ -38,8 +38,9 @@ LATERAL_KP = [k.name for k in KEYPOINTS if k.view == View.LATERAL]
 
 #: Frame folder and default project directory per view; the frontal model never
 #: shares a directory with the lateral one.
-VIEW_VIDEO = {"lateral": "cornell_lateral", "frontal": "cornell_frontal"}
-VIEW_PROJECT = {"lateral": "dlc_project", "frontal": "dlc_project_frontal"}
+VIEW_VIDEO = {"lateral": "cornell_lateral", "frontal": "cornell_frontal", "union": "fish_union"}
+VIEW_PROJECT = {"lateral": "dlc_project", "frontal": "dlc_project_frontal",
+                "union": "dlc_project_union"}
 SCORER = "jcalipr"
 PROJECT = "jcalipr"
 VIDEO = "cornell_lateral"
@@ -154,10 +155,12 @@ def patch_training_config(cfg_path: Path, resume: Path | None,
         ~37 min here; picking up a fitted model to absorb ten new specimens
         should not.
 
-    ``load_scheduler_state_dict: false``
-        Without it the scheduler state comes back from the snapshot too, so a
-        resumed run silently keeps the old learning-rate schedule and any
-        override below is discarded.
+    The old schedule is not carried over: a snapshot keeps its scheduler's state,
+    which, restored, replaces the new run's learning-rate drops with the old run's
+    (long past, so never reached). DeepLabCut 3.0.1 reads a
+    ``runner.load_scheduler_state_dict`` switch but its config validation rejects
+    the key, so instead the run starts from a copy of the snapshot with the
+    scheduler and optimizer state left out -- the weights and the epoch count only.
     """
     yaml = ruamel.yaml.YAML()
     # Without this ruamel wraps a long snapshot path onto a continuation line.
@@ -176,15 +179,73 @@ def patch_training_config(cfg_path: Path, resume: Path | None,
         snap = resume.resolve()
         if not snap.is_file():
             raise SystemExit(f"snapshot not found: {snap}")
-        conf["resume_training_from"] = str(snap)
-        conf.setdefault("runner", {})["load_scheduler_state_dict"] = False
-        print(f"  warm start from {snap.name}")
+        import torch
+
+        state = torch.load(str(snap), map_location="cpu", weights_only=False)
+        weights = {k: state[k] for k in ("model", "metadata") if k in state}
+        start = target.parent / f"warmstart-{snap.name}"
+        torch.save(weights, str(start))
+        conf["resume_training_from"] = str(start)
+        print(f"  warm start from {snap.name} (weights and epoch; its learning-rate schedule left behind)")
     if lr is not None:
         conf["runner"]["optimizer"]["params"]["lr"] = lr
         print(f"  learning rate {lr}")
 
     with open(target, "w") as fh:
         yaml.dump(conf, fh)
+
+
+#: Augmentation for the cross-species model (``--profile union``). Its frames are
+#: already scaled to a standard fish length or show the whole photograph, so the
+#: scaling range covers the gap between those and the rest: one rig photographing
+#: from farther away than another. Scaling x and y independently (albumentations
+#: does when ``keep_ratio`` is off, its default) stretches a fish deeper or longer
+#: than any in training, which is what a new body shape is to the model. A lateral
+#: view has no left/right landmark pairs, so a mirrored fish needs no relabelling.
+UNION_AUGMENT = {
+    "affine": {"p": 0.9, "rotation": 25, "scaling": [0.6, 1.4], "translation": 40},
+    "hflip": 0.5,
+    "crop_sampling": {"width": 448, "height": 448, "max_shift": 0.1, "method": "hybrid"},
+    "hist_eq": True,
+    "motion_blur": True,
+    "covering": True,
+    "grayscale": True,
+    "gaussian_noise": 12.75,
+}
+
+
+def patch_profile(cfg_path: Path, profile: str, epochs: int, start_epoch: int = 0,
+                  lr: float | None = None) -> None:
+    """Write a training profile into the generated pytorch_config.yaml.
+
+    Also moves the learning-rate drops to 60% and 85% of the run: the generated
+    schedule drops at fixed epochs (90, 120) that suit only a 200-epoch run.
+
+    A warm start counts on from the snapshot's epoch (DeepLabCut trains epochs
+    ``start_epoch + 1`` to ``start_epoch + epochs``), and its scheduler changes the
+    rate only on the exact epoch of a drop -- so drops placed at 60% and 85% of the
+    new run alone are never reached, and the run keeps its starting rate to the
+    end. They are placed after ``start_epoch`` instead, and with ``lr`` given the
+    rates they drop to keep a full run's proportions (a fifth, then a fiftieth).
+    """
+    yaml = ruamel.yaml.YAML()
+    yaml.width = 4096
+    target = sorted(cfg_path.parent.glob(
+        "dlc-models-pytorch/iteration-*/*/train/pytorch_config.yaml"))[-1]
+    with open(target) as fh:
+        conf = yaml.load(fh)
+    if profile == "union":
+        conf["data"]["train"].update(UNION_AUGMENT)
+    sched = conf["runner"].get("scheduler") or {}
+    if sched.get("type") == "LRListScheduler":
+        sched["params"]["milestones"] = [start_epoch + int(epochs * 0.6),
+                                         start_epoch + int(epochs * 0.85)]
+        if lr is not None:
+            sched["params"]["lr_list"] = [[lr / 5], [lr / 50]]
+    conf["runner"]["snapshots"]["save_epochs"] = max(10, epochs // 5)
+    with open(target, "w") as fh:
+        yaml.dump(conf, fh)
+    print(f"  profile {profile}: lr drops at {sched.get('params', {}).get('milestones')}")
 
 
 def main(argv=None) -> int:
@@ -202,6 +263,8 @@ def main(argv=None) -> int:
                          "ImageNet. Adding a handful of specimens then costs a "
                          "short run rather than a full one. The keypoint set "
                          "must match the snapshot's.")
+    ap.add_argument("--profile", choices=["default", "union"], default="default",
+                    help="'union': the augmentation for the cross-species model")
     ap.add_argument("--lr", type=float, default=None,
                     help="Override the optimizer learning rate. Worth lowering "
                          "on a warm start: the default schedule assumes it is "
@@ -251,6 +314,13 @@ def main(argv=None) -> int:
 
     if args.resume or args.lr is not None:
         patch_training_config(cfg_path, args.resume, args.lr)
+    start_epoch = 0
+    if args.resume:
+        snap = torch.load(str(args.resume), map_location="cpu", weights_only=False)
+        start_epoch = int((snap.get("metadata") or {}).get("epoch") or 0)
+        del snap
+        print(f"  the snapshot was saved at epoch {start_epoch}; training continues from there")
+    patch_profile(cfg_path, args.profile, args.epochs, start_epoch, args.lr)
 
     if not args.skip_train:
         print(f"[4/5] train_network ({args.epochs} epochs"

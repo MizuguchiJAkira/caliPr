@@ -55,7 +55,7 @@ def srv(tmp_path, monkeypatch):
     calls = []
 
     def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None,
-             fins=None):
+             fins=None, landmarks=None):
         calls.append({"image": Path(image).name, "view": view, "crop": crop,
                       "fins": fins})
         kps = ({"mouth_left": [100.0, 120.0], "mouth_right": [180.0, 121.0]} if view == "frontal"
@@ -65,6 +65,8 @@ def srv(tmp_path, monkeypatch):
                 "frame_warning": None, "model": f"{view}.pt", "elapsed": 0.1}
 
     monkeypatch.setattr(ls.Predictor, "predict", classmethod(lambda cls, *a, **k: fake(*a, **k)))
+    # Whatever models this machine has installed are not the fake's.
+    monkeypatch.setattr(ls, "current_model", lambda view="lateral": None)
     ls.Handler.datasets = {"study": study}
     ls.Handler.default_dataset = "study"
     ls.Handler.images_dir = study

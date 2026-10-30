@@ -413,6 +413,105 @@ def detect_tick_scale(
     )
 
 
+#: A printed number on a ruler: its height as a share of the photograph's shorter
+#: side, at least and at most.
+_NUMBER_H = (0.008, 0.08)
+#: Numbers a centimetre apart stand at least this many of their own heights apart;
+#: the letters of a word, about one.
+_NUMBER_GAP = 2.0
+#: Each number within this share of the spacing of where an even row puts it.
+_NUMBER_FIT = 0.08
+#: And the row as a whole this even (spread of the numbers about the fitted row, as a
+#: share of the spacing). Printed numbers are. On 70 hand-calibrated shiner
+#: photographs every right reading was within 2.7 % but one (3.9 %); the two wrong
+#: ones -- handwriting on a museum label, beside an unnumbered checker bar -- were 3.9
+#: and 4.4 %.
+_NUMBER_SPREAD = 0.03
+
+
+def detect_numbered_scale(image: "NDArray[np.uint8]", *, min_numbers: int = 5) -> dict:
+    """px/mm from the numbers printed along a ruler, a centimetre apart.
+
+    For rulers whose millimetre ticks do not run their length -- the Field Museum's
+    black bar has them in its first centimetre only, so the tick period found is as
+    often the centimetre as the millimetre -- but whose centimetres are numbered.
+    The numbers are not read, only found: a row of digit-sized marks, evenly
+    spaced, much further apart than they are tall. A number of two digits ("10")
+    is one mark. The spacing is fitted to every number in the row, so it is good
+    to a fraction of a percent over ten centimetres.
+
+    Returns ``{"px_per_mm", "numbers": [[x, y], ...] (photograph pixels, in order),
+    "first_cm", "confidence", "notes"}``. Raises ``RuntimeError`` if no such row is
+    found -- a ruler without numbers, or one standing on end.
+    """
+    import cv2
+
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
+    H, W = gray.shape[:2]
+    short = min(H, W)
+    hmin, hmax = _NUMBER_H[0] * short, _NUMBER_H[1] * short
+    block = max(15, int(0.04 * short) | 1)
+    best = None
+    # dark numbers on a light ruler, and light on dark: darker, or lighter, than round them
+    for polarity, offset in ((cv2.THRESH_BINARY_INV, 15), (cv2.THRESH_BINARY, -15)):
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, polarity, block, offset)
+        n, _, stats, _ = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        marks = []
+        for x, y, w, h, area in stats[1:]:
+            if hmin <= h <= hmax and 0.12 * h <= w <= 1.0 * h and 0.12 <= area / float(w * h) <= 0.85:
+                marks.append((x, y, w, h))
+        marks.sort(key=lambda m: m[1] + m[3])                   # by baseline
+        rows: list[list] = []
+        for m in marks:
+            for row in rows:
+                r = row[0]
+                if abs((m[1] + m[3]) - (r[1] + r[3])) < 0.25 * r[3] and 0.75 <= m[3] / r[3] <= 1.33:
+                    row.append(m)
+                    break
+            else:
+                rows.append([m])
+        for row in rows:
+            row.sort(key=lambda m: m[0])
+            numbers = []                                       # digits close together are one number
+            for m in row:
+                if numbers and m[0] - numbers[-1][1] < 0.6 * m[3]:
+                    numbers[-1][1] = max(numbers[-1][1], m[0] + m[2])
+                else:
+                    numbers.append([m[0], m[0] + m[2], m[1] + m[3] / 2, m[3]])
+            if len(numbers) < min_numbers:
+                continue
+            xs = np.array([(a + b) / 2 for a, b, _, _ in numbers])
+            height = float(np.median([nm[3] for nm in numbers]))
+            step = float(np.median(np.diff(xs)))
+            if step < _NUMBER_GAP * height:
+                continue
+            k = np.round((xs - xs[0]) / step)
+            for _ in range(3):                                 # refit the spacing to all of them
+                slope, icpt = np.polyfit(k, xs, 1)
+                k = np.round((xs - icpt) / slope)
+            fit = np.abs(xs - (icpt + slope * k)) <= _NUMBER_FIT * slope
+            if fit.sum() < min_numbers or len(set(k[fit])) < fit.sum():
+                continue
+            slope, icpt = np.polyfit(k[fit], xs[fit], 1)
+            # a run of numbers, one centimetre apart, with at most one missing at a time
+            if np.any(np.diff(np.sort(k[fit])) > 2):
+                continue
+            spread = float(np.std(xs[fit] - (icpt + slope * k[fit])) / slope)
+            if spread > _NUMBER_SPREAD:
+                continue
+            cand = (int(fit.sum()), -spread,
+                    slope / 10.0, [[float(x), float(nm[2])] for x, nm, f in zip(xs, numbers, fit) if f])
+            if best is None or cand[:2] > best[:2]:
+                best = cand
+    if best is None:
+        raise RuntimeError("no row of evenly spaced numbers found along a ruler")
+    count, spread, ppm, pts = best
+    return {"px_per_mm": round(ppm, 4), "numbers": [[round(x, 1), round(y, 1)] for x, y in pts],
+            "confidence": 0.9 if count >= 8 else 0.6,
+            "notes": f"{count} numbers a centimetre apart, {ppm:.3f} px/mm, "
+                     f"each within {abs(spread) * 100:.1f}% of a centimetre of an even row"}
+
+
 def _boxcar(signal: "NDArray[np.float32]", window: int) -> "NDArray[np.float32]":
     """Centered rolling mean via convolution, edges replicated.
 

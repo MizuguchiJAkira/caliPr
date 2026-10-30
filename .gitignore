@@ -36,7 +36,10 @@ data/cornell_raw/*.jpg
 data/*/lateral/
 data/*/frontal/
 data/*/originals/
+data/*/unturned/
 data/*/omitted/
+data/*/batch/
+data/*/batch_cache/
 # A study's own example is cut from one of those photographs, and is remade from
 # any labelled fish with "Use as example".
 data/*/reference/
@@ -89,3 +92,18 @@ fin_seg_pred/
 
 # Label backups taken before a bulk operation. Recovery, not history.
 data/.labels-backup-*/
+
+# Cross-species landmark model (scripts/build_union_dataset.py + train_dlc.py --profile union)
+dlc_union/
+dlc_project_union/
+logs/
+
+# Numbered training runs of the cross-species model (scripts/build_union_dataset.py
+# --out dlc_union_rN, train_dlc.py --project-dir dlc_project_union_rN)
+dlc_union_r*/
+dlc_project_union_r*/
+
+# Lookups the batch page caches; rebuilt from GBIF, FishBase and USGS on demand
+data/taxonomy_cache.json
+data/*/drainage_cache.json
+data/*/gallery_cache.json

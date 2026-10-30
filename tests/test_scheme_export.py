@@ -110,6 +110,7 @@ def test_the_server_no_longer_refuses_it(study, tmp_path, monkeypatch):
     repo.mkdir()
     (repo / "scripts").symlink_to(SCRIPTS)
     monkeypatch.setattr(ls, "_ROOT", repo)
+    monkeypatch.setattr(ls.paths, "WORK", repo)
     monkeypatch.setattr(ls, "show_on_this_computer", lambda path, how: (how, None))
     ls.Handler.datasets = {"minnows": st}
     ls.Handler.default_dataset = "minnows"

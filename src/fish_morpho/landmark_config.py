@@ -369,14 +369,37 @@ KEYPOINTS: tuple[Keypoint, ...] = (
         View.LATERAL,
         "Click the bottom silhouette at the same x position.",
     ),
+    # The caudal-fin base as the BGNN 2D protocol marks it: the two ends of the
+    # crease the fin rays make where they leave the peduncle (its landmarks 11
+    # and 13), either side of the end of the vertebral column (its 12, which is
+    # caudal_base). Points a person can find on any specimen, where the
+    # narrowest part of the peduncle is a judgement of where a curve is least.
+    Keypoint(
+        "caudal_crease_dorsal",
+        "Dorsal-most point of the caudal crease: the top of the fold the "
+        "caudal fin rays make where they leave the peduncle (BGNN 2D "
+        "landmark 11). With caudal_crease_ventral it gives CPb.",
+        View.LATERAL,
+        "Flex the tail in your mind: click the top of the crease at the "
+        "caudal-fin base, on the dorsal outline.",
+    ),
     Keypoint(
         "caudal_base",
         "Posterior end of the vertebral column at the hypural plate; the "
-        "start of the caudal fin rays on midline. Anchors reference line H "
-        "(vertical through this x) and is the posterior endpoint of SL.",
+        "start of the caudal fin rays on midline -- BGNN 2D landmark 12, "
+        "vertebral_centrum_posterior. Anchors reference line H (vertical "
+        "through this x) and is the posterior endpoint of SL.",
         View.LATERAL,
         "Click where the last scale meets the caudal fin rays, along the "
         "midline of the fish.",
+    ),
+    Keypoint(
+        "caudal_crease_ventral",
+        "Ventral-most point of the caudal crease, at the bottom of the "
+        "caudal-fin base (BGNN 2D landmark 13).",
+        View.LATERAL,
+        "Click the bottom of the crease at the caudal-fin base, on the "
+        "ventral outline.",
     ),
 
     Keypoint(
@@ -1058,6 +1081,21 @@ TRAITS: tuple[Trait, ...] = (
         source=TraitSource.EXTRAS,
         required_keypoints=("mouth_left", "mouth_right"),
         number=25,
+    ),
+    Trait(
+        code="CPb",
+        label="Caudal Peduncle Depth at Fin Base",
+        description="Distance between caudal_crease_dorsal and "
+        "caudal_crease_ventral: the depth of the peduncle where the caudal fin "
+        "begins, between the ends of the caudal crease (BGNN 2D landmarks 11 "
+        "and 13). Not CPd, MorFishJ's minimum depth: the narrowest point is a "
+        "judgement of where a curve is least, and the crease is a point on the "
+        "fish. Not on the lab's reference sheet; filed after CFl (37).",
+        unit=Unit.MM,
+        view=View.LATERAL,
+        source=TraitSource.EXTRAS,
+        required_keypoints=("caudal_crease_dorsal", "caudal_crease_ventral"),
+        number=38,
     ),
 )
 

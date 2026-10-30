@@ -151,6 +151,17 @@ def test_a_round_draws_across_groups_and_hides_who_is_who(study):
     assert again["round"] == 2 and set(again["fish"]) != set(r["fish"])  # new codes
 
 
+def test_a_round_can_name_its_fish_for_a_design_of_its_own(study):
+    data, st = study
+    named = ["T_AAA_0", "T_BBB_4", "T_CCC_8", "T_AAA_3"]
+    r = create_round(st, 0, "JC", seed=7, fish=named, purpose="hand against model-accepted")
+    assert sorted(r["fish"].values()) == sorted(named) and r["n"] == 4
+    doc = json.loads((Path(r["folder"]) / "round.json").read_text())
+    assert doc["chosen"] == "named" and doc["purpose"] == "hand against model-accepted"
+    with pytest.raises(ValueError):
+        create_round(st, 0, "JC", fish=["T_AAA_0", "T_ZZZ_99", "T_BBB_1"])
+
+
 def test_the_reference_fish_is_never_offered(study):
     data, st = study
     (st / "reference").mkdir()

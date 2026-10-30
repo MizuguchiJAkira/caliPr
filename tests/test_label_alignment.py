@@ -156,6 +156,49 @@ def test_a_save_built_on_an_older_version_of_the_file_is_refused(srv):
     assert code == 409 and body["conflict"]             # built on the one before: refused
 
 
+def test_saving_keeps_what_other_tools_wrote_inside_the_records_it_rebuilds(srv):
+    """The page rebuilds the review records and the calibrations, and every
+    change saves itself. 61 head-on records say their corners were approved in
+    bulk, and 61 head-on scales that the ruler detector placed them: kept while
+    the record is the same one, dropped once it is a new one."""
+    url, study = srv
+    bulk = {"approved_in_bulk": True, "confidence_at_approval": {"mouth_left": 0.67}}
+    _write_sidecar(study, {
+        "fish_id": FID,
+        "metadata": {
+            "assist_frontal": {"model": "s200", "predicted_at": "2026-09-23T09:39:47",
+                               "accepted": ["mouth_left"], **bulk},
+            "assist": {"model": "s170", "predicted_at": "2026-09-24T01:29:41", "seen_by": "x"}},
+        "lateral": {**LAT, "calibration": {"mode": "manual", "point_a": [10, 10],
+                                           "point_b": [510, 10], "known_mm": 50,
+                                           "placed_by": "ruler-ticks"}},
+        "frontal": {"keypoints": {"mouth_left": [5, 5]},
+                    "calibration": {"mode": "ticks", "px_per_mm": 22.86,
+                                    "placed_by": "ruler-ticks", "notes": "mirror ruler"}}})
+    code, _ = _save(url, {
+        "fish_id": FID,
+        "metadata": {
+            # the same head-on record, as the page rebuilds it
+            "assist_frontal": {"model": "s200", "predicted_at": "2026-09-23T09:39:47",
+                               "accepted": ["mouth_left"], "corrected": {}},
+            # a new prediction on the side view: a new record
+            "assist": {"model": "s170", "predicted_at": "2026-10-01T02:00:00"}},
+        # a ruler point moved: a new scale
+        "lateral": {**LAT, "calibration": {"mode": "manual", "point_a": [12, 10],
+                                           "point_b": [510, 10], "known_mm": 50}},
+        "frontal": {"keypoints": {"mouth_left": [6, 5]},
+                    "calibration": {"mode": "ticks", "px_per_mm": 22.86, "notes": "mirror ruler"}}})
+    assert code == 200
+    saved = json.loads((study / "sidecars" / f"{FID}.json").read_text())
+    meta = saved["metadata"]
+    assert {k: meta["assist_frontal"][k] for k in bulk} == bulk
+    assert meta["assist_frontal"]["corrected"] == {}                # the save still wins
+    assert "seen_by" not in meta["assist"]
+    assert saved["frontal"]["calibration"]["placed_by"] == "ruler-ticks"
+    assert saved["frontal"]["keypoints"]["mouth_left"] == [6, 5]
+    assert "placed_by" not in saved["lateral"]["calibration"]
+
+
 def test_a_new_fish_opened_empty_cannot_overwrite_one_saved_meanwhile(srv):
     url, study = srv
     assert _save(url, {"fish_id": FID, "metadata": {}, "lateral": LAT})[0] == 200

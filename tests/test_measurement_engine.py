@@ -76,6 +76,8 @@ def _synthetic_fish() -> Annotation:
             "peduncle_narrowest_dorsal": (160, 30),
             "peduncle_narrowest_ventral": (160, 70),
             "caudal_base": (165, 50),
+            "caudal_crease_dorsal": (165, 32),
+            "caudal_crease_ventral": (165, 68),
             "dorsal_base_center": (100, 10),
             "dorsal_tip": (100, -5),
             "pelvic_base_center": (95, 90),
@@ -354,3 +356,10 @@ def test_scale_from_known_span_rejects_coincident_points():
 def test_scale_from_known_span_rejects_nonpositive_mm():
     with pytest.raises(ValueError):
         scale_from_known_span((0.0, 0.0), (1.0, 0.0), known_mm=0.0)
+
+
+def test_CPb_is_the_depth_between_the_ends_of_the_caudal_crease(synthetic_measurements):
+    # (165, 32) to (165, 68): 36 px at the synthetic fish's calibration
+    cpb = synthetic_measurements.values["CPb"]
+    cpd = synthetic_measurements.values["CPd"]
+    assert cpb.value == pytest.approx(cpd.value * 36 / 40)   # CPd's pair is 40 px apart

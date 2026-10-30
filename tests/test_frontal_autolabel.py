@@ -44,7 +44,7 @@ def srv(tmp_path, monkeypatch):
     calls = []
 
     def fake(image, polygons=False, emit_polygons=True, view="lateral", crop=None,
-             fins=None):
+             fins=None, landmarks=None):
         calls.append({"image": Path(image).name, "polygons": polygons, "view": view,
                       "crop": crop})
         kps = ({"mouth_left": [100.0, 120.0], "mouth_right": [180.0, 121.0]} if view == "frontal"
@@ -54,6 +54,8 @@ def srv(tmp_path, monkeypatch):
                 "frame_warning": None, "model": f"{view}.pt", "elapsed": 0.1}
 
     monkeypatch.setattr(ls.Predictor, "predict", classmethod(lambda cls, *a, **k: fake(*a, **k)))
+    # Whatever models this machine has installed are not the fake's.
+    monkeypatch.setattr(ls, "current_model", lambda view="lateral": None)
     ls.Handler.datasets = {"study": study}
     ls.Handler.default_dataset = "study"
     ls.Handler.images_dir = study
@@ -95,6 +97,32 @@ def test_frontal_cache_is_kept_apart_from_the_lateral_one(srv):
     # and asking again is served from that cache, not the model
     code, r = _get(url, f"/api/predict/{FID}?dataset=study&view=frontal")
     assert r["cached"] and r["keypoints"]["mouth_left"] == [100.0, 120.0] and len(calls) == 1
+
+
+def test_a_prediction_by_a_replaced_model_is_made_again(srv, monkeypatch):
+    url, study, calls = srv
+    _get(url, f"/api/predict/{FID}?dataset=study")
+    code, r = _get(url, f"/api/predict/{FID}?dataset=study")
+    assert r["cached"] and len(calls) == 1
+    # A new model is pinned: the cached guess was the old one's, so it is not served.
+    monkeypatch.setattr(ls, "current_model", lambda view="lateral": (study, "union/new.pt"))
+    code, r = _get(url, f"/api/predict/{FID}?dataset=study")
+    assert code == 200 and not r.get("cached") and len(calls) == 2
+
+
+def test_opening_a_fish_never_waits_for_the_model(srv, monkeypatch):
+    url, study, calls = srv
+    # nothing cached: answered at once, and the model is not run
+    code, r = _get(url, f"/api/predict/{FID}?dataset=study&cache=only")
+    assert code == 200 and r["ok"] is False and r["cached"] is False and not calls
+    # cached by the model in use: served
+    _get(url, f"/api/predict/{FID}?dataset=study")
+    code, r = _get(url, f"/api/predict/{FID}?dataset=study&cache=only")
+    assert r["ok"] and r["cached"] and len(calls) == 1
+    # cached by a model since replaced: not served, and still no model run
+    monkeypatch.setattr(ls, "current_model", lambda view="lateral": (study, "union/new.pt"))
+    code, r = _get(url, f"/api/predict/{FID}?dataset=study&cache=only")
+    assert r["ok"] is False and len(calls) == 1
 
 
 def test_lateral_is_unchanged(srv):
