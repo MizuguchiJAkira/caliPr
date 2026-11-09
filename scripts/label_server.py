@@ -1540,6 +1540,81 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"ok": True, "info": json.loads(info.read_text()),
                                     "jpeg": base64.b64encode(out.read_bytes()).decode()})
 
+    def _scale_view(self, fid: str, query: str):
+        """A fish's photograph with its scale margins brought up, as a JPEG.
+
+        ``?view=&mode=&strength=&channel=&scale=`` (``scale``: one fish scale in
+        photograph px, from its landmarks; tiles and filters are sized by it).
+        Display only: nothing is written, and the labeler draws it over the
+        photograph's own rectangle.
+        """
+        import tempfile
+
+        from fish_morpho import fish_scales
+        q = {k: v[0] for k, v in parse_qs(query).items()}
+        view = q.get("view", "lateral")
+        if not fid or fid != Path(fid).name or fid.startswith(".") or view not in ("lateral", "frontal"):
+            return self._send(400, {"ok": False, "error": "bad request"})
+        if q.get("mode", "local") not in fish_scales.MODES or \
+                q.get("channel", "luminance") not in fish_scales.CHANNELS:
+            return self._send(400, {"ok": False, "error": "unknown mode or channel"})
+        try:
+            strength = min(16.0, max(0.5, float(q.get("strength", 4))))
+            size = min(2000.0, max(0.0, float(q.get("scale", 0) or 0)))
+        except ValueError:
+            return self._send(400, {"ok": False, "error": "bad number"})
+        photo = view_image(self.images_dir, fid, view)
+        if photo is None:
+            return self._send(404, {"ok": False, "error": f"no photograph for “{fid}”"})
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "scales.jpg"
+            r = subprocess.run(
+                [sys.executable, str(_ROOT / "scripts/scale_view.py"), "enhance", "--image", str(photo),
+                 "--out", str(out), "--mode", q.get("mode", "local"), "--strength", str(strength),
+                 "--channel", q.get("channel", "luminance"), "--scale-size", str(size)],
+                capture_output=True, text=True, timeout=120, cwd=_ROOT)
+            if r.returncode != 0 or not out.is_file():
+                return self._send(500, {"ok": False, "error": (r.stderr.strip().splitlines()
+                                                               or ["could not enhance"])[-1]})
+            return self._send(200, out.read_bytes(), "image/jpeg")
+
+    def _scale_count(self):
+        """Scales crossed along a traced row: ``{"id", "view", "path", "sl", "axis"}`` -> ticks.
+
+        ``path`` is the row as clicked, ``[[x, y], ...]`` on the photograph;
+        ``sl`` the fish's standard length in px when its landmarks give one, which
+        bounds the spacing searched; ``axis`` its snout and the end of its vertebral
+        column, which place the row on the body. The answer is
+        ``fish_scales.count_along``'s: a proposal, with its ticks and likely range,
+        for a person to check. Nothing is written.
+        """
+        n = int(self.headers.get("Content-Length", 0))
+        try:
+            body = json.loads(self.rfile.read(n) or b"{}")
+            fid, view = str(body.get("id") or ""), str(body.get("view") or "lateral")
+            path = [[float(x), float(y)] for x, y in body.get("path") or []]
+            sl = float(body.get("sl") or 0)
+            axis = [[float(x), float(y)] for x, y in body.get("axis") or []] or None
+            assert axis is None or len(axis) == 2
+        except Exception:
+            return self._send(400, {"ok": False, "error": "bad payload"})
+        if not fid or fid != Path(fid).name or fid.startswith(".") or view not in ("lateral", "frontal"):
+            return self._send(400, {"ok": False, "error": f"no such specimen “{fid}”"})
+        if len(path) < 2:
+            return self._send(400, {"ok": False, "error": "Trace the row with two points or more."})
+        photo = view_image(self.images_dir, fid, view)
+        if photo is None:
+            return self._send(404, {"ok": False, "error": f"no photograph for “{fid}”"})
+        r = subprocess.run(
+            [sys.executable, str(_ROOT / "scripts/scale_view.py"), "count", "--image", str(photo),
+             "--path", json.dumps(path), "--sl", str(sl)] + (["--axis", json.dumps(axis)] if axis else []),
+            capture_output=True, text=True, timeout=120, cwd=_ROOT)
+        try:
+            return self._send(200, json.loads(r.stdout))
+        except ValueError:
+            return self._send(500, {"ok": False, "error": (r.stderr.strip().splitlines()
+                                                           or ["could not count"])[-1]})
+
     def _set_scheme(self):
         """Switch this study to another landmark scheme, or back to caliPr's.
 
@@ -2914,6 +2989,8 @@ class Handler(BaseHTTPRequestHandler):
         # A fish whose photograph has left the study is not compared -- except in a
         # downloaded reference set, which carries landmarks and credits, no photographs.
         landmarks_only = load_profile(ref_dir).get("reference_set") and not present
+        if present:
+            self._refresh_characters(ref_dir)
         ref = [r for r in species_match.load_reference(
                    ref_dir, lambda fid: grouping.resolve(fid, table=table, pattern=pattern),
                    load_profile(ref_dir).get("terminal_mouth"))
@@ -2933,17 +3010,19 @@ class Handler(BaseHTTPRequestHandler):
                 if hit:
                     sizes[sp] = hit
         fish = []
-        for i, (f, (fid, fixed)) in enumerate(zip(doc["fish"], self._batch_corrections(name, doc))):
+        pairs = list(zip(doc["fish"], self._batch_corrections(name, doc)))
+        chars = self._batch_characters(name, doc, [fixed or f["keypoints"] for f, (_, fixed) in pairs])
+        for i, (f, (fid, fixed)) in enumerate(pairs):
             kps = fixed or f["keypoints"]
-            m = (species_match.identify(kps, ref, ppm, sizes=sizes) if fixed or not f.get("error")
-                 else {"ok": False, "error": f["error"]})
+            m = (species_match.identify(kps, ref, ppm, sizes=sizes, query_chars=chars[i])
+                 if fixed or not f.get("error") else {"ok": False, "error": f["error"]})
             sl_px = species_match.standard_length_px(kps)
             fish.append({"n": i + 1, "box": f["box"], "outline": f["outline"],
                          "keypoints": kps, "low_confidence": [] if fixed else f.get("low_confidence", []),
                          "sl_mm": m.get("sl_mm"),
                          "sl_px": round(sl_px) if sl_px else None,
                          "too_small": bool(sl_px and sl_px < batch_fish.SMALLEST_SL_PX),
-                         "fid": fid, "checked": bool(fixed), "match": m})
+                         "fid": fid, "checked": bool(fixed), "match": m, "characters": chars[i]})
         counts: dict[str, int] = {}
         for r in ref:
             counts[r.species] = counts.get(r.species, 0) + 1
@@ -2983,6 +3062,44 @@ class Handler(BaseHTTPRequestHandler):
                 "drainage": drainage, "taxa": taxa,
                 "fish": fish, "smallest_sl_px": batch_fish.SMALLEST_SL_PX,
                 "reference": {"study": ref_dir.name, "fish": len(ref), "species": counts}}
+
+    def _refresh_characters(self, study: Path) -> None:
+        """Read the characters again (``scripts/photo_characters.py``) for the fish
+        whose labels changed since they were last read, if any did."""
+        from fish_morpho.species_match import CHARACTERS_FILE
+        out = study / CHARACTERS_FILE
+        try:
+            newest = max((f.stat().st_mtime for f in (study / "sidecars").glob("*.json")), default=0)
+        except OSError:
+            return
+        if out.is_file() and out.stat().st_mtime >= newest:
+            return
+        subprocess.run([sys.executable, str(_ROOT / "scripts/photo_characters.py"), "--study", str(study)],
+                       capture_output=True, text=True, timeout=1800, cwd=_ROOT)
+
+    def _batch_characters(self, name: str, doc: dict, landmarks: list) -> list[dict]:
+        """The characters read from a batch photograph for each of its fish, at the
+        places its landmarks (``landmarks``, one dict per fish) set. Kept in the
+        photograph's cache under a fingerprint of those landmarks, so a fish is read
+        once until its points change."""
+        from fish_morpho import photo_characters
+        path = self.images_dir / "batch" / name
+        img, changed, out = None, False, []
+        for f, kps in zip(doc["fish"], landmarks):
+            key = photo_characters.landmarks_key(kps)
+            if f.get("characters_for") != key:
+                if img is None:
+                    import cv2
+                    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
+                    if img is None:
+                        return [{} for _ in landmarks]
+                f["characters"] = photo_characters.characters(img, kps)
+                f["characters_for"] = key
+                changed = True
+            out.append(f.get("characters") or {})
+        if changed:
+            (self.images_dir / "batch_cache" / f"{path.stem}.json").write_text(json.dumps(doc))
+        return out
 
     # -- where a batch photograph's lot was caught ------------------------
 
@@ -3465,6 +3582,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if route.startswith("/api/predict/"):
             return self._predict(unquote(route[len("/api/predict/"):]))
+        if route.startswith("/api/scales/view/"):
+            return self._scale_view(unquote(route[len("/api/scales/view/"):]), urlparse(self.path).query)
 
         if route.startswith("/api/sidecar/"):
             fid = unquote(route[len("/api/sidecar/"):])
@@ -3577,6 +3696,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._dwc_import()
         if route == "/api/straighten/preview":
             return self._straighten_preview()
+        if route == "/api/scales/count":
+            return self._scale_count()
         if route == "/api/relabel/new":
             return self._relabel_new()
         if route == "/api/reference":

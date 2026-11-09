@@ -676,3 +676,250 @@ The large misses are small, folded or pinned fins, where a few pixels are a larg
 fraction of the area, and at least one is a labelling inconsistency: TXD_17's
 pelvic tip sits well beyond its own traced outline.
 
+
+## Species from the photograph itself: parked
+
+Before going further with an image classifier for the shiners, BioCLIP 2
+(Imageomics, Ohio State; ViT-L/14 trained on TreeOfLife-200M) was compared, zero-shot,
+with the landmark identifier on the same fish, choosing among the same candidates.
+Top 1 / top 2:
+
+| fish | n | BioCLIP 2 | landmarks |
+|---|---|---|---|
+| reference photographs, 7 shiners | 78 | 49% / 73% | 59% / 74% (left out) |
+| tray fish, points corrected | 15 | 47% / 60% | 60% / 80% |
+| tray fish, model points | 87 | 40% / 67% | 34% / 49% |
+| Catatonk minnows, among all 21 | 41 | 29% / 46% | 68% / 85% |
+
+Their errors differ: the right species is in one or the other's top 2 for 87-94%
+of fish, and a plain rank sum puts it in the top 2 for 82% of reference fish and
+70% of model-point tray fish. Two caveats on BioCLIP's side, in opposite
+directions: TreeOfLife-200M includes GBIF's preserved-specimen photographs, so it
+may have trained on these very images; and pybioclip resizes every image to
+224 x 224 without keeping proportions, so a shiner cut-out, about three times as
+long as deep, reaches the model squeezed threefold along its length.
+
+A closed-set classifier on frozen BioCLIP embeddings (letterboxed fish plus head,
+mid-body and tail tiles; logistic regression with whole lots held out; a
+leave-one-collection-out test) was written but not run. It is parked: whole-image
+identification is well served by models like BioCLIP, and what caliPr adds is the
+characters a person identifies by -- shape, and the counts below. Anyone picking
+it up should hold out whole collections, not just lots: the reference set is
+confounded by collection (47 of 50 *L. cornutus* and 47 of 49 *L. chrysocephalus*
+photographs are FMNH's, 40 of 52 *N. rubellus* INHS's, 37 of 47 *C. spiloptera*
+JFBM's), and a classifier can learn the light box.
+
+## Fish scales: a view that shows them, and a count along a row
+
+Shape cannot separate *Luxilus cornutus* from *L. chrysocephalus* (52%, chance, in
+the size-standardised pair test), and the characters that do are scale counts
+(Gilbert 1964). The labeler took counts typed in by hand; this is the attempt to
+make the scales easier to see and to count them from the photograph.
+
+### Seeing them: local contrast wins, and the dots are the problem
+
+Compared on an FMNH, a CMN and a JFBM photograph: local contrast (CLAHE on
+luminance, or harder on the green channel), a high-pass, a difference of Gaussians
+and a black top-hat. **CLAHE brings the scale margins up best on all three**, down
+to the FMNH Luxilus at about 23 px a scale. The high-pass is close behind; the
+difference of Gaussians, at the one width tried, blurred the margins; the top-hat
+lights every melanophore and is unreadable.
+
+The obstacle is not faint margins but melanophore dots, as dark as the margins and
+nearly as wide. A Hessian line measure (larger eigenvalue less the smaller) drops
+a dot's centre, but its rim still reads as a short curved line: a 3 px dot keeps
+about half the response of a 2 px margin line, and Frangi's blob ratio does no
+better. Where a lateral stripe is dense with dots (*N. atherinoides*) the margins
+under it cannot be read at all; the rows above and below can.
+
+Built: the **scales** view in the Image tab (local contrast / margins only /
+high-pass, strength, channel), filtered on the server at the photograph's
+coordinates and sized from the fish's standard length (`fish_morpho.fish_scales`,
+`scripts/scale_view.py`).
+
+### Counting: spacing first, then one tick per margin
+
+Counting peaks along a row fails on dots and glints. What works: straighten a
+narrow band around the traced row (a fifth of the longest spacing allowed, so it
+stays in one row and does not see the next row's margins half a scale on), read
+the margin measure along it, take the margins' spacing from the band's
+autocorrelation within bounds set by standard length, then place the ticks by
+dynamic programming -- the best chain of margin crossings whose gaps stay near that
+spacing (beat tracking, Ellis 2007) -- so a margin lost under a dot is bridged
+rather than skipped, and a dot between margins is not counted. On synthetic flanks
+(crescent margins, three rows offset half a scale, 900 dots, a glare ramp) the
+count is exact to one at 18-30 px a scale.
+
+Built: **Trace** beside each count. Click along the row; the server proposes the
+ticks; clicking a tick drops it, clicking the row between ticks adds one. The row,
+its ticks and the proposed count are saved with the fish (`metadata.count_traces`).
+
+### Calibrated against published lateral-line counts
+
+The counter was run, untraced, on 470 reference photographs: a straight path from
+just behind the opercle to the end of the vertebral column, parallel to the
+head-to-tail axis. A straight path crosses each oblique scale series once, so it
+should give the lateral-line count without finding the lateral line. Published
+counts for all 21 species came mainly from Jenkins & Burkhead 1994 (via the
+Virginia agency's species booklets), Scott & Crossman 1973 and the Wisconsin Fish
+ID key. For spottail shiner and bluntnose minnow, whose counts rise northward, the
+northern ranges were used: the photographed fish are from Minnesota, Illinois and
+Canada.
+
+Before calibration, species means tracked the literature closely (r = 0.95 over 14
+species with 3+ fish) but ran about one scale high, and fish of one species spread
+by 2-5.5 scales. The tick chain was rewarded for every crossing, so a dot between
+two margins earned a tick of its own. Calibrated, by a grid over the spacing cap,
+a cost per tick and the gap tolerance, scored by leaving each species out:
+
+- **Per-tick cost 0.25** (`TICK_COST`): species means within a median 0.7 scales
+  of the published usual range's middle, worst 3.7, with no offset applied.
+  Medians: *L. cornutus* 40 (usual 38-40), *L. chrysocephalus* 38 (37-39),
+  *N. volucellus* 36 (36-38), *C. spiloptera* 37 (37-39), *N. procne* 36 (34-37),
+  *C. analostana* 35 (35-37), creek chub 52 (52-58), stoneroller 48 (47-55).
+- **The cap on the count stays at 64.** At 80 or 95 the spacing search locks onto
+  half a scale on some shiners and the spread within species doubles (to 6.5-8.5).
+  So the dace (61-75) are out of reach: one longnose dace read 41.
+- **Per fish it is about ±3 scales** (within-species SD about 3, against a natural
+  ±1-1.5) whatever the tick settings: the noise is in reading the photograph, not in
+  placing ticks. Enough to tell small-scaled genera from shiners, not to split two
+  shiners that differ by two scales; a traced, checked count is still the count.
+
+The settings were chosen on the same 14 species they were scored on (15 tried), so
+the 0.7 is a little optimistic.
+
+### One clear scale, and the rest filled in: no better
+
+The idea: on a photograph where the margins cannot be followed, find one scale
+that can be measured, and fill the line with scales sized from it by how scale
+length changes along the body. Nobody has measured that change along the lateral
+line in any leuciscid (bitterling, salmon and bluegill studies measure removed
+scales, and disagree on where the largest are), so it was measured here, on 118
+clear photographs (22+ px a scale), as the local spacing in windows of about seven
+scales, each window on its own:
+
+| along the line | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 |
+|---|---|---|---|---|---|---|---|---|---|
+| *Notropis* (81) | 1.00 | 1.02 | 1.02 | 1.00 | 0.96 | 0.93 | 0.97 | 1.00 | 0.93 |
+| *Luxilus* (18) | 1.01 | 1.03 | 1.03 | 0.96 | 0.94 | 0.93 | 0.94 | 1.00 | 1.03 |
+| *Cyprinella* (13) | 1.00 | 1.03 | 1.00 | 1.00 | 0.96 | 0.92 | 0.93 | 0.96 | 0.96 |
+
+Nearly flat: within about 8%, a little shorter behind mid-body, the same in all
+three genera. The elevated anterior scales of *Luxilus* and the mimic shiner do
+not show as shorter ones, so they are taller rather than narrower.
+
+Filled from k adjacent scales on those same fish, profile built without the fish,
+against the full count: 1 scale, median error 3-5 and within ±1 on 10-18% of fish;
+3 scales, 2-3 and 19-25%; 5 scales, 2 and 26-30%. The profile barely beats assuming
+every scale the same length. The arithmetic says why: the count is the line's length
+over the average scale length, so a count right to ±1 in 38 needs the average
+scale length to 2.6%, and one scale at 15-25 px is not measured to 2.6% (one pixel
+is 4-7%), nor is one scale the average of the others. Measuring the spacing across
+every stretch that can be read, as the counter already does, is the same idea with
+as many scales as the photograph allows. (The "full count" here is the counter's own
+on clear photographs: this tests the filling-in, not the counter.)
+
+### Built: filled in from every stretch that can be read, with a likely range
+
+What the one-scale test left standing: use every scale the photograph lets you
+read, not one. The row is cut into windows about six scales long, one scale apart;
+a window counts as read when its own autocorrelation, at its own spacing, reaches
+0.35 (0.4% of windows on a plain noisy ground do, a quarter of those on a shiner).
+Each read window's spacing, divided by the relative scale length where it lies on
+the body (`LENGTH_ALONG_BODY`, the table above re-measured by x/SL from the snout),
+estimates the mid-body scale length; the median of those that agree within 30% is
+taken (a window locked on half or double the spacing falls out), and the row is
+filled with scales of it, plus one: a row so many scale lengths long holds a scale
+part-way in at each end. Without the extra one the filled-in count ran 1-1.4 low.
+Fewer than 8 scales read across all windows, and nothing is filled in.
+
+The likely range: on the clear photographs, filling in from 10-23 scales strayed
+from the whole row's count by 4.5-5% (robust SD) whatever the number measured, so
+the range is mostly that floor -- about ±3 on a count of 38 at 90%. It says how far
+the reading may be from what reading the whole row would give, not whether the
+whole row's reading is itself right: that still waits on counts made by hand.
+
+When to fill in rather than tick every margin: on 317 shiners where both could be
+done, below 30% of the row readable the ticks fell inside the published range for
+67% of fish and the filled-in count for 77%; above 30% the two were level. So a
+tick at every margin only when the read stretches cover 30% of the row
+(`TICKS_COVERAGE`), and filled in otherwise.
+
+On 460 reference photographs, untraced flank path: 358 read margin by margin (count
+inside the published range for 84%, its likely range overlapping it for 96%), 46
+filled in that were refused before (76%; 93%), 56 still refused. In the labeler a
+filled-in count reads "≈37 (likely 33-41), filled in from 13 scales measured", its
+ticks drawn only where it measured and not editable, since the count is not them.
+
+### Against counts made by hand: a blind check, waiting on the counts
+
+Every check above compares the counter with itself or with a species' published
+range; neither says whether one fish's count is right. So 32 shiners are being
+counted by hand: three of each of the nine look-alike species (a small, a middle
+and a large photograph, one of them filled in where the species has any), two creek
+chub, two stoneroller and a fallfish, drawn at random from fish whose ticks or
+enhanced flank had never been looked at. Blind twice over: the counter's counts, on
+the path a batch would use, were frozen before any counting (the frozen file's
+sha256 is checked when they are compared), and the photographs are cropped to the
+fish under neutral names in shuffled order, so neither a museum tag nor the
+filename gives the species and its textbook count. Trace is left alone, since it
+shows the counter's answer. The rule was set beforehand: within one scale for at
+least 80% of fish, and the count can be proposed on photographs like these;
+otherwise it stays a tool checked by hand.
+
+### Ticks on the scales' pale rims, where a row shows them
+
+On *Cyprinella analostana* 7, three lateral-line scales outlined by hand showed
+the ticks sitting mid-scale: the outlines cross the line at thin pale rims, and
+the ticks landed on the dark band of pigment just inside each scale, 7-12 px
+short of the edge, with one tick inside the third scale. The count was right (35,
+published (33) 35-37 (38)), since there is one band per scale.
+
+Tried and dropped: moving each tick to the low point after its band. The lowest
+point within half a scale fitted the outlines, and the first low point nearly so,
+but both moved the ticks on thin margin lines by a fifth to a quarter of a scale
+(*N. rubellus* 10-13 px, *N. procne* 9.5-16 px) with nothing to say that was
+right, and neither fixed the third scale, where two ticks had been placed 18 px
+apart. Ticks at the dark-to-light step after each band were 4-8 px early.
+
+Built: the same measure on the inverted image finds pale lines. Where they repeat
+strongly along the row (autocorrelation 0.25 or more, at the margins' spacing
+within 15%) and give the same count, the ticks go on them: on the three scales,
+1-5 px from the outlines and none inside. Otherwise the ticks stay on the dark
+margins as before. On 99 hand-labelled shiners, 5 rows go to the rims and no count
+changes. A row traced from the tail is now read from the head, so the answer does
+not depend on which end was clicked first. The five rows on rims have not been
+checked against outlines.
+
+## Characters from the photograph, where the landmarks say to look
+
+`fish_morpho.photo_characters`, compared beside shape in batch identification.
+
+| character | read as | worked? |
+|---|---|---|
+| dorsal origin behind pelvic origin | along the fish, over SL, from landmarks | yes: emerald, rosyface, comely +0.07 SL; both *Luxilus* 0.00 |
+| caudal spot | darkness at the end of the vertebral column against the lower flank | yes, once moved onto the body: spottail 0.42, the rest about 0 or below |
+| snout | darkness between premaxilla and orbit | yes: blacknose and bridle +0.28-0.30, spottail, mimic and *Luxilus* below +0.05 |
+| side stripe | darkest disc across the side, median of three places along it | yes: blacknose against mimic 87% of pairs |
+| upright scale margins | share of margin strength in near-vertical lines, front of the side | partly: *Luxilus*, *Cyprinella*, creek chub, stoneroller 0.61-0.72 against *Notropis* 0.48-0.55; *L. cornutus* against *L. chrysocephalus* 70% of pairs, both nearly all FMNH so not the light box; does not separate mimic from spottail |
+| dorsal fin spots, front and rear | darkness of the membrane | **no**: fins are translucent over the background (white on most light boxes, black on CMN's) and often folded; normalising to the background above the fin did not bring up the spotfin's blotch |
+
+The caudal spot first sat 0.03 SL behind the vertebral column, which is fin over
+the light box, and read every species pale; the side stripe first read one disc on
+the axis, which misses a stripe that rides higher on some fish.
+
+Identification, each hand-labelled fish left out (119 fish, 13 species with 4+):
+top 1 60% → 63%, top 2 75% → 79%; *L. cornutus* against *L. chrysocephalus* 43% →
+57% (chance for shape alone). Tray fish on model points (102): top 1 35% → 37%, top 2
+49% → 51%. Modest. One likely reason: each character's spread per species is
+estimated from the 4-12 hand-labelled fish of that species, while across all ~45
+photographs per species (model points placing the characters) the pairs separate
+clearly -- spottail against mimic in 88% of pairs on the caudal spot alone. Using
+every identified photograph for the characters, not only the hand-labelled ones, is
+the next thing to try.
+
+Reference fish's characters are kept in `<study>/photo_characters.json` with a
+fingerprint of the landmarks they were read at (`scripts/photo_characters.py`;
+the labeler reruns it for changed fish before scoring a batch), and travel in the
+packaged reference set, which has no photographs. Tray fish's are kept in the
+tray's cache under the same kind of fingerprint.

@@ -163,6 +163,11 @@
   #imgctrl input[type=range] { width:100%; margin:2px 0 0; }
   .imgbtns { display:flex; gap:5px; margin-top:3px; }
   .imgbtns button { flex:1; padding:2px 6px; font-size:11px; }
+  #scalectrl { display:flex; flex-direction:column; gap:6px; margin-top:6px; padding-top:7px; border-top:1px solid var(--line2); }
+  #scalectrl label select { font-size:11px; padding:1px 20px 1px 5px; }
+  #scstate { color:var(--mut); font-size:11px; min-height:13px; }
+  .cntrow .trace { padding:1px 7px; font-size:11px; }
+  .cnttrace { color:var(--mut); font:11px/1.4 var(--mono); margin:-1px 0 3px; }
 
   /* ---- Specimens pane ----------------------------------------------------- */
   #specsearchrow { position:relative; gap:5px; }
@@ -722,6 +727,21 @@ or read from the filenames; carried into every export.">Specimen records</button
             <button id="tInv" title="Invert — can lift a faint margin out of a dark ground">Invert</button>
             <button id="enhReset">Reset</button>
           </div>
+          <div id="scalectrl" title="Fish scales: the photograph filtered on the server to bring up the scale margins. Same size as the photograph, so points land where they would on it.">
+            <label>scales <select id="scMode">
+              <option value="">off</option>
+              <option value="local">local contrast</option>
+              <option value="margins">margins only</option>
+              <option value="highpass">high-pass</option></select></label>
+            <label>strength <b id="vScS">4.0</b>
+              <input id="scS" type="range" min="1" max="12" step="0.5" value="4"></label>
+            <label>channel <select id="scCh">
+              <option value="luminance">luminance</option>
+              <option value="red">red</option>
+              <option value="green">green</option>
+              <option value="blue">blue</option></select></label>
+            <div id="scstate"></div>
+          </div>
         </div></div>
       </div>
     </section>
@@ -974,7 +994,7 @@ function _restore(state){
     persistDraft();
   } finally { restoring=false; }
   hoverName=null;
-  buildTasks(); renderAutoStat(); showHint(); draw(); updateCalRead();
+  buildTasks(); renderAutoStat(); renderCounts(); showHint(); draw(); updateCalRead();
 }
 function undoAction(){
   if(!history.length){ toast('Nothing to undo'); return; }
@@ -1001,7 +1021,7 @@ const cvi=$('#cvimg'), ictx=cvi.getContext('2d');   // the photograph, under cv
 function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('show');
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),1600);}
 
-function blankModel(){return {lateral:emptyView(),frontal:emptyView(),data_note:'',exclude:[],counts:{}};}
+function blankModel(){return {lateral:emptyView(),frontal:emptyView(),data_note:'',exclude:[],counts:{},count_traces:{}};}
 // ---- operator ------------------------------------------------------------------
 // Who is labelling, kept in this browser and written beside every point placed,
 // moved or accepted (lateral.operators in the sidecar). A repeatability study
@@ -1046,10 +1066,15 @@ function renderCounts(){
   const sec=$('#cntsec'), list=(SCHEMA&&SCHEMA.counts)||[];
   sec.hidden=!list.length; if(!list.length) return;
   const have=(model&&model.counts)||{};
+  const tracing=activeTask&&activeTask.kind==='trace'?activeTask.name:null;
   $('#cntbody').innerHTML=list.map(c=>
     `<label class="cntrow" title="${esc(c.hint)}"><span class="cl">${esc(c.label)}</span>`+
+    `<button class="trace${tracing===c.name?' on':''}" type="button" data-name="${esc(c.name)}"${model?'':' disabled'} `+
+    `title="Trace the row on the photograph: click along it, and each scale margin it crosses is proposed as a tick">`+
+    `${tracing===c.name?'Done':'Trace'}</button>`+
     `<input class="cnt" type="number" min="0" step="1" inputmode="numeric" data-name="${esc(c.name)}" `+
     `value="${have[c.name]!=null?have[c.name]:''}"${model?'':' disabled'}></label>`+
+    `<div class="cnttrace" data-name="${esc(c.name)}">${traceText(c.name)}</div>`+
     (c.hint?`<div class="cnthint">${esc(c.hint)}</div>`:'')).join('');
   $('#cntbody').querySelectorAll('input.cnt').forEach(inp=>inp.oninput=()=>{
     if(!model) return;
@@ -1058,7 +1083,115 @@ function renderCounts(){
     if(v===''||!(n>=0)) delete model.counts[inp.dataset.name]; else model.counts[inp.dataset.name]=n;
     updateCntState(); persistDraft();
   });
+  $('#cntbody').querySelectorAll('button.trace').forEach(b=>b.onclick=e=>{
+    e.preventDefault(); if(!model) return;
+    const on=activeTask&&activeTask.kind==='trace'&&activeTask.name===b.dataset.name;
+    activeTask = on ? null : {kind:'trace', name:b.dataset.name,
+                              label:(list.find(c=>c.name===b.dataset.name)||{}).label||b.dataset.name};
+    showHint(); buildTasks(); renderCounts(); draw();
+  });
+  $('#cntbody').querySelectorAll('a.trclear').forEach(a=>a.onclick=e=>{
+    e.preventDefault(); delete (model.count_traces||{})[a.dataset.name];
+    persistDraft(); renderCounts(); draw();
+  });
   updateCntState();
+}
+// ---- counting scales along a traced row ----
+// Click along the row on the photograph (the lateral line, or a row above it); the
+// server proposes a tick at each scale margin the row crosses (fish_scales.
+// count_along), and the count is the ticks. A tick clicked is dropped; a click on
+// the traced line between ticks adds one; a click anywhere else extends the row
+// and asks again. The row and its ticks are saved with the fish (metadata.
+// count_traces), so a count can be checked against the photograph later.
+var traceBusy={};   // name -> the row a count is being asked for
+function traceText(name){
+  const tr=model&&model.count_traces&&model.count_traces[name];
+  if(!tr||!tr.path||!tr.path.length) return '';
+  const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  const busy=traceBusy[name]===tr;
+  const a=tr.auto||{}, filled=a.method==='filled in', rng=a.range?` (likely ${a.range[0]}–${a.range[1]})`:'';
+  let t = busy ? 'counting…'
+        : filled ? `≈${a.count}${rng}, filled in from ${Math.round(a.measured)} scales measured`
+        : tr.ticks.length ? `${tr.ticks.length} ticks`
+        : tr.path.length<2 ? 'one point — click along the row'
+        : a.error ? esc(a.error) : 'no ticks';
+  if(a.count!=null&&!busy&&!filled)
+    t += tr.edited ? ` (proposed ${a.count}${rng})` : `${rng} · ${a.spacing_px} px apart`;
+  if(tr.view!==view) t += ` · on the ${tr.view} view`;
+  return t + ` · <a href="#" class="trclear" data-name="${esc(name)}">clear</a>`;
+}
+// The closest point of a polyline to p: where, how far, how far along, which way.
+function nearestOnPath(path,p){
+  let best={p:path[0], d:Math.hypot(p[0]-path[0][0],p[1]-path[0][1]), s:0, dx:1, dy:0}, run=0;
+  for(let i=0;i<path.length-1;i++){
+    const a=path[i], b=path[i+1], vx=b[0]-a[0], vy=b[1]-a[1], L=Math.hypot(vx,vy);
+    if(!L) continue;
+    const t=Math.max(0,Math.min(1,((p[0]-a[0])*vx+(p[1]-a[1])*vy)/(L*L)));
+    const q=[a[0]+t*vx, a[1]+t*vy], d=Math.hypot(p[0]-q[0],p[1]-q[1]);
+    if(d<best.d || i===0) best={p:q, d, s:run+t*L, dx:vx/L, dy:vy/L};
+    run+=L;
+  }
+  return best;
+}
+function placeTrace(ix,iy){
+  const name=activeTask.name, near=8/Math.max(vs.scale,1e-6);
+  model.count_traces=model.count_traces||{};
+  let tr=model.count_traces[name];
+  if(!tr || tr.view!==view) tr=model.count_traces[name]={view, path:[], ticks:[]};
+  // a count filled in is not its ticks: they only show where the scales were measured
+  const editable=!(tr.auto&&tr.auto.method==='filled in');
+  const hit=editable ? tr.ticks.findIndex(t=>Math.hypot(t[0]-ix,t[1]-iy)<near) : -1;
+  const on=editable&&tr.ticks.length ? nearestOnPath(tr.path,[ix,iy]) : null;
+  if(hit>=0 || (on && on.d<near)){
+    if(hit>=0) tr.ticks.splice(hit,1);
+    else { tr.ticks.push(on.p.map(v=>Math.round(v*10)/10));
+           tr.ticks.sort((a,b)=>nearestOnPath(tr.path,a).s-nearestOnPath(tr.path,b).s); }
+    tr.edited=true;
+    model.counts=model.counts||{}; model.counts[name]=tr.ticks.length;
+    persistDraft(); renderCounts(); draw(); return;
+  }
+  tr.path.push([Math.round(ix),Math.round(iy)]); tr.ticks=[]; delete tr.auto; delete tr.edited;
+  persistDraft(); renderCounts(); draw();
+  if(tr.path.length>=2) recountTrace(name);
+}
+async function recountTrace(name){
+  const tr=model.count_traces[name], n=tr.path.length, id=cur.id;
+  traceBusy[name]=tr; renderCounts();
+  let r;
+  try{ r=await api('/api/scales/count'+dsq(), {method:'POST', headers:{'Content-Type':'application/json'},
+         body:JSON.stringify({id, view:tr.view, path:tr.path, sl:fishSlPx(), axis:fishAxis()})}); }
+  catch(e){ r={ok:false, error:'The labeler server did not answer.'}; }
+  if(traceBusy[name]===tr && tr.path.length===n) delete traceBusy[name];
+  // a later click, another fish or an undo has moved on from this row
+  if(!cur || cur.id!==id || !model.count_traces || model.count_traces[name]!==tr || tr.path.length!==n) return;
+  if(r.ok===undefined && /unknown route/.test(r.error||''))
+    r.error='The labeler server was started before scale counting existed. Restart it, then reload this page.';
+  if(r.ok){ tr.ticks=r.ticks; tr.auto={count:r.count, spacing_px:r.spacing_px, periodicity:r.periodicity,
+                                        method:r.method, range:r.range, measured:r.measured};
+            model.counts=model.counts||{}; model.counts[name]=r.count; }
+  else { tr.ticks=[]; tr.auto={error:r.error||'Could not count along this row.', periodicity:r.periodicity};
+         toast(tr.auto.error); }
+  persistDraft(); renderCounts(); draw();
+}
+function drawTraces(){
+  for(const [nm,tr] of Object.entries((model&&model.count_traces)||{})){
+    if(!tr||tr.view!==view||!tr.path||!tr.path.length) continue;
+    const on=activeTask&&activeTask.kind==='trace'&&activeTask.name===nm;
+    ctx.beginPath();
+    tr.path.forEach((p,i)=>{const [x,y]=toScr(p[0],p[1]); i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+    ctx.strokeStyle=on?'#E8A33Dcc':'#E8A33D66'; ctx.lineWidth=on?1.5:1; ctx.stroke();
+    tr.path.forEach(p=>dot(p,'#E8A33D',on?2.5:1.5));
+    // a tick across the row at each margin, a little under half a scale each way
+    const half=Math.max(5, Math.min(16, 0.4*((tr.auto&&tr.auto.spacing_px)||20)*vs.scale));
+    const filled=tr.auto&&tr.auto.method==='filled in';      // ticks only where it measured
+    ctx.strokeStyle=filled?(on?'#8E7CC3':'#8E7CC399'):(on?'#11A9BD':'#11A9BD99'); ctx.lineWidth=on?2:1.25;
+    for(const t of tr.ticks){
+      const q=nearestOnPath(tr.path,t), [x,y]=toScr(t[0],t[1]);
+      ctx.beginPath(); ctx.moveTo(x+q.dy*half, y-q.dx*half); ctx.lineTo(x-q.dy*half, y+q.dx*half); ctx.stroke();
+    }
+    if(filled) label(tr.path[tr.path.length-1], `≈${tr.auto.count}`);
+    else if(tr.ticks.length) label(tr.path[tr.path.length-1], String(tr.ticks.length));
+  }
 }
 function updateCntState(){
   const el=$('#cntstate'), list=(SCHEMA&&SCHEMA.counts)||[]; if(!el) return;
@@ -1701,6 +1834,10 @@ function ingest(sc){
   const meta=sc.metadata||{};
   model.data_note=meta.data_note||'';
   model.counts=Object.assign({}, meta.counts||{});
+  model.count_traces=JSON.parse(JSON.stringify(meta.count_traces||{}));
+  // Sent again even when emptied: the server keeps metadata a save leaves out,
+  // so a count or trace cleared here would otherwise come back.
+  model._had_counts=!!meta.counts; model._had_traces=!!meta.count_traces;
   model.exclude=meta.exclude_traits||[];
   // Re-derive which flag buttons were on from the excluded traits.
   model.flags=CLIP_FLAGS.filter(fl=>fl.traits.length &&
@@ -1720,7 +1857,8 @@ function loadImage(){
     img.onload=()=>{ if(token!==imgToken) return res();   // superseded
       imgW=img.naturalWidth;imgH=img.naturalHeight;imgView=view;
       buildImgSmall();
-      resize();fit();buildTasks();draw();res();};
+      resize();fit();buildTasks();draw();res();
+      if($('#scMode').value) requestScaleView();};        // the scale view follows the fish
     // the file's version in the address: a photograph turned in place is a new image
     const v=(cur.image_version||{})[view];
     img.src='/img/'+view+'/'+encodeURIComponent(file)+dsq()+(v?'&v='+v:'');
@@ -2044,6 +2182,13 @@ function showHint(){
   if(!activeTask){$('#hint').innerHTML='Pick a landmark from the list, then click on the image. '+
     '<kbd>wheel</kbd> zoom · <kbd>drag</kbd> pan';return;}
   const t=activeTask;
+  if(t.kind==='trace'){
+    $('#hint').innerHTML=`<b>${String(t.label).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</b> — click along the row on the photograph, a point wherever it `
+      + `bends; each scale margin it crosses is proposed as a tick. Click a tick to drop it, the line `
+      + `between two ticks to add one, anywhere else to extend the row. The <b>scales</b> view in the `
+      + `Image tab brings the margins up. <kbd>Enter</kbd> finish · <kbd>Z</kbd> undo.`;
+    drawRef(); return;
+  }
   if(t.kind==='midline'){
     const k=((model[view].midline)||[]).length;
     $('#hint').innerHTML=`<b>Midline</b>` + (k>=2 ? ` · <a id="mlShow">show it straightened</a>` : '')
@@ -2143,11 +2288,13 @@ function draw(){
   ictx.setTransform(1,0,0,1,0,0); ictx.clearRect(0,0,cvi.width,cvi.height);
   if(imgW){
     const dw=imgW*vs.scale, dh=imgH*vs.scale, small = !!imgSmall && vs.scale<=USE_SMALL_BELOW;
-    ictx.imageSmoothingEnabled = small;      // smooth a shrink; crisp pixels when zoomed in
+    // the scale view is at most 4000 px long, drawn over the photograph's rectangle
+    const enh = scaleViewOn();
+    ictx.imageSmoothingEnabled = enh ? vs.scale*imgW < imgEnh.naturalWidth : small;  // smooth a shrink; crisp pixels when zoomed in
     // A lost decode can also surface as an exception rather than an empty draw;
     // either way the photograph is missing, so both lead to the same recovery.
     let threw=false;
-    try{ ictx.drawImage(small?imgSmall:img, vs.ox, vs.oy, dw, dh); }catch(e){ threw=true; }
+    try{ ictx.drawImage(enh?imgEnh:(small?imgSmall:img), vs.ox, vs.oy, dw, dh); }catch(e){ threw=true; }
     // If the photograph was drawn and nothing appeared, the decode was lost:
     // reload the image rather than leave a black canvas. Bounded, so an image
     // that genuinely cannot be drawn does not reload forever.
@@ -2230,6 +2377,7 @@ function draw(){
     if(m.ruler.a) dot(m.ruler.a,'#c07bff',3.5);
     if(m.ruler.b) dot(m.ruler.b,'#c07bff',3.5);
     if(view==='lateral') drawMidline(m.midline||[], activeTask&&activeTask.kind==='midline');
+    drawTraces();
   }
   // One screen pixel covers 1/scale image pixels, and that is the floor on
   // placement precision however steady the hand. Fitted to a 4400px crop it is
@@ -2355,6 +2503,7 @@ function place(ix,iy){
     toast(`Zoomed out — each click lands within ~${(1/vs.scale).toFixed(0)} image px. `+
           `Scroll to zoom in for accurate placement.`);
   }
+  if(activeTask.kind==='trace') return placeTrace(ix,iy);   // a count, not a landmark
   // Who is labelling, asked once before the first point, since every point is
   // written down against a name.
   if(!OPERATOR && !askedOperator){ ensureOperator(); return; }
@@ -2561,7 +2710,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Enter'){e.preventDefault(); if(activeTask&&activeTask.kind==='polygon'){advance();buildTasks();draw();}
     else if(activeTask&&activeTask.kind==='midline'){ activeTask=null; showHint(); buildTasks(); draw();
       const k=(model&&model[view].midline||[]).length;
-      toast(k>=2 ? 'Midline set — this fish is measured along it' : 'A midline needs two points or more'); }}
+      toast(k>=2 ? 'Midline set — this fish is measured along it' : 'A midline needs two points or more'); }
+    else if(activeTask&&activeTask.kind==='trace'){ activeTask=null; showHint(); buildTasks(); renderCounts(); draw(); }}
   if((e.key==='z'||e.key==='Z') && e.shiftKey && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
   else if((e.key==='z'||e.key==='Z') && !e.shiftKey){ e.preventDefault(); undoAction(); }
   if((e.key==='y'||e.key==='Y') && (e.metaKey||e.ctrlKey)){ e.preventDefault(); redoAction(); }
@@ -2776,7 +2926,7 @@ function updateImgFilter(){
   cvi.style.filter = parts.length ? imgFilter : '';
   $('#tGray').classList.toggle('on',gray);
   $('#tInv').classList.toggle('on',inv);
-  const n=parts.length;
+  const n=parts.length+($('#scMode').value?1:0);
   $('#imgstate').textContent = n ? ` — ${n} active` : '';
   draw();
 }
@@ -2785,7 +2935,56 @@ $('#tGray').onclick=()=>{gray=!gray;updateImgFilter();};
 $('#tInv').onclick=()=>{inv=!inv;updateImgFilter();};
 $('#enhReset').onclick=()=>{
   $('#ctrst').value=1;$('#brt').value=1;$('#sat').value=1;$('#gam').value=1;
-  gray=false;inv=false;updateImgFilter();};
+  gray=false;inv=false;
+  $('#scMode').value='';$('#scS').value=4;$('#scCh').value='luminance';requestScaleView();
+  updateImgFilter();};
+// The fish-scale view: the photograph filtered on the server (fish_scales.enhance:
+// local contrast, the margins alone, or a high-pass) and drawn over the
+// photograph's own rectangle, so a point placed on it lands where it would on the
+// photograph. Display only, like the filters above, which still apply on top. It
+// is sized by one scale of this fish, from its standard length when the snout and
+// caudal-base points are placed: a lateral-line scale spans about SL/49 (some 38
+// scales over the 0.78 SL from shoulder girdle to hypural).
+let imgEnh=null, enhFor='', enhToken=0, enhTimer=null;
+const SL_SNOUT=['premaxilla_tip','dentary_anterior'], SL_TAIL=['vertebral_centrum_posterior','caudal_base'];
+function fishSlPx(){
+  const k=model&&model.lateral&&model.lateral.keypoints; if(!k) return 0;
+  const s=SL_SNOUT.map(n=>k[n]).find(Boolean), t=SL_TAIL.map(n=>k[n]).find(Boolean);
+  return s&&t ? Math.hypot(t[0]-s[0],t[1]-s[1]) : 0;
+}
+// the snout and the end of the vertebral column, which place a traced row on the body
+function fishAxis(){
+  const k=model&&model.lateral&&model.lateral.keypoints; if(!k) return null;
+  const s=SL_SNOUT.map(n=>k[n]).find(Boolean), t=SL_TAIL.map(n=>k[n]).find(Boolean);
+  return s&&t ? [s,t] : null;
+}
+function scaleViewOn(){ return !!(imgEnh && cur && enhFor.startsWith(cur.id+'|'+view+'|')); }
+function requestScaleView(){
+  clearTimeout(enhTimer);
+  const mode=$('#scMode').value, st=+$('#scS').value, ch=$('#scCh').value;
+  $('#vScS').textContent=st.toFixed(1);
+  if(!mode || !cur || !imgW){ enhToken++; imgEnh=null; enhFor=''; $('#scstate').textContent='';
+    updateImgFilter(); return; }
+  enhTimer=setTimeout(()=>{
+    const sl=fishSlPx(), v=(cur.image_version||{})[view];
+    const key=[cur.id,view,mode,st,ch,Math.round(sl)].join('|');
+    if(key===enhFor && imgEnh) return;
+    const token=++enhToken, im=new Image();
+    $('#scstate').textContent='filtering…';
+    im.onload=()=>{ if(token!==enhToken) return; imgEnh=im; enhFor=key;
+      $('#scstate').textContent = sl ? `sized for ${(sl/49).toFixed(0)} px scales`
+                                     : 'no snout and caudal-base points — sized for the frame';
+      updateImgFilter(); };
+    im.onerror=()=>{ if(token!==enhToken) return; imgEnh=null; enhFor='';
+      $('#scstate').textContent='could not filter — if the labeler was started before this existed, restart it';
+      updateImgFilter(); };
+    im.src=`/api/scales/view/${encodeURIComponent(cur.id)}${dsq()}&view=${view}&mode=${mode}`+
+           `&strength=${st}&channel=${ch}&scale=${(sl/49).toFixed(1)}`+(v?'&v='+v:'');
+  }, 250);
+}
+$('#scMode').onchange=requestScaleView; $('#scCh').onchange=requestScaleView;
+$('#scS').oninput=()=>{ $('#vScS').textContent=(+$('#scS').value).toFixed(1); };
+$('#scS').onchange=requestScaleView;
 $('#datanote').oninput=()=>{ if(model){ syncCompromise(); updateDcState(); persistDraft(); } };
 $('#viewPick').onchange=e=>setView(e.target.value);
 async function pickDataset(name){
@@ -4516,7 +4715,11 @@ function payloadFor(spec, model, predBy, held=[]){
   const by=(keep('lateral') && predBy.lateral.model)||(keep('frontal') && predBy.frontal.model);
   if(by) out.metadata.assisted_by=by;
   if(model.data_note) out.metadata.data_note=model.data_note;
-  if(model.counts&&Object.keys(model.counts).length) out.metadata.counts=model.counts;
+  if((model.counts&&Object.keys(model.counts).length) || model._had_counts) out.metadata.counts=model.counts||{};
+  const traces=Object.fromEntries(Object.entries(model.count_traces||{})
+    .filter(([,t])=>t&&t.path&&t.path.length)
+    .map(([k,t])=>[k,{view:t.view, path:t.path, ticks:t.ticks, ...(t.auto?{auto:t.auto}:{}), ...(t.edited?{edited:true}:{})}]));
+  if(Object.keys(traces).length || model._had_traces) out.metadata.count_traces=traces;
   if(model.exclude&&model.exclude.length) out.metadata.exclude_traits=model.exclude;
   for(const v of ['lateral','frontal']){
     const m=model[v]; const has=Object.keys(m.keypoints).length||Object.keys(m.polygons).length;

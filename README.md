@@ -63,7 +63,7 @@ download.
 | part | what it adds | what it downloads |
 |---|---|---|
 | Auto-label | the trained model places landmarks; you accept or move each one | PyTorch, DeepLabCut and Segment Anything (about 1.7 GB), and the trained models (about 570 MB) |
-| Batch identification | finds and landmarks every fish in a photograph of a lot, and compares each with a reference set of identified species, beside the lot's drainage, GBIF records and museum specimen photographs | a reference set: identified, hand-landmarked specimens and the credits of their photographs |
+| Batch identification | finds and landmarks every fish in a photograph of a lot, and compares each with a reference set of identified species by shape and by characters read from the photograph where the landmarks point (caudal spot, snout and side stripe, upright scale margins, dorsal fin behind the pelvic), beside the lot's drainage, GBIF records and museum specimen photographs | a reference set: identified, hand-landmarked specimens, the characters read from them and the credits of their photographs |
 
 Neither is released for download yet. Until a part is installed, its button says
 so, and once it is released the button offers to download it. The commands are:
@@ -172,6 +172,27 @@ A landmark on the inside of a bend, farther from the curve than the bend's
 radius, has no single place on the straightened fish. Such landmarks are reported
 rather than placed. The QC sheet records which specimens were straightened and
 how far each midline turns (`src/fish_morpho/straighten.py`).
+
+### Scale counts
+
+A study can ask for counts (`counts` in its `schema.json`), typed in or traced.
+**Trace** beside a count: click along the lateral line, and the labeler proposes a
+tick at each scale it crosses. Clicking a tick removes it, and clicking the line
+between two ticks adds one. The line and its ticks are saved with the fish, so a
+count can be checked against the photograph later. The Image tab's scale view
+brings out the scale margins.
+
+The counter reads the margins along a narrow band around the line, takes their
+spacing from the band's autocorrelation within bounds set by standard length, and
+places one tick per margin by dynamic programming (Ellis 2007), so a margin under
+a dark spot is bridged and the spot itself is not counted. Where a row shows pale
+rims at the scales' edges, the ticks go on the rims. A row that can only be read
+in parts is filled in from those parts, allowing for scales running shorter behind
+mid-body, and given with a likely range (`src/fish_morpho/fish_scales.py`).
+
+Against published lateral-line counts for 14 shiner species, the counter's
+species averages fall within a median 0.7 scales; single fish fall within about
+3. A blind comparison with counts made by hand is under way.
 
 ## Outputs
 
@@ -394,7 +415,7 @@ scripts/             labeler, exporters, preprocessing, model training and evalu
                      installers for the optional parts (components.json)
 data/<dataset>/      lateral/, frontal/, sidecars/, schema.json
 docs/                tutorial, automation reference, methods ledger
-tests/               522 tests
+tests/               568 tests
 ```
 
 `docs/what-we-tried.md` records approaches that were tested and rejected, with

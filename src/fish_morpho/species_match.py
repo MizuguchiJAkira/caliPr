@@ -40,9 +40,17 @@ shape's -- record counts measure collecting, not how common a fish is, so they
 weigh nothing.
 
 **Measurements.** Beside shape, the ones the keys use (``TRAITS``): snout length
-over orbit diameter, peduncle depth over SL, and greatest body depth over peduncle
-depth -- each at the fish's own size, each only where every species has reference
-fish that have it.
+over orbit diameter, peduncle depth over SL, greatest body depth over peduncle
+depth, and how far the dorsal fin starts behind the pelvic fins -- each at the
+fish's own size, each only where every species has reference fish that have it.
+
+**Characters from the photograph** (``PHOTO_TRAITS``, ``photo_characters``): how dark
+the caudal spot, the snout and the side stripe are against the lower flank, and how
+upright the scale margins are along the front of the side. Read from the photograph
+at places the landmarks set, so a reference fish has them only where they were
+read from its photograph (``photo_characters.json`` in the study, by
+``scripts/photo_characters.py``) and a fish being identified only when its own
+photograph is given. They enter exactly as the measurements do.
 
 The statistic is a Mahalanobis distance in the first few principal axes of
 within-species shape variation plus the measurements, its tail probability read
@@ -55,10 +63,12 @@ from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
+
+from fish_morpho import photo_characters
 
 #: Landmarks the cross-species model places well on shiners (run 4, median error
 #: under 1 % of SL on held-out shiners), under the BGNN 2D names.
@@ -134,6 +144,7 @@ class RefFish:
     species: str
     kp: dict
     sl_mm: float | None = None
+    chars: dict = field(default_factory=dict)   # photo_characters, where read
 
 
 def standard_length_px(kp: dict) -> float | None:
@@ -177,11 +188,35 @@ def load_reference(study_dir: Path, species_of, terminal_mouth=()) -> list[RefFi
         kp = {k: tuple(v[:2]) for k, v in (lat.get("keypoints") or {}).items() if v}
         if not sp or len(kp) < MIN_LANDMARKS:
             continue
+        chars = read_characters(study_dir, fid, kp)     # read with the landmarks as saved
         if terminal and sp.startswith(terminal) and "premaxilla_tip" not in kp and "dentary_anterior" in kp:
             kp["premaxilla_tip"] = kp["dentary_anterior"]
         sl, ppm = standard_length_px(kp), px_per_mm(lat.get("calibration"))
-        out.append(RefFish(fid, sp, kp, sl / ppm if sl and ppm else None))
+        out.append(RefFish(fid, sp, kp, sl / ppm if sl and ppm else None, chars))
     return out
+
+
+#: Where a study keeps the characters read from its fish's photographs.
+CHARACTERS_FILE = "photo_characters.json"
+_CHARACTERS: dict = {}
+
+
+def read_characters(study_dir: Path, fid: str, kp: dict) -> dict:
+    """The characters read from ``fid``'s photograph -- if they were read with the
+    landmarks it has now. Read with other landmarks, they were read in other places
+    and are left out until read again."""
+    path = Path(study_dir) / CHARACTERS_FILE
+    try:
+        stamp = path.stat().st_mtime_ns
+    except OSError:
+        return {}
+    if _CHARACTERS.get(path, (None,))[0] != stamp:
+        try:
+            _CHARACTERS[path] = (stamp, json.loads(path.read_text()).get("fish") or {})
+        except (OSError, ValueError):
+            _CHARACTERS[path] = (stamp, {})
+    e = _CHARACTERS[path][1].get(fid) or {}
+    return dict(e.get("characters") or {}) if e.get("landmarks") == photo_characters.landmarks_key(kp) else {}
 
 
 # ------------------------------------------------------------------- geometry
@@ -302,13 +337,22 @@ def _depth_over_peduncle(kp: dict) -> float | None:
 #: Measurements the keys use, compared beside shape. One is used only where the fish
 #: has it and every species has ``MIN_FISH`` reference fish with it.
 TRAITS = {"snout length / orbit": _snout_over_orbit, "peduncle depth / SL": _peduncle_depth,
-          "body depth / peduncle depth": _depth_over_peduncle}
+          "body depth / peduncle depth": _depth_over_peduncle,
+          "dorsal origin behind pelvic / SL": photo_characters.dorsal_behind_pelvic}
+#: Characters read from the photograph (``photo_characters``), used the same way.
+PHOTO_TRAITS = photo_characters.NAMES
 #: The landmarks each measurement's shape comes from: one is not used when any of
 #: them is set aside. (Peduncle depth is over SL, which a raised head barely moves.)
+#: A photograph character is read where landmarks put it, so it goes with them.
 TRAIT_USES = {"snout length / orbit": {"premaxilla_tip", "orbit_anterior", "orbit_posterior"},
               "peduncle depth / SL": {"caudal_crease_dorsal", "caudal_crease_ventral"},
               "body depth / peduncle depth": {"body_depth_dorsal", "body_depth_ventral",
-                                              "caudal_crease_dorsal", "caudal_crease_ventral"}}
+                                              "caudal_crease_dorsal", "caudal_crease_ventral"},
+              "dorsal origin behind pelvic / SL": {"dorsal_fin_base_anterior", "pelvic_fin_base_anterior"},
+              "caudal spot": {"vertebral_centrum_posterior"},
+              "snout": {"premaxilla_tip", "orbit_anterior"},
+              "side stripe": {"vertebral_centrum_posterior", "pelvic_fin_base_anterior"},
+              "upright scale margins": {"dorsal_fin_base_anterior"}}
 
 
 # ---------------------------------------------------------------------- match
@@ -430,12 +474,13 @@ def sizes_for(species, path: Path = SIZES) -> dict:
 
 
 def identify(query: dict, ref: list[RefFish], px_per_mm: float | None = None,
-             set_aside=(), sizes: dict | None = None) -> dict:
+             set_aside=(), sizes: dict | None = None, query_chars: dict | None = None) -> dict:
     """``match``, after leaving out the landmarks ``misplaced`` finds, with the fish's
     standard length from its landmarks and the photograph's scale. ``set_aside``:
     landmarks kept out of the shape, as ``MOUTH_OPEN`` for a fish with its mouth
     open; they still give its length. ``sizes``: ``sizes_for``'s table, to weigh
     the fish's length against each species' longest recorded (when it has one).
+    ``query_chars``: the characters read from its photograph (``match``).
 
     Adds ``left_out`` (``misplaced``'s list), ``with_all`` (the best score had they
     been kept), ``sl_mm``, ``set_aside``, ``no_match`` (no species scores
@@ -446,10 +491,12 @@ def identify(query: dict, ref: list[RefFish], px_per_mm: float | None = None,
     kept = {k: v for k, v in q.items() if k not in {x["landmark"] for x in left}}
     sl_px = standard_length_px(kept)
     sl_mm = round(sl_px / px_per_mm, 1) if sl_px and px_per_mm else None
-    m = match(kept, ref, sl_mm, set_aside=aside)
+    # characters read where a misplaced landmark put them are left out with it
+    gone = aside + tuple(x["landmark"] for x in left)
+    m = match(kept, ref, sl_mm, set_aside=gone, query_chars=query_chars)
     m.update(left_out=left, sl_mm=sl_mm, with_all=None, set_aside=list(aside))
     if left:
-        full = match(q, ref, sl_mm, set_aside=aside)
+        full = match(q, ref, sl_mm, set_aside=aside, query_chars=query_chars)
         m["with_all"] = full["matches"][0]["score"] if full.get("ok") else None
     if m.get("ok") and sizes and sl_mm:
         for x in m["matches"]:
@@ -501,10 +548,11 @@ def with_drainage(m: dict, records: dict) -> dict:
 
 
 def match(query: dict, ref: list[RefFish], query_sl_mm: float | None = None,
-          query_noise: float | None = None, set_aside=()) -> dict:
+          query_noise: float | None = None, set_aside=(), query_chars: dict | None = None) -> dict:
     """Every reference species, scored for how typical ``query`` (landmark name ->
     (x, y)) is of it, best first. ``query_noise``: see ``QUERY_NOISE``.
-    ``set_aside``: landmarks the shape and the measurements leave out."""
+    ``set_aside``: landmarks the shape and the measurements leave out.
+    ``query_chars``: ``photo_characters.characters`` of the fish's photograph."""
     noise = QUERY_NOISE if query_noise is None else query_noise
     q = {k: tuple(v[:2]) for k, v in query.items() if v}
     if query_sl_mm:
@@ -551,11 +599,13 @@ def match(query: dict, ref: list[RefFish], query_sl_mm: float | None = None,
 
     # the measurements: each its own term, at the fish's size where there is one
     trait_terms = []                                   # (name, value of the query, {species: (expect, var)})
-    for name, fn in TRAITS.items():
+    qchars = query_chars or {}
+    getters = [(n, fn, None) for n, fn in TRAITS.items()] + [(n, None, n) for n in PHOTO_TRAITS]
+    for name, fn, key in getters:
         if TRAIT_USES.get(name, set()) & set(set_aside):
             continue
-        qv = fn(q)
-        vals = [(fn(r.kp), li, r.sl_mm) for r, li in zip(fish, lab)]
+        qv = fn(q) if fn else qchars.get(key)
+        vals = [(fn(r.kp) if fn else r.chars.get(key), li, r.sl_mm) for r, li in zip(fish, lab)]
         vals = [(v, li, sl) for v, li, sl in vals if v is not None]
         per = [sum(1 for _, li, _ in vals if li == s) for s in range(len(species))]
         if qv is None or min(per) < MIN_FISH:
