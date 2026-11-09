@@ -159,6 +159,21 @@ def test_found_once_and_scored_every_time(srv):
     assert calls["detect"] == 2
 
 
+def test_characters_are_read_from_both_photographs_once(srv):
+    """The reference fish's from theirs, into the study's photo_characters.json; each
+    tray fish's from the tray, kept in its cache under its landmarks' fingerprint."""
+    url, st, calls, _ = srv
+    code, d = _get(url, "/api/batch/fish/tray.jpg?dataset=shiners")
+    assert code == 200 and all(isinstance(f["characters"], dict) for f in d["fish"])
+    ref = json.loads((st / "photo_characters.json").read_text())["fish"]
+    assert len(ref) == 16 and all("landmarks" in e for e in ref.values())
+    cached = json.loads((st / "batch_cache" / "tray.json").read_text())["fish"]
+    assert all(f.get("characters_for") for f in cached)
+    stamp = (st / "photo_characters.json").stat().st_mtime_ns
+    _get(url, "/api/batch/fish/tray.jpg?dataset=shiners")
+    assert (st / "photo_characters.json").stat().st_mtime_ns == stamp      # nothing changed, nothing read
+
+
 def test_asking_for_the_saved_landmarks_never_runs_the_model(srv):
     """The page asks this way first, so it says it is landmarking only when it is."""
     url, st, calls, _ = srv

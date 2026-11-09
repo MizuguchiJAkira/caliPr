@@ -5,7 +5,9 @@
 
 Writes ``dist/components/<name>.zip`` -- the study's schema.json (marked as a
 reference set), its hand-landmarked sidecars, its photo credits
-(``photo_manifest.csv``) and README, and an empty ``lateral/`` -- and records the
+(``photo_manifest.csv``) and README, the characters read from its photographs
+(``photo_characters.json``; run ``scripts/photo_characters.py`` first), and an
+empty ``lateral/`` -- and records the
 file, its address under the release, its size and its SHA-256 in
 ``scripts/components.json``. No photographs are packaged: the landmarks are what
 the identification compares, and the photographs remain the collections' to publish.
@@ -28,8 +30,9 @@ sys.path.insert(0, str(_ROOT / "src"))
 
 from fish_morpho import components  # noqa: E402
 
-#: What travels with the landmarks: credits and how to read them.
-EXTRAS = ("photo_manifest.csv", "README.md")
+#: What travels with the landmarks: credits, how to read them, and the characters
+#: read from the photographs (which do not travel).
+EXTRAS = ("photo_manifest.csv", "README.md", "photo_characters.json")
 #: schema.json entries that steer one person's labelling, not anyone's comparison.
 LOCAL_ONLY = ("label_first", "hand_only", "hand_only_why", "batch_of", "reference_study")
 

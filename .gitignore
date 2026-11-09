@@ -106,3 +106,5 @@ dlc_project_union_r*/
 data/taxonomy_cache.json
 data/*/drainage_cache.json
 data/*/gallery_cache.json
+# Characters read from each reference fish's photograph (scripts/photo_characters.py)
+data/*/photo_characters.json
