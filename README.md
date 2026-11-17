@@ -527,11 +527,10 @@ with their licences.
 
 ## Use of AI tools
 
-caliPr's code and documentation were written with the AI coding assistant Claude
+caliPr's code was written with the assistance of the AI coding assistant Claude
 Code (Anthropic; Claude Code 2.1.202 to 2.1.321, with the models Claude Opus 4.8,
-Opus 5, Opus 5.5 and Fable 5.2), between July and November 2026. Commit messages do
-not mark which changes were AI-assisted, so treat the whole codebase as
-AI-assisted. The author directed the work, checked it and is responsible for it.
+Opus 5, Opus 5.5 and Fable 5.2) between July and November 2026. The author
+directed the work, checked it and is responsible for it.
 Its behaviour is checked by the test suite and by the validations above, which
 compare caliPr's output with independent measurements (calipers, hand-placed
 landmarks, published scale counts) rather than with the assistant's own output.
