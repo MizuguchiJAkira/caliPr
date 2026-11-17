@@ -3,28 +3,28 @@
 This directory drives `scripts/morfishj_validation.py`, which diffs the
 `fish_morpho` Python engine against **MorFishJ** (the ImageJ plugin by
 Mattia Ghilardi, Leibniz-ZMT — https://github.com/mattiaghilardi/MorFishJ)
-as the ground-truth oracle. A green run is the gate for "the port is good
-enough to replace MorFishJ for real work."
+as the reference. It checks that caliPr's reimplementation of the MorFishJ
+trait definitions gives MorFishJ's values on the same specimens.
 
 ## What lives here
 
 ```
-morfishj_reference.csv   Ground-truth trait values from the MorFishJ GUI.
+morfishj_reference.EXAMPLE.csv   SYNTHETIC: one made-up fish, to show the format.
 labels/                  Sidecar JSONs for the SAME specimens (fish_id = filename stem).
 auto_calibration_audit.* Ruler-detector audit on the iDigBio pool (separate concern).
 pool_triage.csv          iDigBio pool triage (separate concern).
 ```
 
-> ⚠️ **`morfishj_reference.csv` is deliberately not committed.** The harness
-> was proven end-to-end against a placeholder generated from the engine's
-> *own* output, which validates the plumbing but not the science — shipping
-> that file would risk it being mistaken for ground truth. Create the real
-> one from MorFishJ GUI output as described below.
+> ⚠️ **No comparison with MorFishJ has been run yet.** The only reference in
+> this folder, `morfishj_reference.EXAMPLE.csv`, is synthetic: its one fish
+> (`BKT-2025-EXAMPLE`, the same as `examples/sample_sidecar.json`) was generated
+> from caliPr's *own* output to test the plumbing, so it agrees by construction
+> and says nothing about fidelity. Create the real `morfishj_reference.csv` from
+> MorFishJ GUI output as described below.
 >
-> Note that the pipeline has since been validated against **physical caliper
-> measurements** (median 1.05% agreement on standard length across 17
-> specimens), which is an independent oracle; the MorFishJ comparison remains
-> useful for checking trait-by-trait definition fidelity.
+> Standard length has been checked separately against physical caliper
+> measurements (`scripts/caliper_check.py`); that is an independent check of
+> calibration and landmarking, not of the MorFishJ trait definitions.
 
 ## How to produce a real validation
 
@@ -37,7 +37,7 @@ pool_triage.csv          iDigBio pool triage (separate concern).
    CPd, CFd, CFs, PFs, PFl, PFi, PFb`). Blank cells are skipped. The 8
    Cornell extras (`LJl, DFh, DFs, PlFl, PlFs, AFh, AFs, MW`) have no
    MorFishJ oracle and are ignored if present.
-3. **Python port:** produce a sidecar JSON for each of those same
+3. **caliPr:** produce a sidecar JSON for each of those same
    specimens in `labels/`, named `<fish_id>.json` (the stem must equal
    the `fish_id` in the CSV). Use `scripts/cvat_to_sidecar.py` on a CVAT
    export, or hand-author from `examples/sample_sidecar.json`.
@@ -55,14 +55,22 @@ pool_triage.csv          iDigBio pool triage (separate concern).
 ## Tolerances
 
 Defaults (0.2 mm, 2.0 mm², 1.0°) are the hand-measurement noise floor.
-Revisit them once a real reference set exists — if MorFishJ and the port
+Revisit them once a real reference set exists — if MorFishJ and caliPr
 agree far tighter than 0.2 mm, tighten the gate.
 
-## Definition-fidelity note
+## Definitions that differ from MorFishJ
 
-Independent of the numeric diff, the engine's trait *formulas* were
-checked against MorFishJ's published definitions (manual v0.2.2,
-`main_traits.html`) and track them faithfully, including the subtlety
-that `Snl` anchors on the premaxilla landmark while `AO` anchors on
-reference line D (body anterior extremum) — the two coincide only on a
-closed-mouth specimen where the premaxilla is the anterior-most point.
+Apart from the numeric comparison, the engine's trait *formulas* were checked
+against MorFishJ's published definitions (manual v0.2.2, `main_traits`). Most
+follow them. Three do not:
+
+| trait | MorFishJ | caliPr |
+|---|---|---|
+| `SL` | from D, the most anterior point of the head, to the caudal base | from `premaxilla_tip` to `caudal_base` |
+| `Snl` | from D to the anterior margin of the orbit | from `premaxilla_tip` to `eye_anterior` |
+| `AO` | from the orbit to the head margin along the horizontal line through the eye (J) | from D to `eye_anterior` |
+
+caliPr's `AO` is therefore MorFishJ's `Snl`. SL and Snl start at the premaxilla
+so that neither depends on how far the lower jaw projects or the mouth gapes. On
+a closed-mouth fish whose premaxilla is the most anterior point, caliPr's SL and
+Snl equal MorFishJ's; where the lower jaw projects, they are shorter.

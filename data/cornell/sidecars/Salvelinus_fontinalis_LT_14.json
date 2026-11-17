@@ -17,6 +17,11 @@
   },
   "assisted_by": "snapshot-200.pt",
   "images": {
+   "lateral": {
+    "width": 6000,
+    "height": 4000,
+    "sha256": "a5add60283c996ec8b36990a2aa508ac47c054e9b60bd315a28883572fb55119"
+   },
    "frontal": {
     "width": 6000,
     "height": 4000,

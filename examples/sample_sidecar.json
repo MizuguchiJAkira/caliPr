@@ -6,7 +6,7 @@
     "collector": "Cornell MV"
   },
 
-  "_comment": "Example sidecar for pipeline.py in --mode manual under the new MorFishJ-port schema. Pixel coordinates are placeholders — replace with real CVAT exports. Any missing polygon or keypoint will show up as a blank cell in the exported xlsx with the reason on the QC sheet, instead of a silently-wrong number. body_plus_caudal traces the outline from snout through the caudal fin tip and back, skipping over the dorsal/pectoral/pelvic/anal fin insertions (those get their own polygons). The five polygons + 19 lateral + 2 frontal keypoints here cover all 22 MorFishJ traits plus the 8 Cornell extras — see src/fish_morpho/landmark_config.py for the source of truth.",
+  "_comment": "Example sidecar for pipeline.py in --mode manual under caliPr's MorFishJ-based schema. Pixel coordinates are placeholders — replace with real CVAT exports. Any missing polygon or keypoint will show up as a blank cell in the exported xlsx with the reason on the QC sheet, instead of a silently-wrong number. body_plus_caudal traces the outline from snout through the caudal fin tip and back, skipping over the dorsal/pectoral/pelvic/anal fin insertions (those get their own polygons). The five polygons + 19 lateral + 2 frontal keypoints here cover all 22 MorFishJ traits plus the 8 Cornell extras — see src/fish_morpho/landmark_config.py for the source of truth.",
 
   "lateral": {
     "polygons": {

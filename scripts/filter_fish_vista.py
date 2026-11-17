@@ -60,10 +60,7 @@ CSV_FILES = (
 )
 
 TARGET_SPECIES = "salvelinus fontinalis"
-USER_AGENT = (
-    "fish-morpho-harvester/0.1 (Cornell Museum of Vertebrates; "
-    "research use; contact the repo owner)"
-)
+USER_AGENT = "caliPr-harvester/1.0 (research use)"
 REQUEST_TIMEOUT = 120
 RETRY_COUNT = 3
 RETRY_SLEEP = 2.0

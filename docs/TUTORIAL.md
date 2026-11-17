@@ -2,10 +2,10 @@
 
 Getting from a folder of photographs to a spreadsheet of measurements.
 
-On a Mac, the app needs no terminal at all: see
-[Mac app](../README.md#mac-app) in the README, open it, and skip to section 1.
-Otherwise, from source — no terminal beyond the lines below, and nothing to
-configure:
+A Mac app can be built from the repository (see [Mac app](../README.md#mac-app)
+in the README; it is not yet published as a download). Once built it needs no
+terminal: open it and skip to section 1. Otherwise, from source — no terminal
+beyond the lines below, and nothing to configure:
 
 ```bash
 git clone https://github.com/MizuguchiJAkira/caliPr.git
@@ -25,23 +25,29 @@ gets you a newer one.
 
 Automated landmarking is a separate, much heavier install (PyTorch, DeepLabCut,
 Segment Anything, about 1.7 GB) and is **not needed to label by hand or to
-export**. The trained models are downloaded separately, not kept in the
-repository. Skip all of it until you want it:
+export**. It is not yet released for download: until it is,
+`scripts/install_autolabel.py` and the Auto-label button say so, and sections 3
+and 4 below describe what it does once installed. Without it the labeler runs
+normally.
+
+To try the exporters without any photographs, run them on the brook trout
+sidecars that come with the repository:
 
 ```bash
-./.venv/bin/python scripts/install_autolabel.py
+./.venv/bin/python scripts/export_measurements.py --dataset cornell
+./.venv/bin/python scripts/export_tps.py --sidecars data/cornell/sidecars \
+    --images data/cornell/lateral --out results/cornell/tps
+./.venv/bin/python scripts/caliper_check.py
 ```
-
-Without it the labeler runs normally, and clicking Auto-label offers to install
-it for you, showing its progress as it goes.
 
 ---
 
 ## 1. Add your photographs
 
 Click **Add folder** in the toolbar, then pick a folder of photographs. It
-becomes a *study*, named after the folder. The **Study** button at the top right
-switches between studies, as RStudio's project menu does.
+becomes a *study*, named after the folder. The **Study** button below the
+toolbar switches between studies, as RStudio's project menu does, and its menu
+can add a folder too.
 
 ![Add folder](img/tutorial/1-add-folder.png)
 
@@ -167,9 +173,10 @@ Points arrive coloured by the model's own confidence:
 | **green** | confident |
 | **orange, ringed** | not confident — these are the ones to look at |
 
-Whether it also draws the body outline depends on the study; the brook trout
-study traces it by hand. The **pectoral and anal fins** come back outlined — those
-are the two the fin outliner matches hand tracings on closely enough to be worth
+Whether it also draws outlines depends on the study's settings; in the
+screenshot it outlined the body. Where a study collects fin outlines, the
+**pectoral and anal fins** come back outlined — those are the two the fin
+outliner matches hand tracings on closely enough to be worth
 starting from (3.2% and 4.6% median area error, inside the spread between two
 tracings of the same fin). The dorsal and pelvic are not offered; trace those
 yourself. The Landmarks pane lists what still needs review.
@@ -268,7 +275,7 @@ Under the **Landmarks** header, **scheme** chooses what a study collects:
 | | |
 |---|---|
 | **caliPr (25 landmarks, 34 traits)** | the default: what the traits, the trained model and this tutorial use |
-| **BGNN 2D body landmarks (23)** | the Fish-AIR / BGNN shape landmarks, in their numbered order |
+| **BGNN 2D body landmarks (23)** | the BGNN project's shape landmarks for minnows (unpublished protocol), in their numbered order |
 
 **＋ new scheme…**, the dropdown's last entry, starts one of your own — empty, or
 from the landmarks of the scheme you are on. It is offered to every study, because
@@ -376,7 +383,7 @@ than something to read in a spreadsheet, so they go out with the rest of the R
 material: `landmarks_imagej.csv` is one row per landmark per specimen, the
 landmark named and the photograph repeated in `Label`, exactly as ImageJ's
 Multi-Measure writes it, so a series digitised here can be pooled with one
-digitised in ImageJ. `load_landmarks.R` reads it into geomorph.
+digitised in ImageJ. `load_landmarks.R` reads the `.tps` file into geomorph.
 
 Mind the y axis. Both files use **image coordinates, y downward**, as ImageJ
 does; the `.tps` file uses Cartesian y, because that is what `readland.tps`

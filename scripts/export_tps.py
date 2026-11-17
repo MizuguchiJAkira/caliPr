@@ -111,6 +111,13 @@ def find_image(images: Path, fish_id: str) -> Path | None:
     return None
 
 
+def recorded_height(sidecar: dict) -> int | None:
+    """The lateral photograph's height as recorded in the sidecar, if it was."""
+    size = (((sidecar.get("metadata") or {}).get("images") or {}).get("lateral") or {})
+    h = size.get("height")
+    return int(h) if h else None
+
+
 def image_height(path: Path) -> int | None:
     try:
         from PIL import Image
@@ -321,7 +328,13 @@ def main(argv=None) -> int:
         img = find_image(args.images, fid)
         h = image_height(img) if img else None
         if h is None:
-            print(f"  ! {fid}: no image found, cannot flip y — skipped")
+            # No photograph here (a clone of the repository carries none): the
+            # sidecar records the size of the photograph it was labelled on,
+            # which is all the y flip needs.
+            h = recorded_height(sc)
+            img = img or Path((sc.get("metadata") or {}).get("image_filename") or fid)
+        if h is None:
+            print(f"  ! {fid}: no image found and no recorded image size, cannot flip y — skipped")
             skipped += 1
             continue
 
@@ -479,6 +492,8 @@ def main(argv=None) -> int:
               "Procrustes removes scale, so shape analysis is unaffected.")
     if skipped:
         print(f"\nskipped {skipped}")
+    from fish_morpho.provenance import write_rerun
+    print(f"to reproduce: {write_rerun(args.out, 'scripts/export_tps.py', list(sys.argv[1:] if argv is None else argv))}")
     return 0
 
 

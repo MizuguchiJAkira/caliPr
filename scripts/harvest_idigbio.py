@@ -44,10 +44,7 @@ from typing import Iterator
 API_MEDIA = "https://search.idigbio.org/v2/search/media/"
 API_RECORDS = "https://search.idigbio.org/v2/search/records/"
 SPECIES = "Salvelinus fontinalis"
-USER_AGENT = (
-    "fish-morpho-harvester/0.1 (Cornell Museum of Vertebrates; "
-    "research use; contact the repo owner)"
-)
+USER_AGENT = "caliPr-harvester/1.0 (research use)"
 PAGE_SIZE = 100
 REQUEST_TIMEOUT = 120  # seconds
 RETRY_COUNT = 3
@@ -267,6 +264,24 @@ def parse_record(raw: dict, specimens: dict[str, SpecimenMeta]) -> MediaRecord |
     )
 
 
+#: Licences that allow redistribution with credit, as GBIF's open licences do.
+#: Anything else (no licence, "usage conditions apply", non-commercial or
+#: no-derivatives terms) is left out unless asked for.
+_OPEN_LICENCE = re.compile(
+    r"(publicdomain|public domain|\bcc0\b|\bcc[- ]?by(?![- ]?n[cd])(?:[- ]?sa)?\b"
+    r"|creativecommons\.org/licenses/by(?:-sa)?/)",
+    re.IGNORECASE,
+)
+
+
+def open_licence(rec: MediaRecord) -> bool:
+    """Whether the photograph's licence allows reuse with credit (CC0, CC BY, CC BY-SA)."""
+    text = f"{rec.license} {rec.rights}"
+    if re.search(r"\bn[cd]\b|noncommercial|non-commercial|noderiv", text, re.IGNORECASE):
+        return False
+    return bool(_OPEN_LICENCE.search(text))
+
+
 _SAFE_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 
@@ -329,6 +344,7 @@ def harvest(
     out_dir: Path,
     limit: int | None = None,
     dry_run: bool = False,
+    any_licence: bool = False,
 ) -> list[MediaRecord]:
     images_dir = out_dir / "images"
     if not dry_run:
@@ -346,6 +362,11 @@ def harvest(
     for raw in search_media_records(SPECIES):
         rec = parse_record(raw, specimens)
         if rec is None:
+            skipped += 1
+            continue
+        if not any_licence and not open_licence(rec):
+            log.info("licence  %s: %r is not an open licence; skipped",
+                     rec.media_uuid, rec.license or rec.rights or "none")
             skipped += 1
             continue
 
@@ -419,6 +440,12 @@ def main(argv: list[str] | None = None) -> int:
         help="List what would be downloaded without writing anything.",
     )
     p.add_argument(
+        "--any-licence",
+        action="store_true",
+        help="Also download photographs without an open licence (CC0, CC BY, CC BY-SA). "
+             "Their terms are recorded in metadata.csv; check them before any reuse.",
+    )
+    p.add_argument(
         "--log-level",
         default="INFO",
         choices=("DEBUG", "INFO", "WARNING", "ERROR"),
@@ -430,7 +457,8 @@ def main(argv: list[str] | None = None) -> int:
         format="%(asctime)s %(levelname)s %(message)s",
     )
 
-    records = harvest(args.out, limit=args.limit, dry_run=args.dry_run)
+    records = harvest(args.out, limit=args.limit, dry_run=args.dry_run,
+                      any_licence=args.any_licence)
     if not args.dry_run:
         write_metadata_csv(records, args.out / "metadata.csv")
     return 0

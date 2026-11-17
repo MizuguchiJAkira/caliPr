@@ -145,25 +145,42 @@ def to_wkt(geometry: dict) -> str:
 
 
 def hull_wkt(geometry: dict) -> str:
-    """The convex hull of a polygon's vertices, counter-clockwise."""
+    """The convex hull of a polygon's vertices, counter-clockwise.
+
+    Gift wrapping: start at the leftmost vertex, which is always on the hull, and
+    from each hull vertex step to the vertex that leaves every other one on its
+    left. Vertices lying on a hull edge are passed over (the farther one is
+    taken), so the ring has only its corners. An outline has a few hundred
+    vertices at most, so the O(n h) cost does not matter.
+    """
     polys = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
     pts = sorted({(round(x, 4), round(y, 4)) for poly in polys for x, y in poly[0]})
+    if len(pts) < 3:
+        ring = pts + pts[:1]
+        return "POLYGON((" + ",".join(f"{x} {y}" for x, y in ring) + "))"
 
-    def cross(o, a, b):
-        return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+    def turn(p, q, r):          # > 0: r lies left of the line p -> q
+        return (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0])
 
-    lower, upper = [], []
-    for p in pts:
-        while len(lower) >= 2 and cross(lower[-2], lower[-1], p) <= 0:
-            lower.pop()
-        lower.append(p)
-    for p in reversed(pts):
-        while len(upper) >= 2 and cross(upper[-2], upper[-1], p) <= 0:
-            upper.pop()
-        upper.append(p)
-    hull = lower[:-1] + upper[:-1]
-    hull.append(hull[0])
-    return "POLYGON((" + ",".join(f"{x} {y}" for x, y in hull) + "))"
+    def dist2(p, q):
+        return (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2
+
+    start = here = pts[0]
+    ring = [start]
+    for _ in range(len(pts)):
+        step = next(p for p in pts if p != here)
+        for p in pts:
+            if p == here:
+                continue
+            t = turn(here, step, p)
+            if t < 0 or (t == 0 and dist2(here, p) > dist2(here, step)):
+                step = p
+        if step == start:
+            break
+        ring.append(step)
+        here = step
+    ring.append(start)
+    return "POLYGON((" + ",".join(f"{x} {y}" for x, y in ring) + "))"
 
 
 # ------------------------------------------------------------------------ sources

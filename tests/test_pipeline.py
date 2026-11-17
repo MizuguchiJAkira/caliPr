@@ -255,10 +255,12 @@ def test_pipeline_rejects_sidecar_with_no_views(tmp_path: Path):
         process_specimen(spec)
 
 
-def test_auto_mode_requires_model_config(tmp_path: Path):
+def test_only_sidecars_are_measured(tmp_path: Path):
+    # Automated landmarking writes into the sidecars in the labeler; the pipeline
+    # has no mode that measures unreviewed model output directly.
     images = tmp_path / "images"
     images.mkdir()
-    with pytest.raises(ValueError, match="model-config"):
+    with pytest.raises(ValueError, match="Unknown mode"):
         run(
             images_dir=images,
             labels_dir=None,

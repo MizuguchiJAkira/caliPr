@@ -63,55 +63,73 @@ size <- if (scaled) gpa$Csize else gpa$Csize / ppm
 # Preserved fish lie curved, and how curved is decided on the tray, not by the
 # fish. It is typically the largest single source of variation in a series like
 # this one: the midbody sits above or below the line from snout to caudal base.
-# Measured here as that offset, as a fraction of the line's length.
-arch <- apply(gpa$coords, 3, function(m) {
-  a <- m["premaxilla_tip", ]; b <- m["caudal_base", ]
-  mid <- (m["dorsal_base_center", ] + m["pelvic_base_center", ]) / 2
-  u <- (b - a) / sqrt(sum((b - a)^2))
-  ((mid[1] - a[1]) * (-u[2]) + (mid[2] - a[2]) * u[1]) / sqrt(sum((b - a)^2))
-})
-
-gdf <- geomorph.data.frame(coords = gpa$coords, group = group,
-                           logsize = log(size), arch = arch)
+# Measured here as that offset, as a fraction of the line's length. It needs the
+# snout tip, the caudal base and the dorsal and pelvic fin-base centres; a study
+# that does not collect all four is analysed without the arching correction.
+arch_points <- c("premaxilla_tip", "caudal_base", "dorsal_base_center", "pelvic_base_center")
+missing_arch <- setdiff(arch_points, dimnames(gpa$coords)[[1]])
+has_arch <- length(missing_arch) == 0
+if (has_arch) {
+  arch <- apply(gpa$coords, 3, function(m) {
+    a <- m["premaxilla_tip", ]; b <- m["caudal_base", ]
+    mid <- (m["dorsal_base_center", ] + m["pelvic_base_center", ]) / 2
+    u <- (b - a) / sqrt(sum((b - a)^2))
+    ((mid[1] - a[1]) * (-u[2]) + (mid[2] - a[2]) * u[1]) / sqrt(sum((b - a)^2))
+  })
+  gdf <- geomorph.data.frame(coords = gpa$coords, group = group,
+                             logsize = log(size), arch = arch)
+} else {
+  cat("\nNo arching correction: this study does not collect",
+      paste(missing_arch, collapse = ", "), "\n")
+  gdf <- geomorph.data.frame(coords = gpa$coords, group = group, logsize = log(size))
+}
+covariates <- if (has_arch) "arch + logsize" else "logsize"
+model <- function(rhs) as.formula(paste("coords ~", rhs))
 
 # ---- is the arching confounded with group? --------------------------------
-cat("\nArching by group -- if this differs, an uncorrected test of group\n")
-cat("is partly a test of how the fish were laid on the tray:\n")
-print(round(tapply(arch, group, mean), 4))
-print(anova(lm(arch ~ group)))
+if (has_arch) {
+  cat("\nArching by group -- if this differs, an uncorrected test of group\n")
+  cat("is partly a test of how the fish were laid on the tray:\n")
+  print(round(tapply(arch, group, mean), 4))
+  print(anova(lm(arch ~ group)))
+}
 
 # ---- shape space, raw and with the arching removed -------------------------
 pca_raw <- gm.prcomp(gpa$coords)
-cat(sprintf("\nraw PCA: PC1 %.1f%% of shape variance, correlation with arching r = %.2f\n",
-            100 * pca_raw$d[1] / sum(pca_raw$d), cor(pca_raw$x[, 1], arch)))
-
-Y  <- two.d.array(gpa$coords)
-Yu <- resid(lm(Y ~ arch)) + matrix(colMeans(Y), nrow(Y), ncol(Y), byrow = TRUE)
-unbent <- arrayspecs(Yu, dim(gpa$coords)[1], 2)
-dimnames(unbent) <- dimnames(gpa$coords)
-pca <- gm.prcomp(unbent)
+if (has_arch) {
+  cat(sprintf("\nraw PCA: PC1 %.1f%% of shape variance, correlation with arching r = %.2f\n",
+              100 * pca_raw$d[1] / sum(pca_raw$d), cor(pca_raw$x[, 1], arch)))
+  Y  <- two.d.array(gpa$coords)
+  Yu <- resid(lm(Y ~ arch)) + matrix(colMeans(Y), nrow(Y), ncol(Y), byrow = TRUE)
+  unbent <- arrayspecs(Yu, dim(gpa$coords)[1], 2)
+  dimnames(unbent) <- dimnames(gpa$coords)
+  pca <- gm.prcomp(unbent)
+} else {
+  pca <- pca_raw
+}
 summary(pca)
 
 # ---- tests -----------------------------------------------------------------
 # Sequential sums of squares: group is tested after arching and size are taken
 # out, which is the question worth asking -- do the groups differ in shape, over
 # and above how the fish were laid out and how big they are?
-fit_null <- procD.lm(coords ~ arch + logsize, data = gdf, iter = 999, SS.type = "I",
+fit_null <- procD.lm(model(covariates), data = gdf, iter = 999, SS.type = "I",
                      print.progress = FALSE)
-fit      <- procD.lm(coords ~ arch + logsize + group, data = gdf, iter = 999,
+fit      <- procD.lm(model(paste(covariates, "+ group")), data = gdf, iter = 999,
                      SS.type = "I", print.progress = FALSE)
-cat("\n==== shape ~ arching + size + group ====\n")
+cat("\n==== shape ~", covariates, "+ group ====\n")
 print(summary(fit))
 
 # Do the groups share an allometry? If not, "the groups differ in shape" has to
 # be read at a stated size.
-fit_slopes <- procD.lm(coords ~ arch + logsize * group, data = gdf, iter = 999,
+slopes_rhs <- if (has_arch) "arch + logsize * group" else "logsize * group"
+fit_slopes <- procD.lm(model(slopes_rhs), data = gdf, iter = 999,
                        SS.type = "I", print.progress = FALSE)
 cat("\n==== do the groups share a size-shape slope? ====\n")
 print(anova(fit, fit_slopes, print.progress = FALSE))
 
 # Which groups differ from which.
-cat("\n==== pairwise, after arching and size ====\n")
+cat("\n==== pairwise, after", covariates, "====\n")
 pw <- pairwise(fit, fit_null, groups = group)
 print(summary(pw, test.type = "dist", confidence = 0.95))
 
@@ -124,7 +142,7 @@ print(summary(procD.lm(coords ~ group, data = gdf, iter = 999,
 pdf("shape_space.pdf", width = 7, height = 6)
 cols <- c("#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4")[seq_along(levels(group))]
 plot(pca, pch = 19, col = cols[group], cex = 1.1,
-     main = "@STUDY@ shape space, arching removed")
+     main = if (has_arch) "@STUDY@ shape space, arching removed" else "@STUDY@ shape space")
 legend("topright", legend = levels(group), col = cols, pch = 19, bty = "n")
 dev.off()
 cat("\nwrote shape_space.pdf\n")

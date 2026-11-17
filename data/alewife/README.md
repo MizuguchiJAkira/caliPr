@@ -56,13 +56,14 @@ For scale: brook trout went 3.88 mm held-out error at 28 labeled images to
 
 ## Labels from the ImageJ landmark files
 
-113 of the specimens were landmarked earlier in ImageJ, all 23 BGNN points, and
-saved one CSV per photograph (`analysis/cumv_landmarks_pca/landmarks/`) in units
-set per photograph — cm, mm or pixels. In every file the pixel position is that
-unit times one factor with no offset, so the hand labels survive exactly once the
-factor is known. It was recovered per photograph by fitting the cross-species
-model's predictions (`dlc_project_union`, 2026-10-04) to the labels by least
-squares, on the landmarks the model was sure of, refitted after dropping strays.
+113 of the specimens were landmarked earlier in ImageJ by students of BIOEE 4671
+at Cornell, all 23 BGNN points, and saved one CSV per photograph
+(`analysis/cumv_landmarks_pca/landmarks/`) in units set per photograph — cm, mm
+or pixels. In every file the pixel position is that unit times one factor with no
+offset, so the hand labels survive exactly once the factor is known. It was
+recovered per photograph by fitting the cross-species model's predictions
+(`dlc_project_union`, 2026-10-04) to the labels by least squares, on the
+landmarks the model was sure of, refitted after dropping strays.
 
 Imported only where the fit pins the factor down: at least 7 landmarks, and the
 factor's standard error moving the farthest landmark by under 0.5% of the fish's

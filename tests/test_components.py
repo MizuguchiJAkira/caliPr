@@ -158,8 +158,10 @@ def test_a_packaged_study_installs_without_its_photographs(tmp_path):
     (study / "sidecars" / "A_b_1.json").write_text(json.dumps({"fish_id": "A_b_1", "lateral": {"keypoints": {"x": [1, 2]}}}))
     (study / "sidecars" / "A_b_2.json").write_text(json.dumps({"fish_id": "A_b_2", "metadata": {"data_note": "bad"}}))
     (study / "photo_manifest.csv").write_text("fish_id,license\nA_b_1,CC0\n")
-    z = pc.package(study, "shiners", tmp_path / "out" / "shiners-reference.zip")
+    z = pc.package(study, "shiners", tmp_path / "out" / "shiners-reference.zip", "CC BY-NC 4.0")
     names = zipfile.ZipFile(z).namelist()
+    note = zipfile.ZipFile(z).read("shiners/LICENCE.md").decode()
+    assert "CC BY-NC 4.0" in note and "photo_manifest.csv" in note
     assert "shiners/sidecars/A_b_1.json" in names and "shiners/sidecars/A_b_2.json" not in names
     assert "shiners/photo_manifest.csv" in names and not any(n.endswith(".jpg") for n in names)
     schema = json.loads(zipfile.ZipFile(z).read("shiners/schema.json"))

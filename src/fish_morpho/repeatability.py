@@ -44,49 +44,52 @@ ROUND_FILE = "round.json"
 # F distribution quantiles, for the confidence interval of ICC(1)
 # ---------------------------------------------------------------------------
 
-def _betacf(a: float, b: float, x: float) -> float:
-    """Continued fraction for the incomplete beta function (modified Lentz)."""
-    tiny, eps = 1e-300, 3e-15
-    qab, qap, qam = a + b, a + 1.0, a - 1.0
-    c, d = 1.0, 1.0 - qab * x / qap
-    d = 1.0 / (d if abs(d) > tiny else tiny)
-    h = d
-    for m in range(1, 400):
-        m2 = 2 * m
-        aa = m * (b - m) * x / ((qam + m2) * (a + m2))
-        d = 1.0 + aa * d
-        d = 1.0 / (d if abs(d) > tiny else tiny)
-        c = 1.0 + aa / c
-        c = c if abs(c) > tiny else tiny
-        h *= d * c
-        aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
-        d = 1.0 + aa * d
-        d = 1.0 / (d if abs(d) > tiny else tiny)
-        c = 1.0 + aa / c
-        c = c if abs(c) > tiny else tiny
-        delta = d * c
-        h *= delta
-        if abs(delta - 1.0) < eps:
+def _beta_series(a: float, b: float, x: float) -> float:
+    """I_x(a, b) from its hypergeometric power series, for 0 < x <= 1/2.
+
+    I_x(a, b) = x^a (1 - x)^b / (a B(a, b)) * sum_n t_n, with t_0 = 1 and
+    t_{n+1} = t_n * x (a + b + n) / (a + 1 + n)   (DLMF 8.17.8, the series of
+    2F1(a + b, 1; a + 1; x); Abramowitz & Stegun 26.5.4). The ratio of
+    successive terms tends to x, so with x <= 1/2 the tail shrinks at least
+    geometrically once n passes b - a. The running sum is rescaled whenever it
+    grows large, so long early runs of growing terms cannot overflow.
+    """
+    log_scale = 0.0
+    term, total = 1.0, 1.0
+    for n in range(200_000):
+        term *= x * (a + b + n) / (a + 1 + n)
+        total += term
+        if total > 1e250:
+            term /= 1e250
+            total /= 1e250
+            log_scale += 250 * math.log(10)
+        if n > b - a and term < 1e-17 * total:
             break
-    return h
+    log_front = (a * math.log(x) + b * math.log1p(-x) - math.log(a)
+                 - (math.lgamma(a) + math.lgamma(b) - math.lgamma(a + b)))
+    return math.exp(log_front + log_scale + math.log(total))
 
 
-def _betainc(a: float, b: float, x: float) -> float:
-    """Regularised incomplete beta I_x(a, b)."""
+def reg_inc_beta(a: float, b: float, x: float) -> float:
+    """The regularised incomplete beta function I_x(a, b).
+
+    Summed on whichever side of x = 1/2 the series converges fast, using
+    I_x(a, b) = 1 - I_{1-x}(b, a).
+    """
     if x <= 0:
         return 0.0
     if x >= 1:
         return 1.0
-    lbt = math.lgamma(a + b) - math.lgamma(a) - math.lgamma(b) + a * math.log(x) + b * math.log1p(-x)
-    if x < (a + 1) / (a + b + 2):
-        return math.exp(lbt) * _betacf(a, b, x) / a
-    return 1.0 - math.exp(lbt) * _betacf(b, a, 1 - x) / b
+    if x <= 0.5:
+        return min(1.0, _beta_series(a, b, x))
+    return max(0.0, 1.0 - _beta_series(b, a, 1.0 - x))
 
 
 def f_cdf(f: float, d1: float, d2: float) -> float:
+    """The F distribution's CDF: I_{d1 f / (d1 f + d2)}(d1/2, d2/2)."""
     if f <= 0:
         return 0.0
-    return _betainc(d1 / 2, d2 / 2, d1 * f / (d1 * f + d2))
+    return reg_inc_beta(d1 / 2, d2 / 2, d1 * f / (d1 * f + d2))
 
 
 def f_ppf(p: float, d1: float, d2: float) -> float:

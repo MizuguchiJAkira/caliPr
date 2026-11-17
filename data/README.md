@@ -76,22 +76,34 @@ Washington, and Pennsylvania (1 each).
 
 ### License notes
 
-- **18 USNM** rows have custom Smithsonian "Usage Conditions Apply" terms —
-  fine for internal research/training but **check before redistribution**
-  of any derived models that encode pixel data.
-- **5 YPM** rows are **CC0** (public domain) — unrestricted.
-- **3 NHMUK** and **1 UCMP** are **CC BY 4.0** — fine to use, cite the
-  institution.
-- **8 NEON** rows are split between **CC0** and **CC BY-SA 4.0** (same
-  photograph registered under both licenses depending on the portal
-  serving it) — treat as CC BY-SA to be safe.
-- **4 CMN** rows are **CC BY-NC 4.0** — non-commercial; OK for research
-  training, potentially constrains future commercial use of the DLC model.
-- **2 MCZ / INHS** rows are **CC BY-NC-SA 4.0**.
+Counted from `idigbio/metadata.csv` (the licence is in its `license` column, or in
+`rights` where `license` is blank):
 
-Bottom line: all 41 images are clearly usable for **non-commercial academic
-research**. If the Cornell MV pipeline or DLC model is ever released
-commercially, the CC-NC / USNM subset may need to be re-trained around.
+| institution | rows | licence |
+|---|---|---|
+| USNM | 18 | Smithsonian terms of use ("Usage Conditions Apply") |
+| NEON | 3 | CC0 |
+| NEON | 4 | CC BY-SA |
+| NEON | 1 | CC BY-NC-SA |
+| YPM | 5 | CC0 (in `rights`) |
+| NHMUK | 3 | CC BY 4.0 |
+| UCMP | 1 | CC BY 4.0 (in `rights`) |
+| CMN | 4 | CC BY-NC 4.0 |
+| INHS | 1 | CC BY-NC-SA |
+| MCZ | 1 | CC BY-NC-SA 4.0 |
+
+Only the CC0 and CC BY rows (12) allow reuse with credit alone; the CC BY-SA rows
+also require derivatives to carry the same licence, and the NC rows and the
+Smithsonian terms restrict reuse. None of these photographs is in the repository,
+and none was used to train a released model or to produce a published result.
+`scripts/harvest_idigbio.py` now downloads only CC0, CC BY and CC BY-SA
+photographs unless `--any-licence` is given.
+
+Sources: the records were found through iDigBio (https://www.idigbio.org) and are
+credited to the institutions above; cite each recordset as iDigBio lists it before
+reusing any of them. The two Fish-Vista rows in `fish_vista/metadata.csv` come from
+the Fish-Vista dataset (Mehrab et al. 2024, arXiv:2407.08027), whose images carry
+CC BY-NC and CC BY-NC-SA licences.
 
 ### Transient harvest failures
 
@@ -182,7 +194,7 @@ See the main README.
 
 CVAT remains supported as an alternative for anyone who already runs it — the
 schema exports to a CVAT label config, and `scripts/cvat_to_sidecar.py` converts
-a CVAT XML dump back. It was the original path, chosen because the MorFishJ-port
+a CVAT XML dump back. It was the original path, chosen because the MorFishJ-based
 schema mixes polygons and keypoints and CVAT natively supports both in one task,
 where the DLC labeling GUI only handles keypoints and Label Studio's polygon UX
 slows annotators down on fin outlines. The rest of this section describes that
@@ -270,8 +282,8 @@ walks a CVAT XML 1.1 dump and emits one sidecar per image:
 ### Validating against MorFishJ
 
 Once you have even a handful of labeled specimens that have **also**
-been measured by hand in the MorFishJ GUI, run the port against
-MorFishJ's own CSV output as an oracle:
+been measured by hand in the MorFishJ GUI, compare caliPr's values with
+MorFishJ's own CSV output (see `data/validation/README.md`):
 
 ```bash
 .venv/bin/python scripts/morfishj_validation.py \
@@ -280,8 +292,9 @@ MorFishJ's own CSV output as an oracle:
     --tolerance-mm 0.2 --tolerance-mm2 2.0 --tolerance-deg 1.0
 ```
 
-Nonzero exit = at least one trait deviated beyond tolerance. This is
-how we catch regressions when the engine changes.
+Nonzero exit = at least one trait deviated beyond tolerance. No such
+comparison has been run yet: the only reference in the repository,
+`morfishj_reference.EXAMPLE.csv`, is synthetic (see that folder's README).
 
 ## Next steps
 
@@ -291,9 +304,9 @@ how we catch regressions when the engine changes.
 2. Plan the in-house photo session to top up the training pool to
    ~150 labeled images, using the same lateral + frontal mirror
    protocol already documented in `examples/sample_sidecar.json`.
-4. Run ~5 specimens through both MorFishJ (GUI) and the Python port
-   and diff them with `scripts/morfishj_validation.py` — this gates
-   "the port is good enough to replace MorFishJ for real work".
+4. Run ~5 specimens through both MorFishJ (GUI) and caliPr and diff
+   them with `scripts/morfishj_validation.py`, to check that the
+   reimplemented traits agree with MorFishJ's own.
 5. Wire the labeled data into the DLC + SAM training loop
    (`predict_annotation()` in `src/fish_morpho/pipeline.py` is the
    single integration point to fill in once the models exist).

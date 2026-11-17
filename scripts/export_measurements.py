@@ -182,8 +182,11 @@ def main(argv=None) -> int:
                      f"Available: {', '.join(avail) or 'none found'}")
         base = args.data_root / args.dataset
         images, labels, name = base / "lateral", base / "sidecars", args.dataset
+        if not labels.is_dir():
+            ap.error(f"{labels} does not exist")
         if not images.is_dir():
-            ap.error(f"{images} does not exist")
+            # The repository carries sidecars, not photographs: measure from them.
+            logging.info("%s does not exist; measuring from the sidecars alone", images)
 
     out = args.out or (paths.WORK / "results" / name / "measurements.xlsx")
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -210,6 +213,7 @@ def main(argv=None) -> int:
                   f"specimens (Specimens sheet)")
         if args.csv:
             print(f"wrote {args.csv}")
+        print(f"  to reproduce: {rerun(out, argv)}")
         return 0
 
     try:
@@ -255,7 +259,15 @@ def main(argv=None) -> int:
         print(f"  units: {mm} in mm, {px} in pixels"
               + ("   <- MIXED; use the Ratios sheet to compare across rows"
                  if mm and px else ""))
+    print(f"  to reproduce: {rerun(written, argv)}")
     return 0
+
+
+def rerun(output: Path, argv) -> Path:
+    """Write the command that reproduces this export beside it."""
+    from fish_morpho.provenance import write_rerun
+    return write_rerun(output, "scripts/export_measurements.py",
+                       list(sys.argv[1:] if argv is None else argv))
 
 
 if __name__ == "__main__":

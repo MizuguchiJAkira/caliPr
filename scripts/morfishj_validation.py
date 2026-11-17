@@ -1,4 +1,4 @@
-"""Validate the fish_morpho port against MorFishJ GUI output.
+"""Compare caliPr's reimplementation of the MorFishJ traits with MorFishJ's own output.
 
 Running MorFishJ (the ImageJ plugin) by hand on a reference set produces
 a CSV of the 22 canonical traits per specimen. This script loads that
@@ -34,7 +34,7 @@ Tolerance semantics
 Each trait is compared using the tolerance appropriate to its unit
 (``--tolerance-mm``, ``--tolerance-mm2``, or ``--tolerance-deg``). The
 defaults (0.2 mm, 2.0 mm^2, 1.0 deg) are the hand-measurement noise
-floor we're willing to accept for the port to be "good enough" — they
+floor we're willing to accept for the reimplementation to count as agreeing — they
 should be revisited once the real reference set lands.
 
 Exit codes
@@ -224,7 +224,7 @@ def compare(
     tol_mm2: float,
     tol_deg: float,
 ) -> list[Deviation]:
-    """Run every reference fish through the Python port and diff against MorFishJ."""
+    """Run every reference fish through caliPr and diff against MorFishJ."""
     deviations: list[Deviation] = []
     for fish_id, ref_values in sorted(reference.items()):
         sidecar = sidecars.get(fish_id)
@@ -283,7 +283,7 @@ def discover_sidecars(labels_dir: Path) -> dict[str, Path]:
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="morfishj_validation",
-        description="Diff the fish_morpho Python port against MorFishJ GUI output.",
+        description="Diff caliPr's reimplemented MorFishJ traits against MorFishJ GUI output.",
     )
     p.add_argument("--reference", type=Path, required=True, help="CSV of MorFishJ output")
     p.add_argument("--labels", type=Path, required=True, help="Sidecar JSON directory")

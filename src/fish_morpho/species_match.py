@@ -89,10 +89,12 @@ MIN_LANDMARKS = 6
 MIN_FISH = 3
 #: Within-species shape axes the distance is measured in. Few, and the directions
 #: that tell species apart -- often ones they vary little along -- are lost; many,
-#: and the scores stop meaning what they say. On the 69 hand-labelled shiners
-#: (leave-one-out), 8 gave the true species in the top two for 81 % with its own
-#: score under 0.25 for 25 % of fish, as a typicality should; 4 gave 74 %, 12 87 %
-#: but 32 %.
+#: and the scores stop meaning what they say. Chosen in October 2026 on the 69
+#: hand-labelled shiners then in the reference set (leave-one-out): 8 gave the true
+#: species in the top two for 81 % with its own score under 0.25 for 25 % of fish,
+#: as a typicality should; 4 gave 74 %, 12 87 % but 32 %. On the 119 testable fish
+#: of the reference set as of November 2026 (``scripts/batch_identify.py loo``),
+#: 8 give 77 % (own score under 0.25 for 28 %), 4 give 79 % (22 %), 12 79 % (34 %).
 AXES = 8
 #: How far, in shape units (a fish of centroid size 1), the landmarks of the fish
 #: being identified are expected to be off -- the model's error, since its points

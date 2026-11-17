@@ -5,9 +5,10 @@ on specimen photographs and derives 34 morphometric traits, coordinates in TPS
 format for geometric morphometrics, and annotated images, from a single stored
 annotation per specimen.
 
-It implements the trait schema of MorFishJ (Ghilardi 2022) with Cornell
-extensions, and separates measurement from digitisation: landmarks are stored as
-coordinates, and every trait, ratio and figure is derived from them. Changing a
+It computes the photograph-measurable traits of MorFishJ (Ghilardi 2022), three
+of them with modified definitions (see [Measurements](#measurements)), plus
+Cornell extensions. It separates measurement from digitisation: landmarks are
+stored as coordinates, and every trait, ratio and figure is derived from them. Changing a
 trait definition is a re-run rather than a re-digitisation, and the same
 coordinates train a model to place them automatically.
 
@@ -17,8 +18,8 @@ comes from re-labelling a subset blind, reported as ICC and %ME. Each specimen
 carries Darwin Core records, so a measurement can be joined back to the
 collection's own record.
 
-Standard length agrees with physical caliper measurements to a median of 1.12%
-across 35 specimens (see [Accuracy](#accuracy)).
+Standard length agrees with physical caliper measurements to a median of 1.39%
+across 126 specimens of three strains (see [Accuracy](#accuracy)).
 
 ![Annotated brook trout: 5 polygons and 23 keypoints](docs/img/annotated_example.jpg)
 
@@ -85,6 +86,25 @@ hand-landmarked, with the species in each file name and `"reference_set": true`
 in its `schema.json`. `scripts/package_component.py` packages one for
 publishing, with its landmarks and photo credits but no photographs.
 
+The scores the batch page shows can also be produced by script, from the same
+code:
+
+```bash
+./.venv/bin/python scripts/batch_identify.py --study data/shiners --out results/shiners/batch
+./.venv/bin/python scripts/batch_identify.py loo --reference data/shiners --out results/shiners/loo
+```
+
+The first scores every batch photograph whose fish have been landmarked, with the
+same hand corrections, scale, species lengths, photograph characters and drainage
+ranking as the page. It writes one row per fish (standard length, whether its
+points were checked by hand, the two best species and their scores, ties,
+landmarks left out as misplaced) and the full results as JSON. The landmarks kept
+beside each photograph are reused, so Auto-label is not needed; `--detect`
+landmarks photographs that have none yet, where Auto-label is installed. The
+second identifies each reference fish from its own landmarks against all the
+others and reports how often its species comes first and in the first two,
+overall and per species. Both write a rerun record.
+
 The side-view model is trained on brook trout, alewife, leuciscids, cichlids and
 mormyrids, and answers in caliPr's or BGNN's landmark names as the study uses. It
 finds the fish before placing landmarks on it, so a fish photographed from farther
@@ -110,9 +130,15 @@ Command-line equivalents, for scripted use:
 python scripts/export_measurements.py --dataset cornell
 python scripts/export_tps.py --sidecars data/cornell/sidecars \
     --images data/cornell/lateral --out results/cornell/tps
+python scripts/caliper_check.py
 python scripts/render_overlays.py --dataset cornell
 python scripts/measurement_error.py --dataset cornell
 ```
+
+The first three run on a fresh clone: the brook trout sidecars are in the
+repository and hold everything they need, so no photographs are required.
+`render_overlays.py` draws on the photographs, and `measurement_error.py` needs a
+blind re-label round, so neither runs without local data.
 
 A dataset is a directory under `data/` containing `lateral/`, optionally
 `frontal/`, `sidecars/`, and a `schema.json` declaring which landmarks the study
@@ -129,6 +155,13 @@ Twenty-two traits from the MorFishJ schema and twelve Cornell extensions, derive
 from 5 polygons and 25 lateral keypoints. The schema is defined in
 `src/fish_morpho/landmark_config.py` and is the single source of truth for the
 labeler, the measurement engine and the training pipeline.
+
+Three MorFishJ traits are defined differently. Standard length (SL) and snout
+length (Snl) run from the premaxilla tip, not from MorFishJ's most anterior point
+of the head (its D), so neither depends on how far the lower jaw projects or the
+mouth gapes. The distance in front of the eye (AO) runs to D, not to the head
+margin at eye level, so caliPr's AO is MorFishJ's Snl. On a closed-mouth fish
+whose premaxilla is the most anterior point, SL and Snl agree with MorFishJ.
 
 Traits requiring a landmark the study does not collect are omitted from the
 export rather than left blank.
@@ -241,27 +274,37 @@ all exports are derived from them.
 
 **Overlays**: each photograph with its annotation drawn on.
 
+**Rerun records.** Each export is written with the command that reproduces it:
+`<output>.rerun.txt` beside a workbook, or `RERUN.txt` inside an output folder.
+The record gives the command, with paths relative to the repository, the caliPr
+version and commit (noting uncommitted changes to tracked files), the Python
+version and the time it was run. The labeler's Export buttons run the same
+command-line exporters, so their outputs carry a record too.
+
 ## Accuracy
 
-Standard length was compared against physical caliper measurements for 35
-hand-labelled specimens spanning three hatchery strains: median difference 1.12%,
-mean 1.39%, bias +0.69%.
+Standard length measured in caliPr was compared with the hatchery's caliper
+length for every photographed brook trout whose sheet row can be matched to its
+photograph: 126 fish of three strains (ASN 41, HRN 38, TXD 47). Median
+difference 1.39%, mean 1.63%, mean bias −0.05%; 3 fish differ by more than 5%,
+one of them (ASN_25) with a caudal-base landmark known to be misplaced.
 
-The specimen-to-caliper correspondence was verified rather than assumed. An
-offset sweep confirms alignment at offset 0 for two of three strains (1.40% and
-1.56% mean error, against 12–20% at any shift). Seven TXD rows differ from their
-photographs by 5–32% with mixed sign and no offset accounts for it; standard
-length expressed in ruler spans, which requires no millimetre assumption,
-supports the photographs. Those rows are listed in
-`data/validation/caliper_exclusions.json` and excluded from validation only.
+`python scripts/caliper_check.py` reproduces this from the sidecars and the
+hatchery sheet in the repository; no photographs are needed. The script
+documents how photographs are matched to sheet rows: the photo series has two
+reshoots and one swap, found from the photo numbers recorded on the sheet.
 
 ### Calibration
 
 Three modes, all producing px/mm or declaring that none is available.
 
 1. **Tick detection.** `detect_tick_scale()` measures millimetre ticks directly.
-   Validated against 20 hand-clicked calibrations across two camera distances:
-   mean error 1.0%, maximum 2.5%. C-Thru rulers carry both metric and imperial
+   Against every hand-clicked calibration on the Cornell rig (46 specimens, two
+   camera distances): median error 1.04%, 45 of 46 within 3%, and one failure
+   at 30% that the detector's own confidence does not flag; the labeler's
+   comparison with the lot median catches it. On the alewife tank rig, three
+   hand-clicked specimens differ by 1.7%, 2.3% and 4.0%. Good enough to place the
+   scale, not to trust unchecked. C-Thru rulers carry both metric and imperial
    scales and 1/16 in = 1.5875 mm, so the strongest autocorrelation peak selects
    the imperial period and inflates every trait by approximately 59%; the
    detector takes the smallest period on which several frequency bands agree.
@@ -304,9 +347,8 @@ Eight checks run before the workbook is written: `orientation`,
 that produces plausible values rather than an error.
 
 Thresholds are conventional rather than fitted: robust z of 3.5 on a median/MAD
-scale, and 25% calibration drift. Across the 60 sidecars in both datasets the
-current pass returns no errors, five shape-outlier warnings, and incomplete
-notes consistent with labelling in progress.
+scale, and 25% calibration drift. On the 227 brook trout sidecars the
+current pass returns no errors and eight warnings.
 
 ## Datasets
 
@@ -415,7 +457,7 @@ scripts/             labeler, exporters, preprocessing, model training and evalu
                      installers for the optional parts (components.json)
 data/<dataset>/      lateral/, frontal/, sidecars/, schema.json
 docs/                tutorial, automation reference, methods ledger
-tests/               568 tests
+tests/               the test suite, run by CI on macOS and Linux
 ```
 
 `docs/what-we-tried.md` records approaches that were tested and rejected, with
@@ -457,13 +499,45 @@ Please also cite the trait schema:
 
 ## License
 
-MIT; see [LICENSE](LICENSE). The licence covers the code and the annotation
-schema. The specimens and photographs belong to the Cornell University Museum of
-Vertebrates. No MorFishJ source is included; the trait definitions are
-reimplemented from its published documentation. The straightening reimplements
-the geometry of ImageJ's Straighten command, which is in the public domain.
+MIT; see [LICENSE](LICENSE). The licence covers caliPr's code and its own
+documentation. Three things in the repository come from others and are used with
+credit, not relicensed:
+
+- **MorFishJ's trait definitions** (Ghilardi 2022). caliPr reimplements them from
+  MorFishJ's published manual (CC BY-NC-SA 4.0); no MorFishJ code or manual text
+  is included.
+- **The BGNN two-dimensional landmark names** in `data/schemes/`, used so that
+  studies collected under that protocol can be read.
+- **Length-length conversions from FishBase** (Froese & Pauly, CC BY-NC 4.0)
+  in `src/fish_morpho/species_sizes.json`, credited there; the maximum lengths in
+  that file are cited to their published sources.
+
+The straightening reimplements the geometry of ImageJ's Straighten command,
+which is in the public domain.
+
+The trained models and the batch identification reference set are downloaded
+separately, and each states its licence on its model card or in its LICENCE.md.
+The brook trout models are MIT. A model or reference set built from photographs
+licensed for non-commercial use is released under CC BY-NC 4.0.
+
+The brook trout specimens and their photographs belong to the Cornell University
+Museum of Vertebrates. Photographs from other collections are not in the
+repository; `data/README.md` lists the sources of those used during development,
+with their licences.
+
+## Use of AI tools
+
+caliPr's code and documentation were written with the AI coding assistant Claude
+Code (Anthropic; Claude Code 2.1.202 to 2.1.321, with the models Claude Opus 4.8,
+Opus 5, Opus 5.5 and Fable 5.2), between July and November 2026. Commit messages do
+not mark which changes were AI-assisted, so treat the whole codebase as
+AI-assisted. The author directed the work, checked it and is responsible for it.
+Its behaviour is checked by the test suite and by the validations above, which
+compare caliPr's output with independent measurements (calipers, hand-placed
+landmarks, published scale counts) rather than with the assistant's own output.
 
 ## Acknowledgements
 
 Built for the ichthyology collection of the Cornell University Museum of
-Vertebrates. Automated landmarking builds on DeepLabCut and Segment Anything.
+Vertebrates. Students of BIOEE 4671 at Cornell placed the ImageJ landmarks on 113
+of the alewife. Automated landmarking builds on DeepLabCut and Segment Anything.

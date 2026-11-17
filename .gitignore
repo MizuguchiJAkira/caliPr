@@ -1,3 +1,49 @@
+# ---------------------------------------------------------------------------
+# Allow-lists. Anything not named here stays out of git unless it is added on
+# purpose (git add -f), so a working folder, a model run full of training crops,
+# or a study whose photographs or labels are not ours to publish cannot be staged
+# by a careless "git add -A". These rules travel with every clone, unlike
+# .git/info/exclude, and they name nothing that is kept out.
+
+# Top level: the published tool only.
+/*
+!/.gitignore
+!/.github/
+!/LICENSE*
+!/*.md
+!/*.cff
+!/pyproject.toml
+!/src/
+!/scripts/
+!/tests/
+!/docs/
+!/data/
+!/cvat/
+!/examples/
+!/packaging/
+
+# data/: the studies and source records published so far. A new study is added
+# deliberately, when its data are ours to publish.
+/data/*
+!/data/README.md
+!/data/cornell/
+!/data/alewife/
+!/data/cornell_raw/
+!/data/idigbio/
+!/data/fish_vista/
+!/data/validation/
+/data/schemes/*
+!/data/schemes/
+!/data/schemes/bgnn_2d_snout.json
+# Within the published studies: their sidecars only where they are published,
+# and no per-batch folders of the raw photo series.
+/data/alewife/*
+!/data/alewife/README.md
+!/data/alewife/schema.json
+!/data/alewife/image_fingerprints.json
+/data/cornell_raw/*/
+# ---------------------------------------------------------------------------
+
 # Python
 __pycache__/
 *.py[cod]

@@ -219,7 +219,17 @@ def main(argv=None) -> int:
         if absent:
             print(f"not in {args.source}: {', '.join(absent)}")
             return 1
-    ok = all([install(v, models[v], args.root) for v in views])
+    def install_or_report(view: str) -> bool:
+        # One model failing to download (a missing release asset, no network)
+        # is reported and the others still install.
+        try:
+            return install(view, models[view], args.root)
+        except (OSError, ValueError) as exc:      # urllib's errors are OSErrors
+            print(f"{view}: could not be fetched from {models[view]['url']} ({exc}). "
+                  "Nothing installed for it.")
+            return False
+
+    ok = all([install_or_report(v) for v in views])
     if ok and not args.no_sam:
         fetch_sam(args.root)
     if ok:

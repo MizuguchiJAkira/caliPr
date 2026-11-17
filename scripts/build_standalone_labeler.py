@@ -649,7 +649,7 @@ def main(argv=None) -> int:
                          "two studies on one machine cannot overwrite each other.")
     ap.add_argument("--theme", choices=sorted(THEMES), default="rstudio",
                     help="Chrome colour. The image canvas stays dark either way.")
-    ap.add_argument("--provenance", default="Cornell University Museum of Vertebrates",
+    ap.add_argument("--provenance", default="",
                     help="Shown under the title, so someone opening an emailed "
                          "HTML file can see where it came from.")
     ap.add_argument("--out", type=Path, required=True)
@@ -661,7 +661,7 @@ def main(argv=None) -> int:
             .replace("__TITLE__", args.title)
             .replace("__THEME__", THEMES[args.theme])
             .replace("__FONT__", FONTS[args.theme])
-            .replace("__PROVENANCE__", args.provenance)
+            .replace("__PROVENANCE__<br>", f"{args.provenance}<br>" if args.provenance else "")
             .replace("__KEY__", args.key))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html)

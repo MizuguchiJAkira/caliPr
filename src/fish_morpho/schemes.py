@@ -28,7 +28,8 @@ from pathlib import Path
 #: landmark by its row, so renumbering silently redefines every exported file.
 BGNN_2D = {
     "title": "BGNN 2D body landmarks (23)",
-    "source": "Bagheri et al., Fish-AIR / BGNN minnow protocol",
+    "source": "BGNN project landmark protocol for minnows (unpublished); "
+              "compare Armbruster 2012, Zootaxa 3586: 8-16",
     "note": "Shape landmarks for geometric morphometrics. No caliPr trait is "
             "computed from them; export to TPS and analyse in geomorph.",
     "view": "lateral",

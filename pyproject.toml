@@ -24,8 +24,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dlc = ["deeplabcut>=2.3"]
-dev = ["pytest>=8.0"]
+# Auto-label's full environment is pinned in scripts/autolabel-requirements.txt and
+# installed by scripts/install_autolabel.py; this extra names its core only.
+dlc = ["deeplabcut==3.0.1"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0"]
 
 [project.scripts]
 fish-morpho = "fish_morpho.pipeline:main"

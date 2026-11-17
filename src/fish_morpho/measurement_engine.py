@@ -1,6 +1,7 @@
 """Compute morphometric traits from polygon + keypoint annotations.
 
-This is the Python port of MorFishJ's trait geometry (22 traits) plus the
+This reimplements MorFishJ's trait definitions (Ghilardi 2022), written from its
+published manual rather than its code, (22 traits) plus the
 Cornell extras (8 more). The engine is pure geometry — no image I/O, no
 model calls — so it's trivially unit-testable with hand-crafted
 :class:`Annotation` objects and runs identically in manual mode

@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use caliPr, please cite it as below."
+title: "caliPr: reproducible morphometrics for museum fish collections"
+type: software
+authors:
+  - family-names: Cheng
+    given-names: Jonah
+license: MIT
+repository-code: "https://github.com/MizuguchiJAkira/caliPr"
+version: 0.1.0
+keywords:
+  - morphometrics
+  - geometric morphometrics
+  - landmarks
+  - fishes
+  - museum collections
+  - DeepLabCut

@@ -46,6 +46,7 @@ sys.path.insert(0, str(_ROOT / "src"))
 sys.path.insert(0, str(_ROOT / "scripts"))
 
 from fish_morpho import auth, components, paths, schemes  # noqa: E402
+from fish_morpho import batch_score  # noqa: E402
 from fish_morpho import image_identity  # noqa: E402
 from fish_morpho import darwin_core  # noqa: E402
 from fish_morpho import repeatability  # noqa: E402
@@ -227,20 +228,6 @@ def _read_json(path: Path):
         return None
 
 
-def _read_ruler(photo: Path) -> dict:
-    """The photograph's scale, from the numbers along its ruler: ``{"px_per_mm",
-    "numbers", "notes"}``, or ``{"error"}`` where none is found."""
-    try:
-        import cv2
-
-        from fish_morpho.ruler_calibration import detect_numbered_scale
-
-        r = detect_numbered_scale(cv2.imread(str(photo)))
-        return {"px_per_mm": r["px_per_mm"], "numbers": r["numbers"], "notes": r["notes"]}
-    except Exception as exc:                       # no numbered ruler: the scale is set by hand
-        return {"error": str(exc)}
-
-
 #: GBIF's backbone hangs the fish orders straight from the phylum, with no class
 #: (Actinopterygii's own key, 204, matches no occurrence), so a fish order is a
 #: chordate order with no class -- or, should GBIF give them one, one of these.
@@ -360,59 +347,6 @@ def _drainage_introduced(web, dc, huc8: str, names) -> dict:
 def _drainage_tool():
     """scripts/drainage_candidates.py, which looks drainages and their species up."""
     return _script("drainage_candidates")
-
-
-#: What a batch photograph's kept fish hold; older ones are found and landmarked
-#: again. 2: each point's confidence, which the labeller reviews by.
-BATCH_CACHE_VERSION = 2
-#: Two boxes overlapping this much (intersection over union) are the same fish.
-SAME_FISH = 0.7
-
-
-def _overlap(a, b) -> float:
-    """Intersection over union of two [x0, y0, x1, y1] boxes; 0 for anything else."""
-    try:
-        ix = max(0.0, min(a[2], b[2]) - max(a[0], b[0]))
-        iy = max(0.0, min(a[3], b[3]) - max(a[1], b[1]))
-        inter = ix * iy
-        union = (a[2] - a[0]) * (a[3] - a[1]) + (b[2] - b[0]) * (b[3] - b[1]) - inter
-        return inter / union if union > 0 else 0.0
-    except (TypeError, IndexError):
-        return 0.0
-
-
-def _isolate_fish(photo: Path, fish: list[dict], i: int, out: Path) -> None:
-    """Fish ``i``'s rectangle of a batch photograph, with every other fish in it
-    painted over in the background's colour, so the landmark model -- which looks
-    for one fish -- cannot take a point from the fish beside it."""
-    import numpy as np
-    from PIL import Image, ImageDraw
-
-    with Image.open(photo) as im:
-        im = im.convert("RGB")
-        x0, y0, x1, y1 = fish[i]["box"]
-        crop = im.crop((x0, y0, x1, y1))
-    w, h = crop.size
-    shift = lambda poly: [(x - x0, y - y0) for x, y in poly]  # noqa: E731
-    pad = max(2, round(0.01 * max(w, h)))                     # fins reach past the outline
-    every = Image.new("L", (w, h), 0)
-    draw_every = ImageDraw.Draw(every)
-    for f in fish:
-        draw_every.polygon(shift(f["outline"]), fill=255, outline=255, width=pad)
-    px = np.asarray(crop)
-    bg = tuple(int(v) for v in np.median(px[np.asarray(every) == 0], axis=0)) \
-        if (np.asarray(every) == 0).any() else (255, 255, 255)
-    others = Image.new("L", (w, h), 0)
-    draw_others = ImageDraw.Draw(others)
-    for j, f in enumerate(fish):
-        if j != i:
-            draw_others.polygon(shift(f["outline"]), fill=255, outline=255, width=pad)
-    mine = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(mine).polygon(shift(fish[i]["outline"]), fill=255, outline=255, width=pad)
-    hide = np.logical_and(np.asarray(others) > 0, np.asarray(mine) == 0)
-    px = px.copy()
-    px[hide] = bg
-    Image.fromarray(px).save(out, quality=92)
 
 
 def suggested_subset(ids: list[str], n: int = SUGGESTED_N) -> set[str]:
@@ -2908,18 +2842,12 @@ class Handler(BaseHTTPRequestHandler):
     def _batch_reference_dir(self) -> Path:
         """The study whose hand-labelled fish the batch is compared with: the one
         schema.json names as ``reference_study``, or this one."""
-        name = load_profile(self.images_dir).get("reference_study")
-        if not name:
-            return self.images_dir
-        root = Handler.data_root
-        beside = root / name if root is not None and "/" not in name else None
-        return Handler.datasets.get(name) or (beside if beside and beside.is_dir() else self.images_dir)
+        return batch_score.reference_dir(self.images_dir, Handler.data_root, Handler.datasets)
 
     def _batch_photos(self):
         out = []
-        cache = self.images_dir / "batch_cache"
-        for name, path in list_images(self.images_dir / "batch").items():
-            doc = _read_json(cache / f"{path.stem}.json")
+        for name in list_images(self.images_dir / "batch"):
+            doc = batch_score.read_cache(self.images_dir, name)
             out.append({"name": name, "fish": len(doc["fish"]) if doc else None})
         return self._send(200, {"ok": True, "photos": out,
                                 "reference": self._batch_reference_dir().name})
@@ -2931,18 +2859,16 @@ class Handler(BaseHTTPRequestHandler):
         Finding the fish and placing their landmarks is slow and is kept, beside
         the photograph, until the photograph or the model changes. The scores are
         not kept: they are worked out again on every request, so a fish labelled in
-        the reference study since counts at once.
+        the reference study since counts at once. Both are ``fish_morpho.batch_score``,
+        which ``scripts/batch_identify.py`` runs from the command line.
         """
         path = self.images_dir / "batch" / name
         if "/" in name or ".." in name or not path.is_file():
             return self._send(404, {"ok": False, "error": f"no batch photograph {name!r}"})
         query = parse_qs(urlparse(self.path).query)
         refresh = query.get("refresh", ["0"])[0] == "1"
-        cache = self.images_dir / "batch_cache" / f"{path.stem}.json"
-        st = path.stat()
-        key = {"size": st.st_size, "mtime_ns": st.st_mtime_ns, "model": current_model_label("lateral"),
-               "version": BATCH_CACHE_VERSION}
-        doc = None if refresh else _read_json(cache)
+        key = batch_score.cache_key(path, current_model_label("lateral"))
+        doc = None if refresh else batch_score.read_cache(self.images_dir, name)
         fresh = not doc or doc.get("key") != key
         # ?cache=only: the saved landmarks, scored, or nothing -- never a model run.
         # The page asks this way first, so it says it is finding and landmarking
@@ -2953,153 +2879,16 @@ class Handler(BaseHTTPRequestHandler):
             if self._locked():
                 return self._send(401, {"ok": False, "locked": True,
                                         "error": "automated landmarking is locked on this machine"})
-            found = Predictor.detect(path)
-            if not found.get("ok"):
-                return self._send(503, found)
-            ref_dir = self._batch_reference_dir()
-            wanted = list(schemes.study_landmarks(ref_dir)[0])
-            crops = cache.parent / path.stem
-            crops.mkdir(parents=True, exist_ok=True)
-            fish = []
-            for i, f in enumerate(found["fish"]):
-                crop_path = crops / f"fish_{i + 1}.jpg"
-                _isolate_fish(path, found["fish"], i, crop_path)
-                res = Predictor.predict(crop_path, polygons=False, emit_polygons=False,
-                                        landmarks=wanted)
-                x0, y0 = f["box"][:2]
-                kps = {n: [p[0] + x0, p[1] + y0] for n, p in (res.get("keypoints") or {}).items() if p}
-                fish.append({**f, "keypoints": kps,
-                             "confidence": res.get("confidence") or {},
-                             "low_confidence": res.get("low_confidence") or [],
-                             "error": None if res.get("ok") else res.get("error")})
-            doc = {"key": key, "width": found["width"], "height": found["height"], "fish": fish}
-            cache.write_text(json.dumps(doc))
-        if "ruler" not in doc:
-            doc["ruler"] = _read_ruler(path)
-            cache.write_text(json.dumps(doc))
+            doc, failed = batch_score.landmark_photo(self.images_dir, name, self._batch_reference_dir(),
+                                                     Predictor.detect, Predictor.predict, key)
+            if failed:
+                return self._send(503, failed)
+        batch_score.with_ruler(self.images_dir, name, doc)
         return self._send(200, {**self._batch_scored(name, doc), "cached": not fresh})
 
     def _batch_scored(self, name: str, doc: dict) -> dict:
-        from fish_morpho import batch_fish, grouping, species_match, taxonomy
-
-        ref_dir = self._batch_reference_dir()
-        pattern = grouping.filename_pattern(ref_dir)
-        table = grouping.load_group_table(ref_dir)
-        present = {Path(n).stem for n in list_images(ref_dir / "lateral")}
-        # A fish whose photograph has left the study is not compared -- except in a
-        # downloaded reference set, which carries landmarks and credits, no photographs.
-        landmarks_only = load_profile(ref_dir).get("reference_set") and not present
-        if present:
-            self._refresh_characters(ref_dir)
-        ref = [r for r in species_match.load_reference(
-                   ref_dir, lambda fid: grouping.resolve(fid, table=table, pattern=pattern),
-                   load_profile(ref_dir).get("terminal_mouth"))
-               if landmarks_only or r.fid in present]
-        # a scale set by hand wins; else the one read from the ruler's numbers
-        scale = (_read_json(self.images_dir / "batch_scale.json") or {}).get(name)
-        ruler = doc.get("ruler") or {}
-        ppm = species_match.px_per_mm(scale) or ruler.get("px_per_mm")
-        scale_from = "hand" if species_match.px_per_mm(scale) else ("ruler" if ruler.get("px_per_mm") else None)
-        # each reference species by its current name, and the names it went by
-        names = taxonomy.Names(self._taxonomy_cache())
-        taxa = {sp: names.resolve(sp) for sp in sorted({r.species for r in ref})}
-        sizes = species_match.sizes_for(taxa)
-        for sp, t in taxa.items():                     # a table entry under the current name will do
-            if sp not in sizes and t.get("current"):
-                hit = species_match.sizes_for([t["current"]]).get(t["current"])
-                if hit:
-                    sizes[sp] = hit
-        fish = []
-        pairs = list(zip(doc["fish"], self._batch_corrections(name, doc)))
-        chars = self._batch_characters(name, doc, [fixed or f["keypoints"] for f, (_, fixed) in pairs])
-        for i, (f, (fid, fixed)) in enumerate(pairs):
-            kps = fixed or f["keypoints"]
-            m = (species_match.identify(kps, ref, ppm, sizes=sizes, query_chars=chars[i])
-                 if fixed or not f.get("error") else {"ok": False, "error": f["error"]})
-            sl_px = species_match.standard_length_px(kps)
-            fish.append({"n": i + 1, "box": f["box"], "outline": f["outline"],
-                         "keypoints": kps, "low_confidence": [] if fixed else f.get("low_confidence", []),
-                         "sl_mm": m.get("sl_mm"),
-                         "sl_px": round(sl_px) if sl_px else None,
-                         "too_small": bool(sl_px and sl_px < batch_fish.SMALLEST_SL_PX),
-                         "fid": fid, "checked": bool(fixed), "match": m, "characters": chars[i]})
-        counts: dict[str, int] = {}
-        for r in ref:
-            counts[r.species] = counts.get(r.species, 0) + 1
-        drainage = (_read_json(self.images_dir / "batch_drainage.json") or {}).get(name)
-        if drainage:
-            by_key = {s["key"]: s for s in drainage["species"]}
-            keys = drainage.get("reference_keys") or {}
-            # the species recorded from the drainage first: see species_match.with_drainage
-            records = {sp: (by_key.get(keys.get(sp)) or {}).get("records", 0) for sp in counts}
-            for f in fish:
-                species_match.with_drainage(f["match"], records)
-            mine = {keys.get(sp) for sp in counts}
-            shiner_keys = {s["key"] for s in drainage["species"]}
-            intro = drainage.get("introduced") or {}
-            fishes = [{**f, "reference": f["key"] in mine, "shiner": f["key"] in shiner_keys,
-                       "introduced": intro.get(f["species"]) or intro.get(f["gbif_name"])}
-                      for f in drainage.get("fishes") or []]
-            # introduced fish USGS records there that no museum specimen on GBIF does
-            listed = {f["species"] for f in fishes} | {f["gbif_name"] for f in fishes}
-            fishes += [{"key": e.get("gbif_key"), "species": cur, "gbif_name": e["nas_name"], "common": e.get("common"),
-                        "family": None, "chain": e.get("chain") or [cur], "records": 0, "reference": False,
-                        "shiner": False, "introduced": e, "usgs_only": True}
-                       for cur, e in intro.items() if cur not in listed and e["nas_name"] not in listed]
-            for f in fish:                             # the reference species' own status there
-                for x in f["match"].get("matches") or []:
-                    t = taxa.get(x["species"]) or {}
-                    x["introduced"] = intro.get(t.get("current")) or intro.get(x["species"].replace("_", " "))
-            drainage = {**{k: v for k, v in drainage.items() if k not in ("species", "reference_keys", "fishes")},
-                        "fishes": fishes,
-                        "others": sorted(({"species": s.get("current") or s["species"], "gbif_name": s["species"],
-                                           "common": s.get("common"), "chain": s.get("chain") or [s["species"]],
-                                           "key": s["key"], "records": s["records"]}
-                                          for s in drainage["species"] if s["key"] not in mine),
-                                         key=lambda s: -s["records"])}
-        return {"ok": True, "photo": name, "width": doc["width"], "height": doc["height"],
-                "scale": scale, "ruler": ruler, "scale_from": scale_from, "px_per_mm": ppm,
-                "drainage": drainage, "taxa": taxa,
-                "fish": fish, "smallest_sl_px": batch_fish.SMALLEST_SL_PX,
-                "reference": {"study": ref_dir.name, "fish": len(ref), "species": counts}}
-
-    def _refresh_characters(self, study: Path) -> None:
-        """Read the characters again (``scripts/photo_characters.py``) for the fish
-        whose labels changed since they were last read, if any did."""
-        from fish_morpho.species_match import CHARACTERS_FILE
-        out = study / CHARACTERS_FILE
-        try:
-            newest = max((f.stat().st_mtime for f in (study / "sidecars").glob("*.json")), default=0)
-        except OSError:
-            return
-        if out.is_file() and out.stat().st_mtime >= newest:
-            return
-        subprocess.run([sys.executable, str(_ROOT / "scripts/photo_characters.py"), "--study", str(study)],
-                       capture_output=True, text=True, timeout=1800, cwd=_ROOT)
-
-    def _batch_characters(self, name: str, doc: dict, landmarks: list) -> list[dict]:
-        """The characters read from a batch photograph for each of its fish, at the
-        places its landmarks (``landmarks``, one dict per fish) set. Kept in the
-        photograph's cache under a fingerprint of those landmarks, so a fish is read
-        once until its points change."""
-        from fish_morpho import photo_characters
-        path = self.images_dir / "batch" / name
-        img, changed, out = None, False, []
-        for f, kps in zip(doc["fish"], landmarks):
-            key = photo_characters.landmarks_key(kps)
-            if f.get("characters_for") != key:
-                if img is None:
-                    import cv2
-                    img = cv2.imread(str(path), cv2.IMREAD_COLOR)
-                    if img is None:
-                        return [{} for _ in landmarks]
-                f["characters"] = photo_characters.characters(img, kps)
-                f["characters_for"] = key
-                changed = True
-            out.append(f.get("characters") or {})
-        if changed:
-            (self.images_dir / "batch_cache" / f"{path.stem}.json").write_text(json.dumps(doc))
-        return out
+        return batch_score.score_photo(self.images_dir, name, doc, self._batch_reference_dir(),
+                                       self._taxonomy_cache())
 
     # -- where a batch photograph's lot was caught ------------------------
 
@@ -3236,7 +3025,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def _taxonomy_cache(self) -> Path:
         """One cache of resolved names for every study: a name means the same fish in each."""
-        return (Handler.data_root or self.images_dir.parent) / "taxonomy_cache.json"
+        return batch_score.taxonomy_cache(self.images_dir, Handler.data_root)
 
     def _lot_coordinates(self, web, dc, name: str):
         """Where the lot in a batch photograph was caught, from its GBIF record:
@@ -3274,28 +3063,12 @@ class Handler(BaseHTTPRequestHandler):
         """Where this study's batch fish go to have their points put right: a study
         of their own beside it. What is corrected there scores the fish and trains
         the landmark model, and never becomes a reference fish."""
-        return self.images_dir.parent / f"{self.images_dir.name}_batch"
+        return batch_score.batch_study_dir(self.images_dir)
 
     def _batch_corrections(self, name: str, doc: dict) -> list[tuple]:
         """For each fish found in batch photograph ``name``: its id in the batch
-        study and its saved points there, in the photograph's coordinates -- or
-        ``(None, None)``, ``(id, None)`` while it has none. A fish is known by where
-        it lies, not by its number, so finding the fish again cannot hand one
-        fish's corrected points to another."""
-        bdir = self._batch_study_dir()
-        mine = {fid: e for fid, e in (_read_json(bdir / "batch_fish.json") or {}).items()
-                if isinstance(e, dict) and e.get("photo") == name}
-        out = []
-        for f in doc["fish"]:
-            fid = next((k for k, e in mine.items() if _overlap(e.get("box"), f["box"]) >= SAME_FISH), None)
-            fixed = None
-            if fid:
-                kp = ((_read_json(bdir / "sidecars" / f"{fid}.json") or {}).get("lateral") or {}).get("keypoints")
-                if kp:
-                    x0, y0 = mine[fid]["box"][:2]
-                    fixed = {n: [p[0] + x0, p[1] + y0] for n, p in kp.items() if p}
-            out.append((fid, fixed))
-        return out
+        study and its saved points there (``batch_score.corrections``)."""
+        return batch_score.corrections(self.images_dir, name, doc)
 
     def _batch_correct(self):
         """Put every fish of a batch photograph into the batch study -- cut out,
@@ -3329,7 +3102,7 @@ class Handler(BaseHTTPRequestHandler):
                 manifest[fid] = {"photo": name, "box": f["box"]}
             img = bdir / "lateral" / f"{fid}.jpg"
             if not img.is_file():
-                _isolate_fish(photo, doc["fish"], i, img)
+                batch_score.isolate_fish(photo, doc["fish"], i, img)
             auto = bdir / "sidecars_auto" / f"{fid}.json"
             had = (_read_json(auto) or {}).get("metadata") or {}
             if f["keypoints"] and (had.get("model") != model or not had.get("keypoint_confidence")):

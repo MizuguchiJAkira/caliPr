@@ -2,21 +2,13 @@
 
 Usage (CLI)::
 
-    fish-morpho --images ./photos/ --labels ./labels/ --out results.xlsx \\
-                --mode manual
+    fish-morpho --images ./photos/ --labels ./labels/ --out results.xlsx
 
-    fish-morpho --images ./photos/ --model-config ./models/config.yaml \\
-                --out results.xlsx --mode auto
-
-In manual mode, annotations are loaded from a JSON sidecar file per
-image, normally written by the browser labeler in ``scripts/``. This is
-the released path, and the one every published number comes from.
-
-In auto mode, a trained model is invoked to predict polygons and
-keypoints. This is stubbed out — the integration point is clearly marked
-so that when the models are ready we only touch one function. The
-keypoint model is trained but not yet wired in here; SAM is usable for
-``body_plus_caudal`` only. See the README.
+Annotations are loaded from a JSON sidecar file per image, written by the
+browser labeler in ``scripts/``. Automated landmarking happens in the labeler
+(Auto-label): the model's proposals are written into the sidecars, marked as
+predictions, and reviewed there, so every number this pipeline exports is
+measured from a sidecar.
 
 JSON sidecar format
 -------------------
@@ -158,28 +150,42 @@ def discover_specimens(images_dir: Path, labels_dir: Path) -> list[SpecimenInput
     is an error, since it almost always means a file was renamed.
     """
     images: dict[str, Path] = {}
-    for p in sorted(images_dir.iterdir()):
-        if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
-            images[p.stem] = p
-            if p.stem.endswith(("_L", "_F")):
-                images.setdefault(p.stem[:-2], p)
+    if images_dir.is_dir():
+        for p in sorted(images_dir.iterdir()):
+            if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
+                images[p.stem] = p
+                if p.stem.endswith(("_L", "_F")):
+                    images.setdefault(p.stem[:-2], p)
+    # With no photograph folder at all (a clone of the repository carries the
+    # sidecars but not the photographs), every trait is still measured from the
+    # sidecars: they hold the landmarks, outlines and calibration, and the
+    # photograph's size. Only automatic ruler calibration ("auto" mode) needs the
+    # pixels, and it says so. Where the folder exists, a sidecar without its
+    # photograph is still an error: that almost always means a file was renamed.
+    photo_free = not images_dir.is_dir()
+    if photo_free:
+        log.info("no photographs in %s: measuring from the sidecars alone", images_dir)
 
     specimens: list[SpecimenInput] = []
     seen_sidecars: set[str] = set()
     for sidecar in sorted(labels_dir.glob("*.json")):
         stem = sidecar.stem
         seen_sidecars.add(stem)
-        if stem not in images:
+        if stem not in images and not photo_free:
             raise FileNotFoundError(
                 f"Sidecar {sidecar} has no matching image in {images_dir}"
             )
         with sidecar.open() as f:
             data = json.load(f)
         fish_id = data.get("fish_id", stem)
+        # Without its photograph, the specimen is named for itself, not for a
+        # file name guessed at.
+        image_path = images.get(stem) or images_dir / (
+            (data.get("metadata") or {}).get("image_filename") or stem)
         specimens.append(
             SpecimenInput(
                 fish_id=fish_id,
-                image_path=images[stem],
+                image_path=image_path,
                 sidecar_path=sidecar,
                 sidecar=data,
             )
@@ -531,7 +537,10 @@ def process_specimen(spec: SpecimenInput,
         with Image.open(spec.image_path) as im:
             size = im.size
     except Exception:
-        pass
+        recorded = (((spec.sidecar.get("metadata") or {}).get("images") or {})
+                    .get("lateral") or {})
+        if recorded.get("width") and recorded.get("height"):
+            size = (int(recorded["width"]), int(recorded["height"]))
 
     return ExportRecord(
         measurements=ms,
@@ -540,35 +549,6 @@ def process_specimen(spec: SpecimenInput,
         keypoints=dict(as_clicked.keypoints),
         polygons={k: list(v) for k, v in as_clicked.polygons.items()},
         image_size=size,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Auto-mode annotation (DLC + SAM integration point)
-# ---------------------------------------------------------------------------
-
-
-def predict_annotation(image_path: Path, model_config: Path) -> Annotation:
-    """Run the trained DLC + SAM stack on ``image_path``.
-
-    Stub. The final implementation will:
-
-    1. Run the DLC keypoint model to produce the 21 landmarks (19 lateral
-       + 2 frontal) from :mod:`fish_morpho.landmark_config`.
-    2. Feed the keypoints near each fin as prompts to SAM (Segment
-       Anything) to produce the 5 polygons (``body_plus_caudal``,
-       ``pectoral``, ``dorsal``, ``pelvic``, ``anal``).
-    3. Assemble a single :class:`~fish_morpho.measurement_engine.Annotation`
-       containing both and return it.
-
-    Raising NotImplementedError here makes ``--mode auto`` fail fast with
-    a clear message rather than silently producing wrong numbers.
-    """
-    raise NotImplementedError(
-        "auto mode: the DLC + SAM annotation stack is not wired up yet. "
-        "Once the models are trained, implement predict_annotation() to "
-        "run DLC inference for keypoints and SAM inference (prompted by "
-        "those keypoints) for polygons, then assemble an Annotation."
     )
 
 
@@ -643,15 +623,6 @@ def run(
             for col, term in (("locality", "locality"), ("collection_date", "eventDate")):
                 if rec.get(term) and not str(meta.get(col) or "").strip():
                     meta[col] = rec[term]
-
-    elif mode == "auto":
-        if model_config is None:
-            raise ValueError("--model-config is required when --mode auto")
-        # For each image, predict an Annotation via DLC + SAM, then run
-        # the same measurement machinery. Currently stubbed.
-        raise NotImplementedError(
-            "auto mode not yet wired up; see predict_annotation()"
-        )
 
     else:
         raise ValueError(f"Unknown mode {mode!r}")
@@ -736,26 +707,14 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--labels",
         type=Path,
-        help="Directory of JSON sidecar files (required for --mode manual).",
-    )
-    p.add_argument(
-        "--model-config",
-        type=Path,
-        help="Path to the trained DLC + SAM stack config (required for "
-        "--mode auto).",
+        required=True,
+        help="Directory of JSON sidecar files.",
     )
     p.add_argument(
         "--out",
         type=Path,
         required=True,
         help="Output .xlsx file.",
-    )
-    p.add_argument(
-        "--mode",
-        choices=("manual", "auto"),
-        default="manual",
-        help="manual = read polygons + keypoints from JSON sidecars; "
-        "auto = run the trained DLC + SAM stack on each image.",
     )
     p.add_argument(
         "--log-level",
@@ -776,8 +735,8 @@ def main(argv: list[str] | None = None) -> int:
             images_dir=args.images,
             labels_dir=args.labels,
             output_path=args.out,
-            mode=args.mode,
-            model_config=args.model_config,
+            mode="manual",
+            model_config=None,
         )
     except Exception as exc:  # pragma: no cover - CLI error surface
         log.error("%s", exc)
